@@ -1,0 +1,36 @@
+[package]
+name = "wridge-graph"
+version = "0.1.0"
+edition = "2021"
+description = "Code graph for wridge: Rust port of legacy-node/codegraph (wave 1: db, files, styles, resolve-ts, routes-next, parse-ts, parse-dart, data/*, build, projects; wave 2: brain, memory, notes, knowledge, flows, query, design, export, cli)"
+publish = false
+
+[lib]
+name = "wridge_graph"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
+indexmap = "2"
+# 0.39 bundles SQLite 3.51.3, the version inside Node 24.15 (node:sqlite): same query plans, so rows
+# come back in the same order. Crates linking this one must use the same rusqlite (one libsqlite3-sys).
+rusqlite = { version = "0.39", features = ["bundled"] }
+# ECMAScript regexes on UTF-16 text: JS semantics (whitespace/word classes, /i folding, lookbehind,
+# backreferences) and JS string indices.
+regress = { version = "0.12", features = ["utf16"] }
+sha1 = "0.10"
+# Same core and grammar releases as web-tree-sitter 0.27.0 + tree-sitter-typescript 0.23.2 (WASM) in
+# legacy-node, so parse trees are identical.
+tree-sitter = "=0.27.0"
+tree-sitter-typescript = "0.23.2"
+# slugify() in flows: String#normalize("NFKD")
+unicode-normalization = "0.1"
+# design.mjs imports COMPONENT_MAP_FILE, formatTokens and writeComponentMap from codegen.mjs (ported there)
+wridge-figma = { path = "../figma" }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+debug = false

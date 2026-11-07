@@ -1,0 +1,64 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "wridge",
+  "version": "1.5.0",
+  "identifier": "app.wridge.desktop",
+  "build": {
+    "frontendDist": "../web"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "control",
+        "title": "wridge",
+        "url": "app.html",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "withGlobalTauri": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../web/": "web/",
+      "../skills/": "skills/",
+      "../AI_GUIDE.md": "AI_GUIDE.md",
+      "../server/app/vendor/": "server-app/vendor/",
+      "../server/app/folder-picker.ps1": "server-app/folder-picker.ps1",
+      "../server/app/target/release/wridge-server.exe": "bin/wridge-server.exe",
+      "../server/app/target/release/wridge.exe": "bin/wridge.exe",
+      "../figma-plugin/manifest.json": "figma-plugin/manifest.json",
+      "../figma-plugin/code.js": "figma-plugin/code.js",
+      "../figma-plugin/ui.html": "figma-plugin/ui.html",
+      "../legacy-node/codegraph/dart/build/wara-dart-parse.exe": "dart/build/wara-dart-parse.exe",
+      "../legacy-node/codegraph/dart/bin/parse.dart": "dart/bin/parse.dart",
+      "../legacy-node/codegraph/dart/pubspec.yaml": "dart/pubspec.yaml",
+      "../legacy-node/codegraph/dart/pubspec.lock": "dart/pubspec.lock"
+    },
+    "shortDescription": "Wisdom Bridge — your AI, Figma and your projects' brain, on your own computer",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerIcon": "icons/icon.ico"
+      }
+    }
+  }
+}

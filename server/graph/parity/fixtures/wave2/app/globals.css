@@ -1,0 +1,11 @@
+:root {
+  --color-primary: #2563EB;
+  --color-surface: var(--color-base);
+  --color-base: #ffffff;
+  --color-brand: var(--color-primary);
+  --radius-card: 12px;
+  --duration-fast: 150ms;
+}
+.btn { padding: 4px; color: var(--color-primary); }
+.btn-p, .btn-d { border: 1px solid #FF0000; }
+.card { border-radius: var(--radius-card); background: #fafafa; }

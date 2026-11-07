@@ -1,0 +1,11 @@
+{
+  "name": "edge",
+  "dependencies": {
+    "next": "16",
+    "mysql2": "3",
+    "@supabase/supabase-js": "2"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

@@ -1,0 +1,31 @@
+[package]
+name = "wridge-figma"
+version = "0.1.0"
+edition = "2021"
+description = "Design-side helpers of the wridge server, ported from legacy-node: codegen, lottie, motion, motion-figma, motion-handoff, figjam (elkjs in QuickJS) and pdf."
+license = "MIT"
+publish = false
+
+[lib]
+name = "wridge_figma"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order", "float_roundtrip"] }
+regex = "1"
+sha1 = "0.10"
+base64 = "0.22"
+unicode-normalization = "0.1"
+icu_collator = "2"
+icu_locale_core = "2"
+libm = "0.2"
+lopdf = "0.47"
+rquickjs = "0.14"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.dev.package."*"]
+opt-level = 2

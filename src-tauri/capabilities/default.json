@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The control window: its own commands, start with Windows, open folders and links",
+  "windows": [
+    "control"
+  ],
+  "permissions": [
+    "core:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "opener:default",
+    "core:window:allow-set-background-color"
+  ]
+}

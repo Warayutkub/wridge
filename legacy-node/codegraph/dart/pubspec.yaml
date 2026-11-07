@@ -1,0 +1,7 @@
+name: wara_dart_parser
+description: Reads Dart files for the wara-bridge code graph (symbols, directives, references).
+publish_to: none
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+dependencies:
+  analyzer: 14.4.0

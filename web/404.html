@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not found · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  /* Figma "wridge/404": the user's sticker, centred, two ways out */
+  html, body { height: 100%; }
+  body { background: var(--surface); }
+  .nf { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 40px 24px; text-align: center; }
+  .nf .art { width: 176px; }
+  .nf .art img { width: 100%; display: block; animation: nf-float 2.6s ease-in-out infinite; }
+  .nf h1 { margin: 0; font-size: 34px; font-weight: 600; letter-spacing: -.03em; line-height: 1.2; }
+  .nf p { margin: 0; max-width: 460px; font-size: 15px; line-height: 1.55; color: var(--text-muted); }
+  .nf .actions { display: flex; gap: 8px; padding-top: 6px; }
+  .nf .path { font: 11px var(--mono); color: var(--text-faint); }
+  .nf > * { animation: w-in .32s var(--ease) both; }
+  .nf > :nth-child(2) { animation-delay: .04s; } .nf > :nth-child(3) { animation-delay: .08s; } .nf > :nth-child(4) { animation-delay: .12s; } .nf > :nth-child(5) { animation-delay: .16s; }
+  @keyframes nf-float { 50% { transform: translateY(-5px); } }
+  @media (prefers-reduced-motion: reduce) { .nf .art img, .nf > * { animation: none; } }
+</style>
+</head>
+<body data-no-shell>
+<main class="nf">
+  <div class="art"><img src="/stickers/dizzy.png" alt="" draggable="false"></div>
+  <p class="w-label">404 · Not found</p>
+  <h1>This page isn’t here</h1>
+  <p>It may have moved when the pages came into one window. Everything wridge does is in the sidebar.</p>
+  <div class="actions">
+    <a class="btn btn-primary" id="home" href="/app">Back to Overview</a>
+    <a class="btn btn-ghost" href="/app#/settings" id="log">Open the log</a>
+  </div>
+  <p class="path" id="path"></p>
+</main>
+<script src="/ui.js"></script>
+<script>
+  document.getElementById('path').textContent = location.pathname + location.search;
+  // inside the wridge window: move the window instead of loading the app inside itself
+  if (window.top !== window) {
+    document.getElementById('home').onclick = (e) => { e.preventDefault(); ui.go('overview'); };
+    document.getElementById('log').onclick = (e) => { e.preventDefault(); ui.go('settings'); };
+  }
+</script>
+</body>
+</html>

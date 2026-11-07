@@ -1,0 +1,5 @@
+{
+  "name": "wave2-fixture",
+  "dependencies": { "next": "^16.1.0", "react": "19.2.0", "zod": "^3.23.0", "pg": "^8.11.0", "stripe": "~17.0.1", "left-pad": "1.0.0", "@supabase/supabase-js": "2" },
+  "devDependencies": { "next": "16.0.0", "typeorm": ">=0.3.0" }
+}

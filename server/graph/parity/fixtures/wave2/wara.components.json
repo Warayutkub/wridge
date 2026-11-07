@@ -1,0 +1,7 @@
+{
+  "Button": { "import": "@/components/ui", "component": "Button" },
+  "Card/Default": { "import": "@/components/ui/card", "component": "default" },
+  "Badge": { "import": "@/components/ui/badge", "component": "Badge" },
+  "Pill": { "element": "span", "className": "btn btn-p", "variants": { "Type=Danger": "btn-d", "Type=Ghost": "btn-ghost" } },
+  "Panel": { "className": "card missing-class" }
+}

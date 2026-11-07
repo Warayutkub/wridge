@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notes · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+  .brain { flex: 1; min-height: 0; display: flex; }
+  .center { flex: 1; min-width: 0; display: grid; place-items: center; padding: 40px; }
+  .w-icon.chev { transition: transform .15s var(--ease); }
+  .w-search input::-webkit-search-cancel-button { display: none; }
+  .w-search input:not(:placeholder-shown) ~ .w-kbd { display: none; }
+
+  /* ---------- Notes: list | reader | rail ---------- */
+  .nl { width: 272px; flex: none; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--border); }
+  .nl-top { flex: none; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 12px; }
+  .nl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .nl-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
+  .nl-new { padding: 6px 12px 6px 10px; }
+  .nl-new .w-icon, .rd-acts .w-icon, .gv-fit .w-icon { width: 14px; height: 14px; color: currentColor; }
+  .nl .w-search { width: 100%; }
+  .tree { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; padding: 2px 16px 16px; }
+  .nt-kids { display: flex; flex-direction: column; gap: 1px; }
+  .nt-row { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px; padding: 5px 8px; border: 1px solid transparent; border-radius: var(--r-md);
+    background: none; color: var(--text-2); font-size: 13px; line-height: 1.4; text-align: left; cursor: pointer;
+    transition: background .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease); }
+  .nt-row:hover { background: var(--surface-2); color: var(--text); }
+  .nt-row .w-icon { width: 14px; height: 14px; color: var(--text-muted); transition: color .15s var(--ease); }
+  .nt-row .chev { color: var(--text-faint); }
+  .nt-row.fold[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+  .nt-row.fold .nt-name { font-weight: 500; color: var(--text); }
+  .nt-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nt-n { flex: none; font: 11px var(--mono); color: var(--text-faint); }
+  .nt-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+  .nt-row.note[aria-current="true"] { background: var(--background); border-color: var(--border); color: var(--text); font-weight: 600; }
+  .nt-row.note[aria-current="true"] .w-icon { color: var(--text); }
+  .nt-more { align-self: flex-start; border: 0; background: none; padding: 4px 8px 6px; font: 11px var(--mono); color: var(--text-faint); cursor: pointer; transition: color .15s var(--ease); }
+  .nt-more:hover { color: var(--text-2); }
+  .nl-none { margin: 8px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+  .nl-tags { flex: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0 16px; padding: 12px 0 16px; border-top: 1px solid var(--border); }
+  .tagp { padding: 3px 9px; border: 1px solid transparent; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font: 12px/1.4 var(--sans); cursor: pointer;
+    transition: border-color .15s var(--ease), background .15s var(--ease), color .15s var(--ease); }
+  .tagp span { color: var(--text-muted); }
+  .tagp:hover { border-color: var(--border-strong); }
+  .tagp[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+  .tagp[aria-pressed="true"] span { color: inherit; opacity: .7; }
+
+  /* the reader */
+  .rd { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; background: var(--surface-1); }
+  .rd-in { max-width: 920px; padding: 24px 40px 72px; }
+  .rd-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; }
+  .crumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11.5px var(--mono); color: var(--text-muted); }
+  .rd-acts { flex: none; display: flex; align-items: center; gap: 6px; }
+  .rd-title { margin: 22px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; color: var(--text); overflow-wrap: anywhere; }
+  .rd-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 14px; }
+  .rd-meta .w-pill { padding: 3px 10px; }
+  .rd-count { font: 11px var(--mono); color: var(--text-faint); }
+  .rd-rule { margin: 18px 0 20px; border: 0; border-top: 1px solid var(--border); }
+  .rd-err { padding: 40px; }
+
+  /* the note's Markdown */
+  .doc { font-size: 15px; line-height: 1.7; color: var(--text-2); overflow-wrap: break-word; }
+  .doc > :first-child { margin-top: 0; }
+  .doc p { margin: 0 0 12px; }
+  .doc p.def { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 10px; }
+  .doc p.def > b { color: var(--text); font-weight: 600; }
+  .doc h2 { margin: 34px 0 12px; font-size: 20px; font-weight: 600; letter-spacing: -.015em; line-height: 1.3; color: var(--text); scroll-margin-top: 20px; }
+  .doc h3 { margin: 24px 0 10px; font-size: 16px; font-weight: 600; line-height: 1.4; color: var(--text); scroll-margin-top: 20px; }
+  .doc h4 { margin: 18px 0 8px; font-size: 14.5px; font-weight: 600; color: var(--text); }
+  .doc h1 { margin: 30px 0 12px; font-size: 24px; font-weight: 600; letter-spacing: -.02em; color: var(--text); }
+  .doc ul, .doc ol { margin: 0 0 14px; padding-left: 22px; }
+  .doc li { margin: 4px 0; }
+  .doc li.sub { margin-left: 20px; }
+  .doc li::marker { color: var(--text-faint); }
+  .doc strong { color: var(--text); font-weight: 600; }
+  .doc blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 2px solid var(--border-strong); color: var(--text-muted); }
+  .doc pre { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); font: 12.5px/1.65 var(--mono); color: var(--text-2); overflow-x: auto; }
+  .doc pre[data-lang]::before { content: attr(data-lang); display: block; margin-bottom: 6px; font: 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+  .doc code { padding: 1px 6px; border-radius: var(--r-sm); background: var(--surface-2); font: .86em var(--mono); color: var(--text); }
+  .doc hr { margin: 24px 0; border: 0; border-top: 1px solid var(--border); }
+  .doc a.ext { color: var(--primary); text-underline-offset: 3px; }
+  .wl { color: var(--primary); font-weight: 500; text-decoration: none; cursor: pointer; border-radius: 2px; }
+  .wl:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .wl.missing { color: var(--danger); text-decoration: underline dashed; text-underline-offset: 3px; }
+  .xl { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 1px 8px; margin: 0 1px; border: 0; border-radius: 999px; background: var(--primary-soft); color: var(--primary);
+    font: 12px/1.6 var(--mono); text-decoration: none; vertical-align: 1px; cursor: pointer; transition: background .15s var(--ease); }
+  .xl:hover { background: color-mix(in srgb, var(--primary-soft), var(--primary) 12%); }
+  .xl code { min-width: 0; padding: 0; background: none; font: inherit; color: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .xl .w-icon { width: 12px; height: 12px; color: currentColor; }
+  .xl.plain { background: var(--surface-2); color: var(--text-2); cursor: default; }
+  .xl.plain b { font: 600 10.5px var(--sans); color: var(--text-muted); }
+  .xl.bad { background: var(--danger-soft); color: var(--danger-text); cursor: default; }
+  /* tables: sans header on surface-1; a wide one scrolls sideways in its box, with a fade while columns are hidden */
+  .tbl-wrap { position: relative; margin: 0 0 18px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); overflow: hidden; }
+  .tbl { overflow-x: auto; }
+  .tbl:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .tbl-wrap::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; width: 56px; pointer-events: none; background: linear-gradient(to right, transparent, var(--background));
+    opacity: 0; transition: opacity .2s var(--ease); }
+  .tbl-wrap.more::after { opacity: 1; }
+  .doc table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.5; }
+  .doc th { padding: 10px 16px; text-align: left; font-weight: 600; color: var(--text); background: var(--surface-1); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .doc td { padding: 10px 16px; vertical-align: top; color: var(--text-2); border-bottom: 1px solid var(--surface-2); white-space: nowrap; }
+  .doc td.wrap, .doc th.wrap { white-space: normal; min-width: 220px; max-width: 380px; }
+  .doc tbody tr:last-child td { border-bottom: 0; }
+  .doc td:first-child { color: var(--text); font-weight: 500; }
+  .doc tbody td { transition: background .12s; }
+  .doc tbody tr:hover td { background: var(--surface-1); }
+  .doc ul.tasks { list-style: none; padding-left: 2px; }
+  .doc li.task { display: flex; gap: 10px; align-items: flex-start; }
+  .doc li.task .box { flex: none; width: 16px; height: 16px; margin-top: 5px; border-radius: 4px; border: 1.5px solid var(--border-strong); display: grid; place-items: center; font-size: 10px; line-height: 1; color: var(--on-ink); }
+  .doc li.task.done .box { background: var(--ink); border-color: var(--ink); }
+  .doc li.task.done > span:last-child { color: var(--text-muted); text-decoration: line-through; }
+
+  /* the right rail */
+  .rr { width: 248px; flex: none; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; padding: 22px 16px 32px; border-left: 1px solid var(--border); background: var(--surface); }
+  .rr .w-group { gap: 6px; }
+  .rr .w-label { margin-bottom: 4px; }
+  .rr .w-label.bad { color: var(--danger-text); }
+  .rr .w-item { width: 100%; gap: 10px; padding: 8px 10px; transition: border-color .15s var(--ease), background .15s var(--ease), transform .15s var(--ease); }
+  .rr .w-item:hover { transform: translateY(-1px); }
+  .rr .w-item.static { cursor: default; }
+  .rr .w-item.static:hover { transform: none; border-color: var(--border); }
+  .rr .w-item .w-icon { width: 15px; height: 15px; color: var(--text-2); }
+  .rr .w-item.bad { border-color: var(--danger-line); background: var(--danger-soft); }
+  .rr .w-item.bad .w-icon, .rr .w-item.bad b { color: var(--danger-text); }
+  .ri { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+  .ri b { font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ri.mono b { font: 500 12px/1.4 var(--mono); }
+  .ri small { font: 10.5px/1.4 var(--mono); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ri small.rel { font-family: var(--sans); font-size: 11px; color: var(--text-muted); }
+  .rr-more { align-self: flex-start; border: 0; background: none; padding: 2px; font: 11px var(--mono); color: var(--text-faint); cursor: pointer; transition: color .15s var(--ease); }
+  .rr-more:hover { color: var(--text-2); }
+  .rr-none { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-faint); }
+  .toc { display: flex; flex-direction: column; }
+  .toc button { border: 0; border-left: 2px solid var(--border); background: none; padding: 4px 0 4px 10px; text-align: left; font-size: 12.5px; line-height: 1.45; color: var(--text-muted);
+    cursor: pointer; transition: color .15s var(--ease), border-color .15s var(--ease); }
+  .toc button:hover { color: var(--text); }
+  .toc button.on { border-left-color: var(--primary); color: var(--text); font-weight: 500; }
+  .syn { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .syn dt { font: 12px/1.5 var(--mono); color: var(--primary); overflow-wrap: anywhere; }
+  .syn dd { margin: 2px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+  .rr-rule { margin: 0; border: 0; border-top: 1px solid var(--border); }
+  .rr-text { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--text-muted); }
+  .rr-keys { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--text-muted); }
+  .rr-keys span { display: flex; justify-content: space-between; gap: 8px; }
+
+  /* the editor */
+  .rd.editing { overflow: hidden; display: flex; flex-direction: column; }
+  .ed { flex: 1; min-height: 0; width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 14px; padding: 22px 32px 24px; }
+  .ed-top { display: flex; align-items: center; gap: 10px; min-height: 38px; }
+  .ed-top .sp { flex: 1; }
+  .ed-top .w-pill { flex: none; }
+  .ed-tools { align-self: flex-start; display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 8px; background: var(--surface-2); }
+  .ed-tools button { min-width: 30px; height: 28px; padding: 0 8px; border: 0; border-radius: var(--r-md); background: none; font: 600 12px var(--mono); color: var(--text-2); cursor: pointer;
+    transition: background .15s var(--ease), color .15s var(--ease), box-shadow .15s var(--ease); }
+  .ed-tools button:hover { background: var(--background); color: var(--text); }
+  .ed-tools button[aria-pressed="true"] { background: var(--background); color: var(--primary); box-shadow: var(--shadow-sm); }
+  .ed-tools button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .ed-box { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); transition: border-color .15s var(--ease); }
+  .ed-box:focus-within { border-color: var(--border-strong); }
+  .ed-inner { position: relative; min-height: 100%; }
+  /* a highlighted copy under a transparent textarea: same font, size and wrapping, so line numbers and colours sit under the real text */
+  .ed-hl, .ed-ta { margin: 0; padding: 14px 20px 48px 56px; font: 13px/1.8 "IBM Plex Mono", "IBM Plex Sans Thai", ui-monospace, Consolas, monospace; letter-spacing: 0;
+    white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; tab-size: 4; }
+  .ed-hl { color: var(--text-2); pointer-events: none; }
+  .ed-hl .l { position: relative; margin: 0 -20px 0 -56px; padding: 0 20px 0 56px; }
+  .ed-hl .l::before { content: attr(data-n); position: absolute; left: 0; width: 38px; text-align: right; color: var(--text-faint); }
+  .ed-hl .l.cur { background: var(--primary-soft); }
+  .ed-hl .fm, .ed-hl .mk { color: var(--text-faint); }
+  .ed-hl .hd, .ed-hl .bd { color: var(--text); -webkit-text-stroke: .4px currentColor; }
+  .ed-hl .lk { color: var(--primary); }
+  .ed-hl .cd { background: var(--surface-2); border-radius: 3px; }
+  .ed-hl .cb { color: var(--text-muted); }
+  .ed-ta { position: absolute; inset: 0; display: block; width: 100%; height: 100%; resize: none; border: 0; outline: 0; background: transparent; color: transparent; caret-color: var(--text); overflow: hidden; }
+  .ed-ta::selection { background: color-mix(in srgb, var(--primary) 24%, transparent); color: transparent; }
+  .ac, .gres { position: absolute; z-index: 10; width: 268px; padding: 6px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); box-shadow: var(--shadow-md); animation: w-in .16s var(--ease); }
+  .ac-h { margin: 2px 8px 4px; font: 500 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+  .ac button, .gres button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px; border: 0; border-radius: var(--r-md); background: none; text-align: left; font-size: 13px; color: var(--text-2); cursor: pointer; }
+  .ac button .w-icon, .gres button .w-icon { width: 14px; height: 14px; color: var(--text-muted); }
+  .ac-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ac-sub { flex: none; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px var(--mono); color: var(--text-faint); }
+  .ac button[aria-selected="true"], .gres button[aria-selected="true"] { background: var(--primary-soft); color: var(--primary); }
+  .ac button[aria-selected="true"] .w-icon, .gres button[aria-selected="true"] .w-icon { color: var(--primary); }
+  .ac button:hover, .gres button:hover { background: var(--surface-2); }
+
+  /* ---------- Graph ---------- */
+  .gv { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .gv .w-toolbar { flex: none; position: relative; z-index: 8; }
+  .gv .w-search { width: 220px; }
+  .gsearch { position: relative; }
+  .gres { top: calc(100% + 6px); left: 0; width: 300px; }
+  .gpills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .gpill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border: 1px solid transparent; border-radius: 999px; background: var(--background); color: var(--text-2); font: 12px/1.4 var(--sans); cursor: pointer;
+    transition: border-color .15s var(--ease), color .15s var(--ease), opacity .15s var(--ease); }
+  .gpill i, .lg-row i, .gc-folder i { width: 7px; height: 7px; flex: none; border-radius: 50%; }
+  .gpill:hover { border-color: var(--border-strong); }
+  .gpills.some .gpill[aria-pressed="false"] { opacity: .5; }
+  .gpill[aria-pressed="true"] { border-color: var(--text); color: var(--text); }
+  .gv-fit { flex: none; }
+  .gwrap { flex: 1; min-height: 0; }
+  .gwrap > .cv { position: absolute; inset: 0; }
+  /* labels as plain text with a halo (a filled pill would cover the top of a close-up node) */
+  html body .gwrap .g3d-label { padding: 1px 4px; background: none; box-shadow: none; color: var(--text); font: 500 11.5px/1.5 var(--sans);
+    text-shadow: 0 0 2px var(--surface), 0 0 4px var(--surface), 0 0 6px var(--surface); }
+  .g-card { top: 16px; right: 16px; width: 280px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .gc-meta { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .gc-folder { display: inline-flex; align-items: center; gap: 6px; max-width: 150px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font: 12px/1.4 var(--sans); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .gc-io { font: 11px var(--mono); color: var(--text-faint); white-space: nowrap; }
+  .g-card h3 { margin: 4px 0 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; overflow-wrap: anywhere; }
+  .g-card p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .g-card p.mono { font: 11.5px/1.6 var(--mono); }
+  .gc-acts { display: flex; gap: 6px; margin-top: 6px; }
+  .g-legend { left: 16px; bottom: 16px; width: 196px; max-height: calc(100% - 32px); overflow-y: auto; padding: 12px 14px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 1px; }
+  .g-legend .w-label { margin-bottom: 6px; }
+  .lg-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 0; border: 0; background: none; text-align: left; font-size: 12.5px; color: var(--text-2); }
+  button.lg-row { cursor: pointer; }
+  button.lg-row:hover span { color: var(--text); }
+  .lg-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .15s var(--ease); }
+  .lg-row b { font: 400 11px var(--mono); color: var(--text-faint); }
+  .lg-sep { margin: 6px 0; border: 0; border-top: 1px solid var(--border); }
+  .g-zoom { right: 16px; bottom: 16px; display: flex; flex-direction: column; padding: 4px; box-shadow: var(--shadow-sm); }
+  .g-zoom button { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: var(--r-md); background: none; font: 16px/1 var(--sans); color: var(--text-2); cursor: pointer;
+    transition: background .15s var(--ease), color .15s var(--ease); }
+  .g-zoom button:hover { background: var(--surface-2); color: var(--text); }
+  .g-zoom button[aria-pressed="true"] { color: var(--primary); }
+  .g-zoom .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .g-hint { position: absolute; z-index: 4; left: 50%; bottom: 18px; transform: translateX(-50%); font: 11px var(--mono); color: var(--text-faint); white-space: nowrap; pointer-events: none; }
+  .g-none { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; font-size: 13px; color: var(--text-muted); pointer-events: none; }
+
+  /* ---------- Trash ---------- */
+  .tv { flex: 1; min-width: 0; overflow-y: auto; display: flex; flex-direction: column; }
+  .tv .w-head .w-sub { max-width: 680px; }
+  .tv .w-body { flex: 1; padding-top: 22px; gap: 18px; }
+  .tb-info { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-radius: var(--r-lg); background: var(--surface-2); font-size: 13px; line-height: 1.5; color: var(--text-2); }
+  .tb-info .w-icon { width: 15px; height: 15px; }
+  .tb-card { flex: 1; min-height: 240px; display: flex; flex-direction: column; overflow: hidden; }
+  /* one grid for the whole list, rows share its columns (subgrid), so the header lines up with every row */
+  .tb-list { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, .8fr) auto; column-gap: 16px; }
+  .tb-grid { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; padding: 0 18px; }
+  .tb-head { min-height: 38px; background: var(--surface-1); border-bottom: 1px solid var(--border); font: 500 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+  .tb-row { min-height: 64px; padding-top: 11px; padding-bottom: 11px; border-bottom: 1px solid var(--border); transition: background .15s var(--ease); }
+  .tb-row:hover { background: var(--surface-1); }
+  .tb-note { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .tb-note .w-tile { width: 32px; height: 32px; border-radius: 8px; }
+  .tb-note .w-tile .w-icon { width: 15px; height: 15px; }
+  .tb-t { min-width: 0; display: flex; flex-direction: column; }
+  .tb-t b { font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-t small { font: 10.5px/1.5 var(--mono); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-why .w-pill { padding: 3px 10px; }
+  .tb-when { font: 11.5px var(--mono); color: var(--text-muted); white-space: nowrap; }
+  .tb-acts { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .tb-del { padding: 8px; color: var(--text-faint); }
+  .tb-del .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .tb-del:hover { color: var(--danger); background: var(--danger-soft); }
+  .tb-foot { padding: 14px 18px; font: 11px var(--mono); color: var(--text-faint); }
+  .tb-card .w-empty { flex: 1; }
+
+  .nt-row:focus-visible, .nt-more:focus-visible, .tagp:focus-visible, .wl:focus-visible, .xl:focus-visible, .rr .w-item:focus-visible, .rr-more:focus-visible,
+  .toc button:focus-visible, .gpill:focus-visible, .lg-row:focus-visible, .g-zoom button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+  @media (max-width: 1020px) { .rr { display: none; } }
+  @media (max-width: 900px) { .g-hint { display: none; } .rd-in { padding: 20px 24px 56px; } }
+  @media (max-width: 720px) {
+    html, body { overflow: auto; height: auto; }
+    .brain { flex-direction: column; }
+    .nl { width: auto; max-height: 45vh; border-right: 0; border-bottom: 1px solid var(--border); }
+    .gv { min-height: 80vh; }
+    .tb-list { grid-template-columns: minmax(0, 1fr) auto; }
+    .tb-why, .tb-when, .tb-head span:nth-child(2), .tb-head span:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="brain" id="view"><div class="center"><span class="spinner" aria-label="Loading"></span></div></div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const { esc, toast, setLoading } = ui;
+  const EMBED = window.top !== window;
+  const view = $('view');
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } } };
+  const params = new URLSearchParams(location.search);
+  const I = (name, cls = '') => `<span class="w-icon${cls ? ` ${cls}` : ''}">${ui.icon(name)}</span>`;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  const collator = new Intl.Collator(['th', 'en'], { numeric: true, sensitivity: 'base' });
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const pageTheme = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+  let mode = ['graph', 'trash'].includes(params.get('view')) ? params.get('view') : 'notes';
+  let dir = null, G = null, notes = [], selected = params.get('note'), tagFilter = null, query = '', editing = null, graph = null;
+
+  async function api(url, body) {
+    const res = await fetch(url, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { cache: 'no-store' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+    return data;
+  }
+  const q = (o) => new URLSearchParams({ dir, ...o }).toString();
+  const noteName = (path) => path.replace(/\.md$/i, '');
+  const folderOf = (path) => (path.includes('/') ? path.split('/').slice(0, -1).join('/') : '');
+  const topFolder = (path) => (path.includes('/') ? path.split('/')[0] : '');
+  const project = () => String(dir ?? '').replaceAll('\\', '/').replace(/\/$/, '').split('/').pop();
+  const crumb = (path) => esc(path.replace(/^brain\//, '').split('/').join(' / '));
+  const shortPath = (p) => p.split('/').slice(-2).join('/');
+  // the code graph page for a [[code:…]] link, in the same project and theme
+  const codeHref = (file) => `/code?${new URLSearchParams({ ...(dir ? { dir } : {}), file, ...(EMBED ? { theme: pageTheme() } : {}) })}`;
+
+  function setUrl() {
+    const u = new URL(location.href);
+    if (!EMBED) u.searchParams.delete('dir'); // in the window, ?dir= is how the page knows its project
+    mode === 'notes' ? u.searchParams.delete('view') : u.searchParams.set('view', mode);
+    mode === 'notes' && selected ? u.searchParams.set('note', selected) : u.searchParams.delete('note');
+    document.title = `${mode === 'graph' ? 'Graph' : mode === 'trash' ? 'Trash' : 'Notes'} · wridge`;
+    history.replaceState(null, '', u);
+    ui.nav.setActive(mode === 'notes' ? '/brain' : `/brain?view=${mode}`);
+  }
+
+  function state(icon, title, body, button, onClick, mood) {
+    view.innerHTML = `<div class="center w-fade-in"><div class="w-empty">${ui.emptyIcon(icon, '', mood)}<h2>${esc(title)}</h2>${body ? `<p>${esc(body)}</p>` : ''}${button ? `<button class="btn btn-primary" id="state-btn">${esc(button)}</button>` : ''}</div></div>`;
+    if (button) $('state-btn').onclick = onClick;
+  }
+
+  // ---------- data ----------
+  async function load() {
+    let projects = [];
+    try { projects = await api('/api/code/projects'); } catch (err) { return state('alert', "Couldn't load the projects", err.message, 'Try again', load); }
+    const wanted = params.get('dir') ?? store.get('code-project');
+    dir = projects.find((p) => p.dir === wanted)?.dir ?? null;
+    if (!dir) return state('inbox', 'Choose a project first', projects.length ? 'Pick a project in the sidebar. Each project keeps its notes in its own brain/ folder.' : 'Add a project folder in the sidebar: a web app, a game, a book, anything. Its notes live in its brain/ folder.');
+    await refresh();
+  }
+  async function refresh() {
+    try { G = await api(`/api/brain?${q({})}`); } catch (err) { return state('alert', "Couldn't read the notes", err.message, 'Try again', refresh); }
+    notes = G.nodes.filter((n) => n.kind === 'note');
+    missingCode = new Set(G.nodes.filter((n) => n.kind === 'code' && n.missing).map((n) => n.label));
+    ui.nav.setCount('/brain', notes.length);
+    ui.nav.setCount('/brain?view=trash', G.trash.length || null);
+    if (selected && !notes.some((n) => noteName(n.path) === selected)) selected = null;
+    render();
+  }
+  const resolve = (target) => {
+    const t = String(target).trim().toLowerCase().replace(/\.md$/i, '');
+    return notes.find((n) => noteName(n.path).toLowerCase() === t) ?? notes.find((n) => n.name.toLowerCase() === t) ?? notes.find((n) => n.label.toLowerCase() === t);
+  };
+  // notes with a [[link]] to a note that doesn't exist (a small dot in the list)
+  const brokenNotes = () => new Set(G.edges.filter((e) => e.to.startsWith('missing:')).map((e) => noteName(e.from.replace(/^note:/, ''))));
+
+  function render() {
+    setUrl();
+    if (graph) { graph._destructor?.(); graph = null; }
+    if (mode === 'trash') return renderTrash();
+    if (!notes.length && !editing) return state('inbox', 'No notes in this project yet', "Notes are plain Markdown files in the project's brain/ folder, so Obsidian opens them too. Or tell the AI “note this down” while you work.", 'New note', newNote);
+    if (mode === 'graph') return renderGraph();
+    renderNotes();
+  }
+
+  // ---------- notes: the list ----------
+  const MORE_AT = 6;
+  const expanded = new Set(), showAll = new Set();
+  let justOpened = null;
+  const expandTo = (name) => { const parts = String(name ?? '').split('/'); for (let i = 1; i < parts.length; i++) expanded.add(parts.slice(0, i).join('/')); };
+  const byLabel = (a, b) => collator.compare(a.label, b.label);
+  const notePad = (level) => (level ? 8 + (level - 1) * 20 + 36 : 8);
+
+  function layoutNotes() {
+    view.innerHTML = `<aside class="nl" id="list" aria-label="Notes"></aside><section class="rd" id="note" aria-live="polite"></section><aside class="rr" id="links" aria-label="Links of this note"></aside>`;
+    $('list').innerHTML = `<div class="nl-top">
+        <div class="nl-head"><h1>Notes</h1><button class="btn btn-secondary nl-new" id="new">${I('plus')}New</button></div>
+        <label class="w-search">${I('search')}<input id="q" type="search" placeholder="Find a note…" aria-label="Find a note" autocomplete="off" spellcheck="false" value="${esc(query)}"><span class="w-kbd">Ctrl K</span></label>
+      </div>
+      <nav class="tree" id="tree" aria-label="Notes by folder"></nav>
+      <div class="nl-tags" id="tags" role="group" aria-label="Filter by tag"></div>`;
+    $('new').onclick = () => newNote();
+    const qi = $('q');
+    qi.oninput = () => { query = qi.value; drawTree(); };
+    qi.onkeydown = (e) => {
+      if (e.key === 'Escape' && qi.value) { e.preventDefault(); qi.value = ''; query = ''; drawTree(); }
+      else if (e.key === 'Enter') { const first = $('tree').querySelector('.nt-row.note'); if (first) go(first.dataset.path); }
+    };
+    $('tree').onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.folder != null) {
+        const p = b.dataset.folder;
+        if (expanded.has(p)) expanded.delete(p); else { expanded.add(p); justOpened = p; }
+        drawTree();
+        $('tree').querySelector(`[data-folder="${CSS.escape(p)}"]`)?.focus();
+      } else if (b.dataset.more != null) { showAll.add(b.dataset.more); drawTree(); }
+      else if (b.dataset.path) go(b.dataset.path);
+    };
+    $('tags').onclick = (e) => {
+      const b = e.target.closest('[data-tag]');
+      if (!b) return;
+      tagFilter = tagFilter === b.dataset.tag ? null : b.dataset.tag;
+      drawTags();
+      drawTree();
+    };
+    $('note').addEventListener('scroll', spy, { passive: true });
+    new ResizeObserver(() => requestAnimationFrame(() => fades($('note')))).observe($('note'));
+    drawTree();
+    drawTags();
+  }
+
+  function buildTree(list) {
+    const root = { name: '', path: '', folders: new Map(), notes: [] };
+    for (const n of list) {
+      const parts = noteName(n.path).split('/');
+      let node = root;
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (!node.folders.has(parts[i])) node.folders.set(parts[i], { name: parts[i], path: parts.slice(0, i + 1).join('/'), folders: new Map(), notes: [] });
+        node = node.folders.get(parts[i]);
+      }
+      node.notes.push(n);
+    }
+    return root;
+  }
+  const countIn = (f) => f.notes.length + [...f.folders.values()].reduce((s, x) => s + countIn(x), 0);
+  function branch(f, level, filtering, broken) {
+    // the folder's own overview ("mob" or "Mob overview" in mob/) goes first
+    const fname = f.name.toLowerCase(), isIndex = (n) => level > 0 && (n.label.toLowerCase() === fname || n.label.toLowerCase().startsWith(`${fname} `));
+    const list = [...f.notes].sort((a, b) => isIndex(b) - isIndex(a) || byLabel(a, b));
+    const all = filtering || level === 0 || showAll.has(f.path);
+    let shown = all ? list : list.slice(0, MORE_AT);
+    const hiddenSel = !all && list.find((n) => noteName(n.path) === selected && !shown.includes(n));
+    if (hiddenSel) shown = [...shown, hiddenSel];
+    let html = shown.map((n) => {
+      const name = noteName(n.path);
+      return `<button class="nt-row note" data-path="${esc(name)}" aria-current="${name === selected}" style="padding-left:${notePad(level)}px" title="${esc(n.line || n.label)}">${I('notes')}<span class="nt-name">${esc(n.label)}</span>${broken.has(name) ? '<i class="nt-dot" title="Has a link to a note that doesn\'t exist"></i>' : ''}</button>`;
+    }).join('');
+    if (shown.length < list.length) html += `<button class="nt-more" data-more="${esc(f.path)}" style="padding-left:${notePad(level) + 2}px">+ ${list.length - shown.length} more</button>`;
+    for (const sub of [...f.folders.values()].sort((a, b) => collator.compare(a.name, b.name))) {
+      const open = filtering || expanded.has(sub.path);
+      html += `<button class="nt-row fold" data-folder="${esc(sub.path)}" aria-expanded="${open}" style="padding-left:${8 + level * 20}px">${I('chevrondown', 'chev')}${I('folder')}<span class="nt-name">${esc(sub.name)}</span><span class="nt-n">${countIn(sub)}</span></button>`;
+      if (open) html += `<div class="nt-kids${sub.path === justOpened ? ' w-fade-in' : ''}">${branch(sub, level + 1, filtering, broken)}</div>`;
+    }
+    return html;
+  }
+  function drawTree() {
+    const tree = $('tree');
+    if (!tree) return;
+    const ql = query.trim().toLowerCase();
+    const shown = notes.filter((n) => (!tagFilter || n.tags.includes(tagFilter)) && (!ql || `${n.label} ${n.name} ${n.path} ${n.line} ${n.tags.join(' ')}`.toLowerCase().includes(ql)));
+    tree.innerHTML = shown.length ? branch(buildTree(shown), 0, Boolean(ql || tagFilter), brokenNotes())
+      : `<p class="nl-none">No notes match “${esc(query.trim() || `#${tagFilter}`)}”.</p>`;
+    justOpened = null;
+  }
+  function drawTags() {
+    const el = $('tags');
+    if (!el) return;
+    const count = {};
+    for (const n of notes) for (const t of n.tags) count[t] = (count[t] ?? 0) + 1;
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (tagFilter && !top.some(([t]) => t === tagFilter)) top.push([tagFilter, count[tagFilter] ?? 0]);
+    el.hidden = !top.length;
+    el.innerHTML = top.map(([t, c]) => `<button class="tagp" data-tag="${esc(t)}" aria-pressed="${tagFilter === t}">#${esc(t)} <span>${c}</span></button>`).join('');
+  }
+  function renderNotes() {
+    if (!selected && !editing) selected = noteName(notes[0].path);
+    expandTo(selected);
+    layoutNotes();
+    editing ? drawEditor() : openNote(selected);
+    requestAnimationFrame(() => $('tree')?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' }));
+  }
+  async function go(name) {
+    if (editing && !(await leaveEditor())) return;
+    selected = name;
+    expandTo(name);
+    setUrl();
+    drawTree();
+    $('tree')?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest', behavior: ui.reducedMotion() ? 'auto' : 'smooth' });
+    openNote(name);
+  }
+
+  // ---------- notes: the reader ----------
+  let current = null, editAfterOpen = false, openSeq = 0, railMore = false, tocItems = [];
+  async function openNote(name) {
+    const box = $('note');
+    if (!box) return;
+    const seq = ++openSeq;
+    let data;
+    try { data = await api(`/api/brain/note?${q({ name })}`); } catch (err) {
+      if (seq !== openSeq || editing) return;
+      box.classList.remove('editing');
+      box.innerHTML = `<div class="center rd-err w-fade-in"><div class="w-empty">${ui.emptyIcon('alert')}<h2>Couldn't open this note</h2><p>${esc(err.message)}</p></div></div>`;
+      $('links').innerHTML = '';
+      return;
+    }
+    if (seq !== openSeq || editing) return; // a newer click won, or the editor opened meanwhile
+    current = data;
+    railMore = false;
+    if (editAfterOpen) { editAfterOpen = false; editing = { name, text: current.text, original: current.text }; return drawEditor(); }
+    const meta = notes.find((n) => noteName(n.path) === name);
+    const back = current.backlinks.length, out = current.links.length;
+    box.classList.remove('editing');
+    box.scrollTop = 0;
+    box.innerHTML = `<div class="rd-in w-fade-in">
+        <div class="rd-top"><span class="crumb" title="${esc(current.path)}">${crumb(current.path)}</span>
+          <span class="rd-acts"><button class="btn btn-secondary" id="copy">${I('link')}Copy link</button><button class="btn btn-secondary" id="edit">Edit</button><button class="btn btn-ghost" id="trash">Move to trash</button></span></div>
+        <h1 class="rd-title" id="title"></h1>
+        <div class="rd-meta">${(meta?.tags ?? []).map((t) => `<span class="w-pill sans">#${esc(t)}</span>`).join('')}<span class="rd-count">${plural(back, 'link')} here · ${out} out</span></div>
+        <hr class="rd-rule">
+        <article class="doc" id="doc">${md(current.text)}</article>
+      </div>`;
+    // the note's first "# title" becomes the page title
+    const doc = $('doc'), h1 = doc.querySelector('h1');
+    $('title').innerHTML = h1 ? h1.innerHTML : esc(meta?.label ?? name.split('/').pop());
+    h1?.remove();
+    $('edit').onclick = () => { editing = { name, text: current.text, original: current.text }; drawEditor(); };
+    $('trash').onclick = () => trash(name, meta?.label ?? name);
+    $('copy').onclick = async () => {
+      const link = `[[${meta && notes.filter((n) => n.label.toLowerCase() === meta.label.toLowerCase()).length === 1 ? meta.label : name}]]`;
+      const ok = await copyText(link);
+      toast(ok ? `Copied ${link}. Paste it into another note to link here.` : "Couldn't copy the link", { kind: ok ? 'success' : 'error' });
+    };
+    wireDoc(box);
+    tocItems = buildToc(doc);
+    drawRail();
+    fades(box);
+    spy();
+  }
+
+  // h2 headings for "On this page"; an h2 with h3s under it lists those instead ("People · Soldiers")
+  // → [{ el, label }] shown in the rail, plus .all: every heading with the item it lights up
+  function buildToc(doc) {
+    const items = [];
+    let h2 = null;
+    doc.querySelectorAll('h2, h3').forEach((h, i) => {
+      h.id = `h-${i}`;
+      const text = h.textContent.trim();
+      if (h.tagName === 'H2') { h2 = { el: h, label: text, kids: [] }; items.push(h2); return; }
+      const short = text.split(/[:：]/)[0].trim() || text;
+      const it = { el: h, label: h2 ? `${h2.label} · ${short}` : short };
+      h2?.kids.push(it);
+      items.push(it);
+    });
+    const shown = items.filter((it) => !it.kids?.length);
+    const toc = shown.map(({ el, label }) => ({ el, label }));
+    toc.all = items.map((it) => ({ el: it.el, index: shown.indexOf(it.kids?.length ? it.kids[0] : it) }));
+    return toc;
+  }
+  // highlight the heading in view
+  let spyFrame = 0;
+  function spy() {
+    if (spyFrame) return;
+    spyFrame = requestAnimationFrame(() => {
+      spyFrame = 0;
+      const box = $('note'), toc = $('toc');
+      if (!box || !toc || !tocItems.all) return;
+      const top = box.getBoundingClientRect().top + 90;
+      let on = 0;
+      for (const it of tocItems.all) if (it.el.getBoundingClientRect().top <= top) on = it.index;
+      if (box.scrollTop + box.clientHeight >= box.scrollHeight - 4 && tocItems.all.length) on = tocItems.all[tocItems.all.length - 1].index;
+      toc.querySelectorAll('button').forEach((b, i) => b.classList.toggle('on', i === on));
+    });
+  }
+  // a table wider than the reader: fade its right edge while columns are hidden
+  function fades(root) {
+    root?.querySelectorAll('.tbl').forEach((t) => {
+      const update = () => t.parentElement.classList.toggle('more', t.scrollLeft + t.clientWidth < t.scrollWidth - 2);
+      t.onscroll = update;
+      update();
+    });
+  }
+  const copied = async (text) => { const ok = await copyText(text); toast(ok ? `Copied ${text}` : "Couldn't copy", { kind: ok ? 'success' : 'error' }); };
+  // execCommand first: it works inside the click (an iframe may have no clipboard permission); then the async API
+  async function copyText(text) {
+    const back = document.activeElement;
+    const t = Object.assign(document.createElement('textarea'), { value: text });
+    t.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.append(t);
+    t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    t.remove();
+    back?.focus?.({ preventScroll: true });
+    if (ok) return true;
+    try { await Promise.race([navigator.clipboard.writeText(text), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 1500))]); return true; } catch { return false; }
+  }
+
+  // ---------- notes: the rail ----------
+  const KIND = { code: 'Code', file: 'File', figma: 'Figma', roblox: 'Roblox', url: 'URL', project: 'Other project' };
+  const ri = (title, sub, mono) => `<span class="ri${mono ? ' mono' : ''}"><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</span>`;
+  const pathParts = (target) => {
+    const [p, sym] = target.split('#');
+    const parts = p.split('/');
+    return { name: parts.slice(-2).join('/') + (sym ? `#${sym}` : ''), sub: parts.length > 2 ? parts.slice(0, -2).join('/') : parts.length === 2 ? parts[0] : '' };
+  };
+  function drawRail() {
+    const box = $('links');
+    if (!box || !current) return;
+    const uniq = (arr) => [...new Map(arr.map((l) => [`${l.kind}:${l.target}`, l])).values()];
+    const back = current.backlinks.map((label, i) => ({ label, path: current.backlinkPaths[i] }));
+    const backShown = railMore ? back : back.slice(0, 3);
+    const rel = current.links.filter((l) => l.rel);
+    const code = uniq(current.links.filter((l) => l.kind === 'code' || l.kind === 'file'));
+    const figma = uniq(current.links.filter((l) => l.kind === 'figma'));
+    const other = uniq(current.links.filter((l) => !['note', 'code', 'file', 'figma'].includes(l.kind)));
+    const missing = [...new Set(current.links.filter((l) => l.missing && l.kind === 'note').map((l) => l.target))];
+    const missingCodeLinks = code.filter((l) => l.missing);
+    const noteTarget = (t) => { const hit = resolve(t); return hit ? noteName(hit.path) : t; };
+    const codeItem = (l) => {
+      const { name, sub } = pathParts(l.target);
+      if (l.kind === 'code' && !l.missing) return `<a class="w-item" href="${esc(codeHref(l.target))}" data-code="${esc(l.target)}" title="Open ${esc(l.target)} in the code graph">${I('code')}${ri(name, sub || 'code', true)}</a>`;
+      if (l.missing) return `<div class="w-item static bad" title="${esc(l.target)}">${I('brokenlink')}${ri(name, 'not in the project anymore', true)}</div>`;
+      return `<button class="w-item" data-copy="${esc(l.target)}" title="${esc(l.target)} · click to copy the path">${I('code')}${ri(name, sub || 'file', true)}</button>`;
+    };
+    box.innerHTML = `<div class="w-group w-fade-in"><p class="w-label">Links here · ${back.length}</p>
+        ${back.length ? backShown.map((b) => `<button class="w-item" data-note="${esc(noteName(b.path))}">${I('notes')}${ri(b.label, folderOf(b.path) || 'top level')}</button>`).join('') : '<p class="rr-none">No notes link here yet.</p>'}
+        ${back.length > backShown.length ? `<button class="rr-more" data-more>+ ${back.length - backShown.length} more</button>` : ''}</div>
+      ${rel.length ? `<div class="w-group"><p class="w-label">Relations · ${rel.length}</p>${rel.map((l) => `<button class="w-item" data-note="${esc(noteTarget(l.target))}">${I('link')}<span class="ri"><small class="rel">${esc(l.rel)} →</small><b>${esc(resolve(l.target)?.label ?? l.target)}</b></span></button>`).join('')}</div>` : ''}
+      ${code.length ? `<div class="w-group"><p class="w-label">Code · ${code.length}</p>${code.map(codeItem).join('')}</div>` : ''}
+      ${figma.length ? `<div class="w-group"><p class="w-label">Figma · ${figma.length}</p>${figma.map((l) => `<button class="w-item" data-copy="${esc(l.target)}" title="Figma node ${esc(l.target)} · click to copy the id">${I('logo-figma')}${ri(l.target, 'Figma frame', true)}</button>`).join('')}</div>` : ''}
+      ${other.length ? `<div class="w-group"><p class="w-label">Other links · ${other.length}</p>${other.map((l) => (l.kind === 'url' && /^https?:\/\//.test(l.target)
+        ? `<a class="w-item" href="${esc(l.target)}" target="_blank" rel="noopener">${I('external')}${ri(l.target, 'URL', true)}</a>`
+        : `<button class="w-item" data-copy="${esc(l.target)}" title="Click to copy">${I('external')}${ri(l.target, KIND[l.kind] ?? l.kind, true)}</button>`)).join('')}</div>` : ''}
+      ${missing.length || missingCodeLinks.length ? `<div class="w-group"><p class="w-label bad">Broken · ${missing.length + missingCodeLinks.length}</p>
+        ${missing.map((m) => `<button class="w-item bad" data-new="${esc(m)}" title="No note “${esc(m)}” yet · click to create it">${I('brokenlink')}${ri(m, 'no note yet · click to create')}</button>`).join('')}
+        ${missingCodeLinks.map((l) => `<div class="w-item static bad" title="${esc(l.target)}">${I('brokenlink')}${ri(pathParts(l.target).name, 'code not found', true)}</div>`).join('')}</div>` : ''}
+      ${tocItems.length ? `<div class="w-group"><p class="w-label">On this page</p><nav class="toc" id="toc" aria-label="On this page">${tocItems.map((it, i) => `<button data-toc="${i}">${esc(it.label)}</button>`).join('')}</nav></div>` : ''}`;
+    box.onclick = async (e) => {
+      const el = e.target.closest('[data-note], [data-new], [data-copy], [data-more], [data-toc]');
+      if (!el) return;
+      if (el.dataset.note) go(el.dataset.note);
+      else if (el.dataset.new) newNote(el.dataset.new);
+      else if (el.dataset.copy) copied(el.dataset.copy);
+      else if (el.hasAttribute('data-more')) { railMore = true; drawRail(); }
+      else if (el.dataset.toc) tocItems[Number(el.dataset.toc)].el.scrollIntoView({ behavior: ui.reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    };
+    spy();
+  }
+  function wireDoc(root) {
+    root.onclick = async (e) => {
+      const a = e.target.closest('.wl, [data-copy]');
+      if (!a) return;
+      if (a.dataset.copy) return copied(a.dataset.copy);
+      a.dataset.note ? go(a.dataset.note) : newNote(a.dataset.new);
+    };
+    root.onkeydown = (e) => { if (e.key === 'Enter' && e.target.matches('.wl')) e.target.click(); };
+  }
+  // code links: build the URL at click time, so it carries the current theme
+  document.addEventListener('click', (e) => { const a = e.target.closest('a[data-code]'); if (a) a.href = codeHref(a.dataset.code); }, true);
+
+  // ---------- Markdown (small, safe: text is escaped first) ----------
+  let missingCode = new Set();
+  function wikiLink(raw, hash, alias) {
+    const t = raw.trim(), i = t.indexOf(':');
+    const prefix = i > 0 ? t.slice(0, i).toLowerCase() : '';
+    if (i > 0) {
+      const target = t.slice(i + 1).trim();
+      if (prefix === 'code' || prefix === 'file') {
+        const full = prefix === 'code' && hash ? `${target}#${hash.trim()}` : target;
+        const label = esc(alias ?? (prefix === 'code' && hash ? `${shortPath(target)}#${hash.trim()}` : shortPath(target)));
+        if (prefix === 'code' && missingCode.has(full)) return `<span class="xl bad" title="${esc(full)} · not in the project anymore">${I('brokenlink')}<code>${label}</code></span>`;
+        if (prefix === 'code') return `<a class="xl" href="${esc(codeHref(full))}" data-code="${esc(full)}" title="Open ${esc(full)} in the code graph">${I('code')}<code>${label}</code></a>`;
+        return `<button type="button" class="xl" data-copy="${esc(target)}" title="${esc(target)} · click to copy the path">${I('code')}<code>${label}</code></button>`;
+      }
+      if (prefix === 'figma') return `<span class="xl plain" title="Figma node ${esc(target)}">${I('logo-figma')}<code>${esc(alias ?? target)}</code></span>`;
+      const kind = KIND[prefix] ?? t.slice(0, i);
+      return `<span class="xl plain" title="${esc(kind)} · ${esc(target)}"><b>${esc(kind)}</b><code>${esc(alias ?? target)}</code></span>`;
+    }
+    const hit = resolve(t);
+    return hit ? `<a class="wl" data-note="${esc(noteName(hit.path))}" tabindex="0">${esc(alias ?? t)}</a>`
+      : `<a class="wl missing" data-new="${esc(t)}" tabindex="0" title="No note yet · click to create it">${esc(alias ?? t)}</a>`;
+  }
+  function inline(s) {
+    const parts = [];
+    const hold = (html) => { parts.push(html); return `\u0000${parts.length - 1}\u0000`; };
+    s = s.replace(/`([^`]+)`/g, (m, a) => hold(`<code>${esc(a)}</code>`));
+    s = s.replace(/\[\[([^\]|#]+)(?:#([^\]|]*))?(?:\|([^\]]+))?\]\]/g, (m, a, h, b) => hold(wikiLink(a, h, b)));
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (m, a, b) => hold(`<a class="ext" href="${esc(b)}" target="_blank" rel="noopener">${esc(a)}</a>`));
+    s = esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
+    return s.replace(/\u0000(\d+)\u0000/g, (m, n) => parts[Number(n)]);
+  }
+  // "**Label**: text" on its own line reads as a label with the text hanging beside it
+  function paraLine(line) {
+    const d = /^\*\*([^*]{1,48}?)(:?)\*\*(:?)\s*(\S.*)$/.exec(line.trim());
+    if (d && (d[2] || d[3])) return `<p class="def"><b>${inline(d[1])}:</b><span>${inline(d[4])}</span></p>`;
+    return `<p>${inline(line)}</p>`;
+  }
+  const plainText = (s) => s.replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, (m, a, b) => b ?? a).replace(/[*`]/g, '');
+  // A row of a Markdown table → its cells ("| a | b |", outer pipes optional, \| stays a pipe).
+  const cells = (line) => line.trim().replace(/^\|/, '').replace(/\|$/, '').split(/(?<!\\)\|/).map((c) => c.trim().replace(/\\\|/g, '|'));
+  const TABLE_RULE = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+  function md(text) {
+    const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '');
+    const lines = body.split(/\r?\n/);
+    const out = [];
+    let list = null, para = [], code = null;
+    const flushPara = () => { for (const l of para) out.push(paraLine(l)); para = []; };
+    const flushList = () => {
+      if (list) out.push(`<${list.tag}${list.tasks ? ' class="tasks"' : ''}>${list.items.map(({ text: x, sub }) => {
+        const t = /^\[([ xX])\]\s+(.*)$/.exec(x);
+        const cls = (c) => (c || sub ? ` class="${[c, sub ? 'sub' : ''].filter(Boolean).join(' ')}"` : '');
+        return t ? `<li${cls(`task${t[1] !== ' ' ? ' done' : ''}`)}><span class="box" aria-hidden="true">${t[1] !== ' ' ? '✓' : ''}</span><span>${inline(t[2])}</span></li>` : `<li${cls('')}>${inline(x)}</li>`;
+      }).join('')}</${list.tag}>`);
+      list = null;
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (code) { if (/^\s*```/.test(line)) { out.push(`<pre${code.lang ? ` data-lang="${esc(code.lang)}"` : ''}>${esc(code.lines.join('\n'))}</pre>`); code = null; } else code.lines.push(line); continue; }
+      const fence = /^\s*```\s*([\w+-]*)/.exec(line);
+      if (fence) { flushPara(); flushList(); code = { lang: fence[1], lines: [] }; continue; }
+      // table: a header row, then a |---|:---:| rule, then rows until a line without a pipe
+      if (line.includes('|') && TABLE_RULE.test(lines[i + 1] ?? '') && !TABLE_RULE.test(line)) {
+        flushPara(); flushList();
+        const head = cells(line);
+        const align = cells(lines[i + 1]).map((c) => (/^:-+:$/.test(c) ? 'center' : /-:$/.test(c) ? 'right' : ''));
+        const rows = [];
+        for (i += 2; i < lines.length && lines[i].includes('|') && lines[i].trim(); i++) rows.push(cells(lines[i]));
+        i--;
+        const td = (tag, c, k) => {
+          const attrs = [plainText(c ?? '').length > 34 ? 'class="wrap"' : '', align[k] ? `style="text-align:${align[k]}"` : ''].filter(Boolean).join(' ');
+          return `<${tag}${attrs ? ` ${attrs}` : ''}>${inline(c ?? '')}</${tag}>`;
+        };
+        out.push(`<div class="tbl-wrap"><div class="tbl" tabindex="0"><table><thead><tr>${head.map((c, k) => td('th', c, k)).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${head.map((_, k) => td('td', r[k], k)).join('')}</tr>`).join('')}</tbody></table></div></div>`);
+        continue;
+      }
+      const h = /^(#{1,6})\s+(.*)$/.exec(line);
+      const li = /^(\s*)([-*+]|\d+\.)\s+(.*)$/.exec(line);
+      if (h) { flushPara(); flushList(); const n = Math.min(h[1].length, 4); out.push(`<h${n}>${inline(h[2])}</h${n}>`); }
+      else if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { flushPara(); flushList(); out.push('<hr>'); }
+      else if (li) {
+        flushPara();
+        const tag = /\d/.test(li[2]) ? 'ol' : 'ul';
+        if (list?.tag !== tag) { flushList(); list = { tag, items: [] }; }
+        if (/^\[[ xX]\]\s/.test(li[3])) list.tasks = true;
+        list.items.push({ text: li[3], sub: li[1].replace(/\t/g, '  ').length >= 2 });
+      }
+      else if (/^>\s?/.test(line)) { flushPara(); flushList(); out.push(`<blockquote>${inline(line.replace(/^>\s?/, ''))}</blockquote>`); }
+      else if (!line.trim()) { flushPara(); flushList(); }
+      else { flushList(); para.push(line); }
+    }
+    if (code) out.push(`<pre>${esc(code.lines.join('\n'))}</pre>`);
+    flushPara(); flushList();
+    return out.join('');
+  }
+
+  // ---------- editing ----------
+  async function newNote(suggested) {
+    if (editing && !(await leaveEditor())) return;
+    const name = await ui.inputDialog({ title: 'New note', body: 'The name is the file name in the brain/ folder. Put a folder in front to file it, like characters/Nathee.', label: 'Note name', placeholder: 'e.g. characters/Nathee', value: typeof suggested === 'string' ? suggested : '', confirm: 'Create' });
+    if (!name?.trim()) return;
+    if (resolve(name)) { toast(`“${name}” already exists`, { kind: 'info' }); if (mode !== 'notes') { mode = 'notes'; selected = noteName(resolve(name).path); return render(); } return go(noteName(resolve(name).path)); }
+    const title = name.trim().split('/').pop();
+    editing = { name: name.trim(), text: `# ${title}\n\n`, original: null };
+    if (mode !== 'notes' || !$('note')) { mode = 'notes'; if (graph) { graph._destructor?.(); graph = null; } if (!notes.length) selected = null; else selected ??= noteName(notes[0].path); layoutNotes(); }
+    setUrl();
+    drawEditor();
+  }
+  const initialText = () => editing.original ?? `# ${editing.name.split('/').pop()}\n\n`;
+  const TOOLS = [['b', 'B', 'Bold (Ctrl B)'], ['i', 'I', 'Italic (Ctrl I)'], ['h2', 'H2', 'Heading'], ['ul', '•', 'Bulleted list'], ['ol', '1.', 'Numbered list'],
+    ['task', '☐', 'Checklist'], ['table', '⊞', 'Table'], ['link', '[[ ]]', 'Link to a note (type [[)'], ['code', '</>', 'Code']];
+  function drawEditor() {
+    const box = $('note');
+    if (!box) return;
+    box.classList.add('editing');
+    box.innerHTML = `<div class="ed w-fade-in">
+        <div class="ed-top"><span class="crumb" title="brain/${esc(editing.name)}.md">${crumb(`${editing.name}.md`)}</span><span class="w-pill dot" id="dirty"></span><span class="sp"></span>
+          <button class="btn btn-ghost" id="cancel">Cancel</button><button class="btn btn-primary" id="save">Save</button></div>
+        <div class="ed-tools" role="toolbar" aria-label="Format">${TOOLS.map(([k, l, t]) => `<button type="button" data-tool="${k}" title="${esc(t)}" aria-label="${esc(t)}"${k === 'link' ? ' aria-pressed="false"' : ''}>${esc(l)}</button>`).join('')}</div>
+        <div class="ed-box" id="edbox"><div class="ed-inner" id="edin"><div class="ed-hl" id="hl" aria-hidden="true"></div><textarea class="ed-ta" id="ta" spellcheck="false" aria-label="Note text (Markdown)"></textarea><div class="ac" id="sg" hidden role="listbox" aria-label="Link to"></div></div></div>
+      </div>`;
+    drawEditRail();
+    const ta = $('ta');
+    ta.value = editing.text;
+    paintEditor();
+    ta.focus({ preventScroll: true });
+    const at = editing.original === null ? ta.value.length : 0;
+    ta.setSelectionRange(at, at);
+    paintCurrentLine();
+    ta.oninput = () => { editing.text = ta.value; paintEditor(); suggest(); };
+    ta.onkeydown = (e) => {
+      if (handleSuggestKey(e)) return;
+      const mod = e.ctrlKey || e.metaKey, k = e.key.toLowerCase();
+      if (mod && k === 's') { e.preventDefault(); save(); }
+      else if (mod && k === 'b') { e.preventDefault(); tool('b'); }
+      else if (mod && k === 'i') { e.preventDefault(); tool('i'); }
+      else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+    };
+    ta.onclick = suggest;
+    ta.onblur = () => setTimeout(() => { if (document.activeElement !== ta) hideSuggest(); }, 120);
+    box.querySelector('.ed-tools').onmousedown = (e) => e.preventDefault(); // keep the textarea's selection
+    box.querySelector('.ed-tools').onclick = (e) => { const b = e.target.closest('[data-tool]'); if (b) tool(b.dataset.tool); };
+    $('save').onclick = save;
+    $('cancel').onclick = cancelEdit;
+  }
+  function drawEditRail() {
+    const box = $('links');
+    if (!box) return;
+    box.onclick = null;
+    box.innerHTML = `<div class="w-group w-fade-in"><p class="w-label">Links</p>
+        <dl class="syn"><div><dt>[[Note]]</dt><dd>another note</dd></div><div><dt>[[code:path#Name]]</dt><dd>a file or symbol: the AI lands on it from code search</dd></div>
+          <div><dt>[[figma:41:2207]]</dt><dd>a Figma frame</dd></div><div><dt>[[project:Note]]</dt><dd>a note in another project</dd></div><div><dt>#tag</dt><dd>a tag, or tags: [a, b] at the top</dd></div></dl></div>
+      <hr class="rr-rule">
+      <div class="w-group w-fade-in"><p class="w-label">Saving</p><p class="rr-text">Save writes the .md file in brain/. When the AI rewrites a note, the old text goes to the trash first, so nothing it changes is lost.</p></div>
+      <div class="w-group w-fade-in"><p class="w-label">Keys</p><div class="rr-keys"><span>Save <kbd class="w-kbd">Ctrl S</kbd></span><span>Cancel <kbd class="w-kbd">Esc</kbd></span><span>Bold · italic <kbd class="w-kbd">Ctrl B · I</kbd></span><span>Link <kbd class="w-kbd">[[</kbd></span></div></div>`;
+  }
+
+  // the highlighted copy under the textarea: line numbers, the caret's line, headings, links, code
+  function hlTokens(line) {
+    let out = '', last = 0;
+    for (const m of line.matchAll(/(\[\[[^\]\n]*\]\])|(`[^`]+`)|(\*\*[^*]+\*\*)|(^\s*(?:[-*+]|\d+\.)(?=\s)(?:\s\[[ xX]\])?)/g)) {
+      out += esc(line.slice(last, m.index));
+      out += `<span class="${m[1] ? 'lk' : m[2] ? 'cd' : m[3] ? 'bd' : 'mk'}">${esc(m[0])}</span>`;
+      last = m.index + m[0].length;
+    }
+    return out + esc(line.slice(last));
+  }
+  function paintEditor() {
+    const ta = $('ta'), hl = $('hl');
+    if (!ta || !hl) return;
+    const lines = ta.value.split('\n');
+    let fmEnd = -1, inCode = false;
+    if (/^---\s*$/.test(lines[0] ?? '')) for (let i = 1; i < lines.length; i++) if (/^---\s*$/.test(lines[i])) { fmEnd = i; break; }
+    hl.innerHTML = lines.map((line, i) => {
+      let html;
+      if (i <= fmEnd) html = `<span class="fm">${esc(line)}</span>`;
+      else if (/^\s*```/.test(line)) { inCode = !inCode; html = `<span class="cb">${esc(line)}</span>`; }
+      else if (inCode) html = `<span class="cb">${esc(line)}</span>`;
+      else if (/^#{1,6}\s/.test(line)) html = `<span class="hd">${hlTokens(line)}</span>`;
+      else html = hlTokens(line);
+      return `<div class="l" data-n="${i + 1}">${html || '<br>'}</div>`;
+    }).join('');
+    curLine = -1;
+    paintCurrentLine();
+    const dirty = editing.text !== initialText(), p = $('dirty');
+    p.className = `w-pill dot${dirty ? ' warn' : ''}`;
+    p.textContent = editing.original === null ? (dirty ? 'new note · unsaved' : 'new note') : dirty ? 'editing · unsaved' : 'editing';
+  }
+  let curLine = -1;
+  function paintCurrentLine() {
+    const ta = $('ta'), hl = $('hl');
+    if (!ta || !hl) return;
+    const n = ta.value.slice(0, ta.selectionStart).split('\n').length - 1;
+    if (n === curLine) return;
+    hl.children[curLine]?.classList.remove('cur');
+    hl.children[n]?.classList.add('cur');
+    curLine = n;
+  }
+  document.addEventListener('selectionchange', () => { if (document.activeElement?.id === 'ta') paintCurrentLine(); });
+  // where the caret is, inside .ed-inner (for the [[ list)
+  function caretPoint() {
+    const ta = $('ta'), hl = $('hl'), inner = $('edin');
+    const before = ta.value.slice(0, ta.selectionStart);
+    const li = before.split('\n').length - 1, col = before.length - before.lastIndexOf('\n') - 1;
+    const lineEl = hl.children[li], box = inner.getBoundingClientRect();
+    if (!lineEl) return { x: 56, y: 40 };
+    const walker = document.createTreeWalker(lineEl, NodeFilter.SHOW_TEXT);
+    let left = col, node, rect = null;
+    while ((node = walker.nextNode())) {
+      if (left <= node.length) { const r = document.createRange(); r.setStart(node, left); r.setEnd(node, left); rect = r.getBoundingClientRect(); break; }
+      left -= node.length;
+    }
+    if (!rect || (!rect.top && !rect.left)) { const l = lineEl.getBoundingClientRect(); return { x: l.left - box.left + 56, y: l.bottom - box.top }; }
+    return { x: rect.left - box.left, y: rect.bottom - box.top };
+  }
+
+  // the format toolbar
+  function insert(text, selFrom, selTo) {
+    const ta = $('ta'), start = ta.selectionStart;
+    let ok = false;
+    try { ok = document.execCommand('insertText', false, text); } catch { ok = false; } // keeps Ctrl+Z working
+    if (!ok) { ta.setRangeText(text, ta.selectionStart, ta.selectionEnd, 'end'); ta.dispatchEvent(new Event('input')); }
+    if (selFrom != null) ta.setSelectionRange(start + selFrom, start + selTo);
+  }
+  function tool(kind) {
+    const ta = $('ta');
+    ta.focus({ preventScroll: true });
+    const { selectionStart: a, selectionEnd: b, value: v } = ta;
+    const sel = v.slice(a, b);
+    const wrap = (l, r, ph) => { const s = sel || ph; insert(l + s + r, l.length, l.length + s.length); };
+    if (kind === 'b') return wrap('**', '**', 'bold');
+    if (kind === 'i') return wrap('*', '*', 'italic');
+    if (kind === 'code') return sel.includes('\n') ? wrap('```\n', '\n```', '') : wrap('`', '`', 'code');
+    if (kind === 'link') { if (sel) return wrap('[[', ']]', ''); insert('[['); return suggest(); }
+    if (kind === 'table') {
+      const lead = a > 0 && v[a - 1] !== '\n' ? '\n\n' : a > 1 && v[a - 2] !== '\n' ? '\n' : '';
+      return insert(`${lead}| Column | Column |\n|---|---|\n|  |  |\n`, lead.length + 2, lead.length + 8);
+    }
+    // prefixes, toggled on every selected line
+    const from = v.lastIndexOf('\n', a - 1) + 1;
+    let to = v.indexOf('\n', b > a && v[b - 1] === '\n' ? b - 1 : b);
+    if (to < 0) to = v.length;
+    const rows = v.slice(from, to).split('\n');
+    const has = { h2: /^##\s/, ul: /^\s*[-*+]\s+(?!\[[ xX]\])/, ol: /^\s*\d+\.\s+/, task: /^\s*[-*+]\s+\[[ xX]\]\s/ }[kind];
+    const on = rows.every((r) => !r.trim() || has.test(r));
+    const strip = (r) => r.replace(/^#{1,6}\s+/, '').replace(/^(\s*)(?:[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+\.\s+)/, '$1');
+    let k = 0;
+    const next = rows.map((r) => {
+      if (!r.trim() && rows.length > 1) return r;
+      const s = strip(r);
+      if (on) return s;
+      const lead = /^\s*/.exec(s)[0], rest = s.slice(lead.length);
+      k++;
+      return kind === 'h2' ? `## ${rest}` : `${lead}${kind === 'ul' ? '- ' : kind === 'ol' ? `${k}. ` : '- [ ] '}${rest}`;
+    }).join('\n');
+    ta.setSelectionRange(from, to);
+    insert(next);
+  }
+
+  // [[ autocomplete: the text after the last "[[" before the caret, while no "]]" closed it
+  let sgItems = [], sgActive = 0, sgStart = -1;
+  const codeTargets = () => G.nodes.filter((n) => n.kind === 'code' || n.kind === 'file').map((n) => ({ kind: n.kind, target: n.label }));
+  const linkName = (n) => (notes.filter((x) => x.label.toLowerCase() === n.label.toLowerCase()).length > 1 ? noteName(n.path) : n.label);
+  function hideSuggest() {
+    const sg = $('sg');
+    if (sg) sg.hidden = true;
+    sgStart = -1;
+    document.querySelector('[data-tool="link"]')?.setAttribute('aria-pressed', 'false');
+  }
+  function suggest() {
+    const ta = $('ta'), sg = $('sg');
+    if (!ta || !sg) return;
+    const before = ta.value.slice(0, ta.selectionStart);
+    const at = before.lastIndexOf('[[');
+    const typed = at >= 0 ? before.slice(at + 2) : null;
+    if (typed === null || /[\]\n|[]/.test(typed) || typed.length > 80) return hideSuggest();
+    sgStart = at + 2;
+    const t = typed.toLowerCase();
+    const pre = /^(code|file):(.*)$/i.exec(typed);
+    const rank = (s) => (s.startsWith(t) ? 0 : 1);
+    let items = [];
+    if (!pre && !typed.includes(':')) {
+      items = notes.filter((n) => !t || n.label.toLowerCase().includes(t) || noteName(n.path).toLowerCase().includes(t))
+        .sort((x, y) => rank(x.label.toLowerCase()) - rank(y.label.toLowerCase()) || byLabel(x, y))
+        .slice(0, t ? 5 : 6).map((n) => ({ kind: 'note', label: n.label, insert: linkName(n), sub: folderOf(n.path) || 'top level' }));
+    }
+    if (pre || (t && !typed.includes(':'))) {
+      const want = pre ? pre[2].toLowerCase() : t;
+      items = items.concat(codeTargets().filter((c) => (!pre || c.kind === pre[1].toLowerCase()) && (!want || c.target.toLowerCase().includes(want)))
+        .slice(0, pre ? 7 : 2).map((c) => ({ kind: 'code', label: `${c.kind}:${c.target}`, insert: `${c.kind}:${c.target}`, sub: c.kind })));
+    }
+    if (t && !typed.includes(':') && !notes.some((n) => n.label.toLowerCase() === t || noteName(n.path).toLowerCase() === t)) items.push({ kind: 'new', label: `New note “${typed.trim()}”`, insert: typed.trim(), sub: 'create' });
+    sgItems = items;
+    if (!sgItems.length) return hideSuggest();
+    sgActive = Math.min(sgActive, sgItems.length - 1);
+    sg.innerHTML = `<p class="ac-h">Link to</p>${sgItems.map((it, i) => `<button type="button" role="option" aria-selected="${i === sgActive}" data-i="${i}">${I(it.kind === 'note' ? 'notes' : it.kind === 'new' ? 'plus' : 'code')}<span class="ac-name">${esc(it.label)}</span><span class="ac-sub">${esc(it.sub)}</span></button>`).join('')}`;
+    sg.querySelectorAll('button').forEach((b) => (b.onmousedown = (e) => { e.preventDefault(); pick(Number(b.dataset.i)); }));
+    const p = caretPoint(), w = $('edin').clientWidth;
+    sg.style.left = `${Math.max(8, Math.min(p.x - 16, w - 280))}px`;
+    sg.style.top = `${p.y + 4}px`;
+    sg.hidden = false;
+    document.querySelector('[data-tool="link"]')?.setAttribute('aria-pressed', 'true');
+  }
+  function pick(i) {
+    const ta = $('ta'), it = sgItems[i];
+    if (!it || sgStart < 0) return;
+    const end = ta.selectionStart;
+    const close = /^[^\]\n[]*\]\]/.exec(ta.value.slice(end)); // typing inside an existing [[…]]: replace up to its ]]
+    ta.setSelectionRange(sgStart, end + (close ? close[0].length : 0));
+    hideSuggest();
+    insert(`${it.insert}]]`);
+    hideSuggest();
+    ta.focus();
+  }
+  function handleSuggestKey(e) {
+    const sg = $('sg');
+    if (!sg || sg.hidden) return false;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); sgActive = (sgActive + (e.key === 'ArrowDown' ? 1 : sgItems.length - 1)) % sgItems.length; suggest(); return true; }
+    if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pick(sgActive); return true; }
+    if (e.key === 'Escape') { e.preventDefault(); hideSuggest(); return true; }
+    return false;
+  }
+  async function save() {
+    const btn = $('save');
+    setLoading(btn, true, 'Saving…');
+    try {
+      const isNew = editing.original === null;
+      const r = await api('/api/brain/note', { dir, name: editing.name, content: editing.text, mode: isNew ? 'create' : 'replace' });
+      const name = noteName(r.saved.replace(/^brain\//, ''));
+      editing = null;
+      selected = name;
+      toast(r.linksToMissingNotes?.length ? `Saved · links to notes that don't exist yet: ${r.linksToMissingNotes.join(', ')}` : 'Saved', { kind: r.linksToMissingNotes?.length ? 'info' : 'success' });
+      await refresh();
+    } catch (err) {
+      setLoading(btn, false);
+      toast(`Couldn't save — ${err.message}`, { kind: 'error' });
+    }
+  }
+  async function leaveEditor() {
+    if (!editing) return true;
+    if (editing.text !== initialText() && !(await ui.confirmDialog({ title: 'Discard your changes?', body: "The text you haven't saved will be lost.", confirm: 'Discard', danger: true }))) return false;
+    editing = null;
+    return true;
+  }
+  async function cancelEdit() {
+    if (!(await leaveEditor())) return;
+    if (!notes.length) return render();
+    selected ??= noteName(notes[0].path);
+    setUrl();
+    drawTree();
+    openNote(selected);
+  }
+  window.addEventListener('beforeunload', (e) => { if (editing && editing.text !== initialText()) e.preventDefault(); });
+
+  // ---------- trash ----------
+  async function trash(name, label) {
+    try {
+      const r = await api('/api/brain/trash', { dir, name });
+      selected = null;
+      const n = r.brokenLinksFrom?.length ?? 0;
+      toast(`Moved “${label}” to the trash${n ? ` · ${plural(n, 'note')} that link here now have a broken link` : ''}`, {
+        kind: 'info', duration: 7000, action: 'Undo',
+        onAction: async () => { try { await api('/api/brain/restore', { dir, path: r.restore }); selected = name; await refresh(); } catch (err) { toast(`Couldn't restore — ${err.message}`, { kind: 'error' }); } },
+      });
+      await refresh();
+    } catch (err) { toast(`Couldn't move it — ${err.message}`, { kind: 'error' }); }
+  }
+  const when = (iso) => {
+    const d = new Date(iso), now = new Date();
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+    const days = Math.round((day(now) - day(d)) / 864e5);
+    const hm = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    return days === 0 ? `today ${hm}` : days === 1 ? `yesterday ${hm}` : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  function renderTrash() {
+    // a copy of a note that still exists is old text the AI rewrote; anything else was deleted
+    const items = G.trash.map((t) => {
+      const orig = t.path.replace(/ \(\d+\)\.md$/i, '.md');
+      const live = notes.find((n) => n.path === orig);
+      return { ...t, orig, live, name: noteName(orig).split('/').pop(), folder: folderOf(orig) };
+    });
+    view.innerHTML = `<section class="tv w-fade-in">
+        <header class="w-head"><div class="w-titles"><p class="w-label">Brain · ${esc(project())}</p><h1>Trash</h1>
+          <p class="w-sub">Deleted notes, and the old text of notes that were rewritten. Nothing here is gone until you empty it.</p></div>
+          ${items.length ? `<div class="w-actions"><button class="btn btn-danger" id="empty">Empty trash</button></div>` : ''}</header>
+        <div class="w-body">
+          <div class="tb-info">${I('trash')}<span>Only you can empty the trash. The AI can move notes here, but never delete them for good.</span></div>
+          <div class="w-card tb-card">${items.length ? `<div class="tb-list">
+            <div class="tb-grid tb-head"><span>Note</span><span>Why it's here</span><span>When</span><span></span></div>
+            ${items.map((t, i) => `<div class="tb-grid tb-row">
+              <div class="tb-note"><span class="w-tile">${I('notes')}</span><span class="tb-t"><b title="brain/.trash/${esc(t.path)}">${esc(t.name)}</b><small>${esc([t.folder || 'top level', t.live ? 'old text' : ''].filter(Boolean).join(' · '))}</small></span></div>
+              <div class="tb-why">${t.live ? '<span class="w-pill sans accent">Rewritten · old text</span>' : '<span class="w-pill sans">Deleted</span>'}</div>
+              <div class="tb-when" title="${esc(new Date(t.deletedAt).toLocaleString('en-GB'))}">${esc(when(t.deletedAt))}</div>
+              <div class="tb-acts">${t.live ? `<button class="btn btn-ghost" data-open="${i}" title="Open the current version of this note">Open current</button>` : ''}
+                <button class="btn btn-secondary" data-restore="${i}">Restore</button>
+                <button class="btn btn-ghost tb-del" data-del="${i}" aria-label="Delete “${esc(t.name)}” for good" title="Delete for good">${I('trash')}</button></div>
+            </div>`).join('')}</div>
+            <div class="tb-foot">${plural(items.length, 'item')} · kept in brain/.trash</div>`
+      : `<div class="w-empty">${ui.emptyIcon('inbox', '', 'cheer')}<h2>The trash is empty</h2><p>Deleted notes and the old text of rewritten notes land here. You can restore them until you empty the trash.</p></div>`}</div>
+        </div></section>`;
+    view.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => { const t = items[Number(b.dataset.open)]; mode = 'notes'; selected = noteName(t.live.path); render(); }));
+    view.querySelectorAll('[data-restore]').forEach((b) => (b.onclick = async () => {
+      const t = items[Number(b.dataset.restore)];
+      try { const r = await api('/api/brain/restore', { dir, path: t.path }); toast(`Restored · ${r.restored}`); await refresh(); } catch (err) { toast(`Couldn't restore — ${err.message}`, { kind: 'error' }); }
+    }));
+    view.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => {
+      const t = items[Number(b.dataset.del)];
+      if (!(await ui.confirmDialog({ title: `Delete “${t.name}” for good?`, body: "The file is removed from brain/.trash and can't be restored. (If the project uses git, its history still has it.)", confirm: 'Delete for good', danger: true }))) return;
+      try { await api('/api/brain/empty-trash', { dir, path: t.path }); await refresh(); } catch (err) { toast(`Couldn't delete it — ${err.message}`, { kind: 'error' }); }
+    }));
+    if ($('empty')) $('empty').onclick = async () => {
+      if (!(await ui.confirmDialog({ title: 'Empty the trash?', body: `${plural(items.length, 'note')} will be deleted for good. This can't be undone.`, confirm: 'Empty trash', danger: true }))) return;
+      try { const r = await api('/api/brain/empty-trash', { dir }); toast(`Emptied the trash · ${plural(r.removed, 'note')}`); await refresh(); } catch (err) { toast(`Couldn't empty the trash — ${err.message}`, { kind: 'error' }); }
+    };
+  }
+
+  // ---------- graph ----------
+  // graph category colours (the only hard-coded colours on the page)
+  const PALETTE = ['#2F6BFF', '#1F9D55', '#C27C0E', '#0E9AA7', '#8B5CF6', '#DB2777', '#EA580C', '#4F46E5'];
+  const OTHER_C = '#9A958B', EXT_C = '#B9B4AA', MISSING_C = '#D23B2F';
+  const gFolders = new Set();
+  // folders with 2+ notes get their own colour; single-note folders share "other"; top-level notes are ink
+  function folderGroups() {
+    const count = new Map();
+    for (const n of notes) { const f = topFolder(n.path); if (f) count.set(f, (count.get(f) ?? 0) + 1); }
+    const own = [...count].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1]).slice(0, PALETTE.length);
+    const colors = new Map(own.map(([f], i) => [f, PALETTE[i]]));
+    const other = [...count].filter(([f]) => !colors.has(f)).reduce((s, [, c]) => s + c, 0);
+    return { own, colors, other, top: notes.filter((n) => !topFolder(n.path)).length };
+  }
+  const loadScript = (src) => new Promise((ok, fail) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = fail; document.head.append(s); });
+  async function loadGraph3D() {
+    if (!window.ForceGraph3D) await loadScript('/vendor/3d-force-graph.min.js');
+    if (!window.Graph3D) await loadScript('/graph3d.js');
+  }
+  async function renderGraph() {
+    const FG = folderGroups();
+    const groupOf = (n) => (n.kind !== 'note' ? (n.kind === 'missing' || n.missing ? 'missing' : 'ext') : !topFolder(n.path) ? '·top' : FG.colors.has(topFolder(n.path)) ? topFolder(n.path) : '·other');
+    const baseColor = (g) => (g === 'missing' ? MISSING_C : g === 'ext' ? EXT_C : g === '·top' ? css('--ink') : g === '·other' ? OTHER_C : FG.colors.get(g));
+    const missingCount = G.nodes.filter((n) => n.kind === 'missing').length, extCount = G.nodes.filter((n) => n.kind !== 'note' && n.kind !== 'missing').length;
+    const pills = [...FG.own.map(([f, c]) => ({ key: f, label: f, c, color: FG.colors.get(f) })), ...(FG.other ? [{ key: '·other', label: 'other folders', c: FG.other, color: OTHER_C }] : [])];
+    const dot = (c) => `<i style="background:${c}"></i>`;
+    view.innerHTML = `<section class="gv w-fade-in">
+        <header class="w-toolbar"><div class="w-titles"><p class="w-label">Brain · ${esc(project())}</p><h1>Graph</h1></div>
+          <div class="w-controls"><div class="gsearch"><label class="w-search">${I('search')}<input id="gq" type="search" placeholder="Find a note…" aria-label="Find a note in the graph" autocomplete="off" spellcheck="false"><span class="w-kbd">Ctrl K</span></label><div class="gres" id="gres" hidden role="listbox" aria-label="Matching notes"></div></div>
+            ${pills.length ? `<div class="gpills${gFolders.size ? ' some' : ''}" role="group" aria-label="Show folders">${pills.map((p) => `<button class="gpill" data-f="${esc(p.key)}" aria-pressed="${gFolders.has(p.key)}" title="Show only ${esc(p.label)} (click again to show all)">${dot(p.color)}${esc(p.label)}</button>`).join('')}</div>` : ''}</div>
+          <button class="btn btn-secondary gv-fit" id="fit" title="Fit the whole graph">${I('graph')}Fit</button></header>
+        <div class="w-canvas gwrap" id="gwrap"><div class="cv" id="cv" aria-label="Note graph in 3D"></div>
+          <div class="w-float g-card" id="gcard" hidden></div>
+          <div class="w-float g-legend"><p class="w-label">Folders</p>
+            ${pills.map((p) => `<button class="lg-row" data-f="${esc(p.key)}">${dot(p.color)}<span>${esc(p.label)}</span><b>${p.c}</b></button>`).join('')}
+            ${FG.top || extCount || missingCount ? `<hr class="lg-sep">` : ''}
+            ${FG.top ? `<div class="lg-row">${dot('var(--ink)')}<span>top level</span><b>${FG.top}</b></div>` : ''}
+            ${extCount ? `<div class="lg-row">${dot(EXT_C)}<span>code · files · Figma</span><b>${extCount}</b></div>` : ''}
+            ${missingCount ? `<div class="lg-row">${dot(MISSING_C)}<span>broken links</span><b>${missingCount}</b></div>` : ''}</div>
+          <div class="w-float g-zoom" role="group" aria-label="Zoom"><button id="zin" title="Zoom in" aria-label="Zoom in">+</button><button id="zout" title="Zoom out" aria-label="Zoom out">−</button><button id="orbit" title="Slowly orbit" aria-label="Slowly orbit" aria-pressed="false">${I('restart')}</button></div>
+          <p class="g-hint">drag to orbit · scroll to zoom · ${plural(notes.length, 'note')} · ${plural(G.edges.length, 'link')}</p></div>
+      </section>`;
+    view.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => { const k = b.dataset.f; gFolders.has(k) ? gFolders.delete(k) : gFolders.add(k); renderGraph(); }));
+    try { await loadGraph3D(); } catch { $('cv').innerHTML = '<p class="g-none">Couldn\'t load the graph drawer.</p>'; return; }
+    if (mode !== 'graph' || !$('cv')) return;
+    if (graph) { graph._destructor?.(); graph = null; }
+
+    const keepNote = (n) => !gFolders.size || gFolders.has(groupOf(n));
+    const kept = new Set(G.nodes.filter((n) => n.kind === 'note' && keepNote(n)).map((n) => n.id));
+    for (const e of G.edges) if (kept.has(e.from) && !G.nodes.find((n) => n.id === e.to && n.kind === 'note')) kept.add(e.to); // what the kept notes point at
+    const nodes = G.nodes.filter((n) => kept.has(n.id)).map((n) => ({ ...n, g: groupOf(n), deg: 0 }));
+    const links = G.edges.filter((e) => kept.has(e.from) && kept.has(e.to)).map((e) => ({ source: e.from, target: e.to, rel: e.rel }));
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    for (const l of links) { byId.get(l.source).deg++; byId.get(l.target).deg++; }
+    for (const n of nodes) n.val = n.kind === 'note' ? 2 + Math.sqrt(n.deg) * 2 : 1.5;
+    if (!nodes.length) { $('gwrap').insertAdjacentHTML('beforeend', '<p class="g-none">No notes in these folders.</p>'); return; }
+
+    let sel = null, near = new Set(), hits = null, touched = false, settled = false;
+    const end = (x) => x.id ?? x;
+    const color = (n) => {
+      if (sel ? n.id !== sel.id && !near.has(n.id) : hits && !hits.has(n.id)) return graph.palette().nodeFaint;
+      return baseColor(n.g);
+    };
+    const linkColor = (l) => (!sel ? graph.palette().link : end(l.source) === sel.id || end(l.target) === sel.id ? 'rgba(47,107,255,.8)' : graph.palette().linkDim);
+    const important = (n) => (sel ? (n.id === sel.id ? 1e6 : near.has(n.id) ? 1e3 + n.deg : 0) : hits ? (hits.has(n.id) ? 1e3 + n.deg : 0) : nodes.length <= 40 ? 10 + n.deg : n.kind === 'note' ? n.deg : 0);
+    const label = (n) => (n.kind === 'note' || n.kind === 'missing' ? n.label : shortPath(n.label));
+    const ioOf = (id) => ({ in: new Set(G.edges.filter((e) => e.to === id).map((e) => e.from)).size, out: new Set(G.edges.filter((e) => e.from === id).map((e) => e.to)).size });
+    const fly = (n) => {
+      const d = 320, r = 1 + d / Math.hypot(n.x || 1, n.y || 1, n.z || 1);
+      graph.cameraPosition({ x: n.x * r, y: n.y * r, z: n.z * r }, n, 700);
+      touched = true;
+    };
+    function drawCard(n) {
+      const card = $('gcard');
+      card.hidden = !n;
+      if (!n) return;
+      const io = ioOf(n.id);
+      const pill = (text, c) => `<span class="gc-folder">${dot(c)}${esc(text)}</span>`;
+      if (n.kind === 'note') {
+        card.innerHTML = `<div class="gc-meta">${pill(topFolder(n.path) || 'top level', baseColor(n.g))}<span class="gc-io">${io.in} in · ${io.out} out</span></div>
+          <h3>${esc(n.label)}</h3>${n.line ? `<p>${esc(n.line)}</p>` : ''}
+          <div class="gc-acts"><button class="btn btn-primary" id="gopen">Open note</button><button class="btn btn-ghost" id="gedit">Edit</button></div>`;
+        $('gopen').onclick = () => { mode = 'notes'; selected = noteName(n.path); render(); };
+        $('gedit').onclick = () => { mode = 'notes'; selected = noteName(n.path); editAfterOpen = true; render(); };
+      } else if (n.kind === 'missing') {
+        card.innerHTML = `<div class="gc-meta">${pill('broken link', MISSING_C)}<span class="gc-io">${io.in} in</span></div><h3>${esc(n.label)}</h3>
+          <p>${plural(io.in, 'note')} link${io.in === 1 ? 's' : ''} here, but there's no note with this name yet.</p>
+          <div class="gc-acts"><button class="btn btn-primary" id="gnew">Create note</button></div>`;
+        $('gnew').onclick = () => newNote(n.label);
+      } else {
+        const isCode = n.kind === 'code' && !n.missing;
+        card.innerHTML = `<div class="gc-meta">${pill(KIND[n.kind] ?? n.kind, EXT_C)}<span class="gc-io">${io.in} in</span></div><h3>${esc(label(n))}</h3>
+          <p class="mono">${esc(n.label)}${n.missing ? ' · not in the project anymore' : ''}</p>
+          <div class="gc-acts">${isCode ? `<a class="btn btn-primary" href="${esc(codeHref(n.label))}" data-code="${esc(n.label)}">Open in code graph</a>` : `<button class="btn btn-secondary" id="gcopy">Copy</button>`}</div>`;
+        if ($('gcopy')) $('gcopy').onclick = () => copied(n.label);
+      }
+      card.classList.remove('w-fade-in');
+      void card.offsetWidth;
+      card.classList.add('w-fade-in');
+    }
+    const select = (n) => {
+      sel = n;
+      near = new Set();
+      if (n) for (const l of links) { if (end(l.source) === n.id) near.add(end(l.target)); if (end(l.target) === n.id) near.add(end(l.source)); }
+      graph.nodeColor(color).linkColor(linkColor).nodeVal((x) => x.val * (sel && x.id === sel.id ? 2.6 : 1))
+        .setActive(n ? links.filter((l) => end(l.source) === n.id || end(l.target) === n.id) : []).refreshLabels();
+      drawCard(n);
+    };
+
+    const cv = $('cv');
+    graph = Graph3D.create(cv, { important, label, labels: 30 })
+      .nodeId('id').nodeVal('val').nodeOpacity(0.95).linkOpacity(0.7)
+      .enableNodeDrag(false) // the library's drag-end throws inside its orbit controls on a plain node click
+      .nodeLabel((n) => `<b>${esc(label(n))}</b>`)
+      .onNodeClick((n) => { select(n); fly(n); })
+      .onBackgroundClick(() => select(null));
+    graph.d3Force('charge').strength(-80).distanceMax(260);
+    // the 3D view follows the window's light/dark theme; its fog fades into the page colour
+    let fog = null;
+    const syncTheme = () => {
+      if (!graph) return;
+      graph.setTheme(pageTheme());
+      import('/vendor/three.module.js').then(() => setTimeout(() => {
+        if (!graph) return;
+        fog = graph.scene().fog ?? fog;
+        fog?.color.set(css('--surface'));
+        graph.nodeColor(color);
+      }, 0)).catch(() => {});
+    };
+    syncTheme();
+    // the camera follows the layout while it spreads out, then fits once it settles; never after you move it yourself
+    graph.onEngineStop(() => { if (!settled) { settled = true; if (!touched) graph.zoomToFit(700, 60); } });
+    graph.width(cv.clientWidth).height(cv.clientHeight).nodeColor(color).linkColor(linkColor).graphData({ nodes, links });
+    graph.show().refreshLabels();
+    graph.zoomToFit(0, 60);
+    const t0 = Date.now(), follow = setInterval(() => { if (!graph || settled || touched || Date.now() - t0 > 6000) return clearInterval(follow); graph.zoomToFit(280, 60); }, 300);
+    // fit again when the space changes size (sidebar, window), until you move the camera yourself
+    for (const type of ['pointerdown', 'wheel']) cv.addEventListener(type, () => { touched = true; }, { passive: true });
+    const ro = new ResizeObserver(() => {
+      if (!graph || !cv.isConnected) return;
+      graph.width(cv.clientWidth).height(cv.clientHeight);
+      if (!touched) graph.zoomToFit(300, 60);
+    });
+    ro.observe(cv);
+    const themeWatch = new MutationObserver(syncTheme);
+    themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    graph._destructor = () => { clearInterval(follow); ro.disconnect(); themeWatch.disconnect(); graph.setRotating(false); graph.hide(); graph.pauseAnimation(); };
+
+    $('fit').onclick = () => { touched = false; graph.zoomToFit(500, 60); };
+    const zoom = (f) => {
+      const c = graph.camera().position, t = graph.controls().target;
+      graph.cameraPosition({ x: t.x + (c.x - t.x) * f, y: t.y + (c.y - t.y) * f, z: t.z + (c.z - t.z) * f }, { x: t.x, y: t.y, z: t.z }, 250);
+      touched = true;
+    };
+    $('zin').onclick = () => zoom(0.75);
+    $('zout').onclick = () => zoom(1.33);
+    $('orbit').onclick = () => { graph.setRotating(!graph.rotating()); $('orbit').setAttribute('aria-pressed', String(graph.rotating())); };
+
+    // search: matching notes stay lit; the list under the box flies to one
+    const gq = $('gq'), gres = $('gres');
+    let found = [], active = 0;
+    const drawResults = () => {
+      gres.hidden = !gq.value.trim();
+      if (gres.hidden) return;
+      gres.innerHTML = found.length ? found.slice(0, 8).map((n, i) => `<button type="button" role="option" aria-selected="${i === active}" data-i="${i}">${I(n.kind === 'note' ? 'notes' : n.kind === 'missing' ? 'brokenlink' : 'code')}<span class="ac-name">${esc(label(n))}</span><span class="ac-sub">${esc(n.kind === 'note' ? topFolder(n.path) || 'top level' : n.kind)}</span></button>`).join('')
+        : '<p class="ac-h">No matching notes</p>';
+      gres.querySelectorAll('button').forEach((b) => (b.onmousedown = (e) => { e.preventDefault(); choose(found[Number(b.dataset.i)]); }));
+    };
+    const choose = (n) => { if (!n) return; gres.hidden = true; hits = null; select(n); fly(n); };
+    gq.oninput = () => {
+      const t = gq.value.trim().toLowerCase();
+      found = t ? nodes.filter((n) => `${n.label} ${n.path ?? ''}`.toLowerCase().includes(t)).sort((a, b) => (a.kind === 'note' ? 0 : 1) - (b.kind === 'note' ? 0 : 1) || b.deg - a.deg) : [];
+      hits = t ? new Set(found.map((n) => n.id)) : null;
+      active = 0;
+      if (!sel) graph.nodeColor(color).refreshLabels();
+      drawResults();
+    };
+    gq.onkeydown = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = Math.min(found.length, 8) || 1; active = (active + (e.key === 'ArrowDown' ? 1 : n - 1)) % n; drawResults(); }
+      else if (e.key === 'Enter') { e.preventDefault(); choose(found[active]); }
+      else if (e.key === 'Escape') { e.preventDefault(); gq.value = ''; gq.oninput(); }
+    };
+    gq.onblur = () => setTimeout(() => { gres.hidden = true; }, 120);
+    gq.onfocus = () => { if (gq.value.trim()) drawResults(); };
+    graph._deselect = () => select(null);
+  }
+
+  // Ctrl K: the search of the view you're in · Esc in the graph: let go of the selection
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      const input = $('q') ?? $('gq');
+      if (input) { e.preventDefault(); input.focus(); input.select(); }
+    } else if (e.key === 'Escape' && graph && document.activeElement?.id !== 'gq' && !document.querySelector('dialog[open]')) graph._deselect?.();
+  });
+
+  load();
+</script>
+</body>
+</html>

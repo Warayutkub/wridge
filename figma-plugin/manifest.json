@@ -1,0 +1,23 @@
+{
+  "name": "wridge",
+  "id": "1686875227441410660",
+  "api": "1.0.0",
+  "main": "code.js",
+  "capabilities": [],
+  "enableProposedApi": false,
+  "enablePrivatePluginApi": true,
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma",
+    "figjam"
+  ],
+  "ui": "ui.html",
+  "networkAccess": {
+    "allowedDomains": [
+      "none"
+    ],
+    "devAllowedDomains": [
+      "ws://localhost:3155"
+    ]
+  }
+}

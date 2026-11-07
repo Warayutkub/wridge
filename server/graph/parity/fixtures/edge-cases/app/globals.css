@@ -1,0 +1,5 @@
+﻿:root {
+  --color-primary: #2563EB;
+  --font-display: "Noto Sans Thai", "ไทย 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉";
+}
+.btn { @apply bg-primary/50 hover:text-white px-2; color: var(--color-primary); }

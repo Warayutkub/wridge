@@ -1,0 +1,8 @@
+{
+  "name": "@edge/ui",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  }
+}

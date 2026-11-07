@@ -1,0 +1,14 @@
+<svg width="280" height="190" viewBox="0 0 280 190" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle id="Disc" cx="140" cy="95" r="56" fill="url(#paint0_radial_79_6575)"/>
+<path id="Spark1" d="M86 48L89.0557 54.9443L96 58L89.0557 61.0557L86 68L82.9443 61.0557L76 58L82.9443 54.9443L86 48Z" fill="#FBBF24"/>
+<polygon id="Spark2" points="194,48 197.06,54.94 204,58 197.06,61.06 194,68 190.94,61.06 184,58 190.94,54.94" fill="#FBBF24"/>
+<path id="Spark3" d="m90 130 3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#F472B6"/>
+<path id="Spark4" d="M190 130l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#F472B6" transform="rotate(15 190 140)"/>
+<path id="CheckInk" d="M114 97.5L131.5 115L166 76" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<defs>
+<radialGradient id="paint0_radial_79_6575" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(122 72) rotate(52.5) scale(92)">
+<stop stop-color="#4ADE80"/>
+<stop offset="1" stop-color="#15803D"/>
+</radialGradient>
+</defs>
+</svg>

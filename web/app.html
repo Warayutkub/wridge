@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wridge</title>
+<script>
+  // theme and sidebar before the first paint (no flash)
+  try {
+    const t = localStorage.getItem('wridge-theme') || 'system';
+    const dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    if (localStorage.getItem('wridge-sidebar') === 'collapsed') document.documentElement.dataset.sidebar = 'collapsed';
+  } catch { /* storage blocked */ }
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="ui.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body data-no-shell>
+<div class="app">
+  <aside class="sb" aria-label="Menu">
+    <div class="sb-brand">
+      <span class="sb-logo" data-i="logo-wridge"></span>
+      <b class="sb-name">wridge <span class="sb-ver" id="sb-ver"></span></b>
+      <button class="sb-toggle" id="sb-toggle" type="button" aria-label="Collapse the sidebar" aria-keyshortcuts="Control+\">
+        <svg class="when-open" viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2.75" y="3.75" width="12.5" height="10.5" rx="2.25" stroke="currentColor" stroke-width="1.4"/><path d="M7 3.75v10.5" stroke="currentColor" stroke-width="1.4"/><path d="M12.4 7.2L10.6 9l1.8 1.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg class="when-closed" viewBox="0 0 18 18" fill="none" aria-hidden="true"><rect x="2.75" y="3.75" width="12.5" height="10.5" rx="2.25" stroke="currentColor" stroke-width="1.4"/><path d="M7 3.75v10.5" stroke="currentColor" stroke-width="1.4"/><path d="M10.6 7.2L12.4 9l-1.8 1.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+
+    <div class="sb-project">
+      <button class="proj" id="proj-btn" type="button" aria-haspopup="listbox" aria-expanded="false" data-tip="Project">
+        <span class="proj-av" id="proj-av">·</span>
+        <span class="proj-txt"><b id="proj-name">No project</b><small id="proj-sub">Add a folder</small></span>
+        <span class="i chev" data-i="chevrondown"></span>
+      </button>
+      <button class="proj fig" id="fig-btn" type="button" aria-haspopup="listbox" aria-expanded="false" data-tip="Figma file">
+        <span class="proj-av fig-av" id="fig-av" data-i="logo-figma"></span>
+        <span class="proj-txt"><b id="fig-name">No Figma file</b><small id="fig-sub">Run the wridge plugin in Figma</small></span>
+        <span class="i chev" data-i="chevrondown"></span>
+      </button>
+    </div>
+
+    <nav class="sb-nav">
+      <a class="sb-item" href="#/overview" data-route="overview" data-tip="Overview"><span class="i" data-i="overview"></span><span class="lbl">Overview</span></a>
+      <div class="sb-group">
+        <div class="sb-label"><span>◇ BRAIN</span></div>
+        <a class="sb-item" href="#/notes" data-route="notes" data-tip="Notes"><span class="i" data-i="notes"></span><span class="lbl">Notes</span><span class="cnt" id="cnt-notes"></span></a>
+        <a class="sb-item" href="#/graph" data-route="graph" data-tip="Graph"><span class="i" data-i="graph"></span><span class="lbl">Graph</span></a>
+        <a class="sb-item" href="#/trash" data-route="trash" data-tip="Trash"><span class="i" data-i="trash"></span><span class="lbl">Trash</span><span class="cnt" id="cnt-trash"></span></a>
+      </div>
+      <div class="sb-group">
+        <div class="sb-label"><span>◇ DESIGN</span></div>
+        <a class="sb-item" href="#/design-map" data-route="design-map" data-tip="Design map"><span class="i" data-i="designmap"></span><span class="lbl">Design map</span></a>
+        <a class="sb-item" href="#/motion" data-route="motion" data-tip="Motion"><span class="i" data-i="motion"></span><span class="lbl">Motion</span></a>
+        <a class="sb-item" href="#/pdf" data-route="pdf" data-tip="PDF"><span class="i" data-i="pdf"></span><span class="lbl">PDF</span></a>
+      </div>
+      <div class="sb-group" id="grp-code">
+        <div class="sb-label"><span>◇ CODE</span></div>
+        <a class="sb-item" href="#/code" data-route="code" data-tip="Code graph"><span class="i" data-i="code"></span><span class="lbl">Code graph</span></a>
+        <a class="sb-item" href="#/data" data-route="data" data-tip="Data"><span class="i" data-i="data"></span><span class="lbl">Data</span></a>
+        <a class="sb-item" href="#/flows" data-route="flows" data-tip="Flows"><span class="i" data-i="flows"></span><span class="lbl">Flows</span></a>
+      </div>
+    </nav>
+
+    <div class="sb-foot">
+      <a class="sb-item" href="#/skills" data-route="skills" data-tip="Skills"><span class="i" data-i="skills"></span><span class="lbl">Skills</span></a>
+      <a class="sb-item" href="#/settings" data-route="settings" data-tip="Settings"><span class="i" data-i="settings"></span><span class="lbl">Settings</span></a>
+      <a class="sb-status" id="sb-status" href="#/overview" data-kind="off" data-tip="Checking…"><span class="dot"></span><span class="lbl" id="sb-status-txt">Checking…</span></a>
+    </div>
+  </aside>
+  <div class="divider" aria-hidden="true"></div>
+
+  <main class="main" id="main">
+    <section class="view" id="v-overview" hidden aria-label="Overview"></section>
+    <section class="view" id="v-settings" hidden aria-label="Settings"></section>
+    <section class="view view-page" id="v-page" hidden>
+      <div class="page-load" id="page-load" aria-hidden="true"></div>
+      <iframe id="frame" title="wridge page"></iframe>
+      <div class="page-off" id="page-off" hidden></div>
+    </section>
+  </main>
+</div>
+<div class="proj-pop" id="proj-pop" role="listbox" aria-label="Projects" hidden></div>
+<div class="proj-pop fig-pop" id="fig-pop" role="listbox" aria-label="Figma files" hidden></div>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script src="ui.js"></script>
+<script src="app-icons.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

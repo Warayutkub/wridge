@@ -1,0 +1,70 @@
+[package]
+name = "wridge-server"
+version = "1.5.0"
+edition = "2021"
+description = "wridge server: Rust port of legacy-node/index.mjs (HTTP API, pages, plugin WebSocket, MCP), tools.mjs, guards.mjs, graph.mjs, skills.mjs and the wara.mjs CLI"
+publish = false
+
+[lib]
+name = "wridge_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "wridge-server"
+path = "src/main.rs"
+
+[[bin]]
+name = "wridge"
+path = "src/bin/wridge.rs"
+
+[dependencies]
+anyhow = "1"
+axum = { version = "0.8", features = ["ws"] }
+base64 = "0.22"
+chrono = "0.4"
+futures = "0.3"
+indexmap = "2"
+regress = { version = "0.12", features = ["utf16"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+ryu = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+wridge-figma = { path = "../figma" }
+# The code graph (legacy-node/codegraph/**). rusqlite must stay on the version wridge-graph pins (0.39,
+# SQLite 3.51.3 as in Node 24.15): one libsqlite3-sys in the build.
+wridge-graph = { path = "../graph" }
+rusqlite = { version = "0.39", features = ["bundled"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio-tungstenite = "0.29"
+
+# elkjs runs inside QuickJS (wridge-figma's figjam): unoptimised, one diagram layout takes seconds
+[profile.dev.package.rquickjs-sys]
+opt-level = 2
+
+# the code graph parses whole projects (tree-sitter, ECMAScript regexes, SQLite): optimised in debug builds
+# too, so the parity runs on the debug server finish in seconds
+[profile.dev.package.wridge-graph]
+opt-level = 2
+[profile.dev.package.tree-sitter]
+opt-level = 2
+[profile.dev.package.tree-sitter-typescript]
+opt-level = 2
+[profile.dev.package.regress]
+opt-level = 2
+[profile.dev.package.libsqlite3-sys]
+opt-level = 2
+
+[profile.release]
+debug = false

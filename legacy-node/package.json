@@ -1,0 +1,24 @@
+{
+  "name": "wara-bridge-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test \"test/**/*.test.mjs\""
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "3d-force-graph": "^1.80.1",
+    "elkjs": "^0.9.3",
+    "force-graph": "^1.52.0",
+    "gifenc": "^1.0.3",
+    "lottie-web": "^5.12.2",
+    "pdf-lib": "^1.17.1",
+    "tree-sitter-typescript": "^0.23.2",
+    "web-tree-sitter": "^0.27.0",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  }
+}

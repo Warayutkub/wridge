@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+
+  /* ---- toolbar (page kit .w-toolbar), same as the code graph ---- */
+  .w-toolbar { flex: none; gap: 20px; }
+  .w-toolbar .w-titles { min-width: 0; max-width: 240px; }
+  .w-toolbar .w-label { overflow: hidden; text-overflow: ellipsis; }
+  .w-controls { gap: 12px; }
+  .w-search { width: 260px; }
+  .w-search input::-webkit-search-cancel-button { cursor: pointer; }
+  .w-search .w-kbd { transition: opacity .15s; }
+  .w-search:focus-within .w-kbd { opacity: 0; }
+  .seg button { transition: background .15s, color .15s; }
+  .seg button:not([aria-pressed="true"]):hover { color: var(--text); }
+  .w-actions .btn { height: 36px; }
+  .btn .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .btn.icon-only { width: 36px; padding: 0; }
+  #count-pill { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* ---- canvas ---- */
+  .layout { flex: 1; min-height: 0; }
+  .canvas { touch-action: none; }
+  #graph { position: absolute; inset: 0; display: none; }
+  body.mode-3d #graph { display: block; }
+  body.mode-3d #er { display: none; }
+  body.mode-3d .only-2d, body:not(.mode-3d) .only-3d { display: none !important; }
+  body.no-data .ctrls, body.no-data .hint { display: none; }
+  body.mode-3d #graph { background: transparent; }
+  :root[data-theme="dark"] body.mode-3d #graph { background: transparent; }
+  .g3d-label { padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--border); background: color-mix(in srgb, var(--background) 90%, transparent); color: var(--text); font: 500 11px/1.5 var(--mono); box-shadow: var(--shadow-sm); }
+  :root[data-theme="dark"] body.graph3d-dark .g3d-label { background: color-mix(in srgb, var(--background) 90%, transparent); color: var(--text); }
+  .g3d-label.gs-current, :root[data-theme="dark"] body.graph3d-dark .g3d-label.gs-current { background: var(--primary); border-color: var(--primary); color: var(--background); }
+  .scene-tooltip { font: 600 12px/1.45 var(--mono) !important; color: var(--text) !important; background: var(--background) !important;
+    border: 1px solid var(--border) !important; border-radius: var(--r-md) !important; padding: 6px 9px !important; box-shadow: var(--shadow-md); }
+
+  /* ---- ER diagram: table cards and relation lines ---- */
+  #er { position: absolute; inset: 0; cursor: grab; }
+  #er.panning { cursor: grabbing; }
+  #er-layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #er-edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .er-edge { fill: none; stroke: var(--text-faint); stroke-width: 1.25; stroke-linejoin: round; transition: stroke .15s, opacity .15s; }
+  .er-edge.on { stroke: var(--primary); stroke-width: 1.6; }
+  .er-arrow { fill: var(--text-faint); transition: fill .15s, opacity .15s; }
+  .er-arrow.on { fill: var(--primary); }
+  .er-dot { fill: var(--text-faint); }
+  .er-dot.on { fill: var(--primary); }
+  .er-edge.dim, .er-arrow.dim, .er-dot.dim { opacity: .18; }
+  .erbox { position: absolute; width: 240px; background: var(--background); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden;
+    box-shadow: 0 1px 0 var(--border); cursor: pointer; user-select: none; transition: border-color .15s, box-shadow .2s var(--ease), opacity .15s;
+    animation: w-in .26s var(--ease) both; animation-delay: calc(var(--i, 0) * 18ms); }
+  .erbox:hover { border-color: var(--border-strong); }
+  .erbox.sel { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow-md); }
+  .erbox.ext { opacity: .6; border-style: dashed; }
+  .er-head { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; background: var(--surface-1); border-bottom: 1px solid var(--border); cursor: move; }
+  .er-head .w-icon { width: 15px; height: 15px; color: var(--text-2); }
+  .er-head b { flex: 1; min-width: 0; font: 600 13px/1.4 var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .erbox.sel .er-head { background: var(--primary-soft); border-bottom-color: color-mix(in srgb, var(--primary) 25%, var(--border)); }
+  .erbox.sel .er-head b, .erbox.sel .er-head .w-icon { color: var(--primary); }
+  .er-col { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 12px; transition: background .12s; }
+  .er-col:hover { background: var(--surface-1); }
+  .er-col.sel { background: var(--primary-soft); }
+  .key { width: 18px; flex: none; font: 600 9.5px var(--mono); letter-spacing: .02em; }
+  .key.pk { color: var(--warning); }
+  .key.fk { color: var(--primary); }
+  .er-col .cn { flex: 1; min-width: 0; font: 12px var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .er-col i { max-width: 96px; font: normal 11px var(--mono); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* search: hits lit, FK neighbours normal, the rest faded */
+  .erbox.gs-hit { border-color: var(--blue-300); box-shadow: 0 0 0 1px var(--blue-300); }
+  .erbox.gs-hit .er-head { background: var(--primary-soft); }
+  .erbox.gs-hit .er-head b { color: var(--primary); }
+  .erbox.gs-current { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow-md); }
+  .erbox.gs-dim { opacity: .28; }
+  .er-col.gs-hit { background: var(--primary-soft); }
+  .er-col.gs-hit .cn { color: var(--primary); font-weight: 600; }
+  .er-col.gs-current { box-shadow: inset 2px 0 0 var(--primary); background: color-mix(in srgb, var(--primary) 18%, var(--background)); }
+  @media (prefers-reduced-motion: reduce) { .erbox, #search-bar { animation: none; } #er-layer { transition: none !important; } }
+  .badge { flex: none; padding: 1px 6px; border-radius: 999px; font: 10px/1.5 var(--mono); white-space: nowrap; }
+  .badge.bad { background: var(--danger-soft); color: var(--danger-text); }
+  .badge.warn { background: var(--warning-soft); color: var(--warning-text); }
+  .badge.muted { background: var(--surface-2); color: var(--text-muted); }
+
+  /* search results bar (over the canvas) */
+  .gs-float { position: absolute; z-index: 6; top: 14px; left: 20px; right: 20px; display: flex; pointer-events: none; }
+  #search-bar { pointer-events: auto; display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 8px 6px 12px; background: var(--background);
+    border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-md); font-size: 12.5px; animation: w-in .2s var(--ease); }
+  #search-bar[hidden], #gs-dummy { display: none !important; }
+  #search-bar b { font-weight: 600; }
+  #search-bar.warn { background: var(--warning-soft); border-color: var(--warning-line); color: var(--warning-text); padding: 8px 12px; }
+  #search-bar.none { color: var(--text-muted); padding: 8px 12px; }
+
+  /* bottom: hint (left) and floating controls (right) */
+  .foot { position: absolute; z-index: 5; left: 20px; right: 20px; bottom: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; pointer-events: none; }
+  .foot > * { pointer-events: auto; }
+  .hint { flex: 1 1 auto; min-width: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font: 11px/1.5 var(--mono); color: var(--text-faint); }
+  .hint span { display: inline-flex; align-items: center; gap: 6px; padding: 1px 5px; margin-left: -5px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--surface) 82%, transparent); }
+  .ctrls { flex: none; }
+  .sw { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+  body.graph3d-dark.mode-3d:not(.page-dark) .hint { color: #cbd5e1; }
+  .ctrls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .ctl { display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--background); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm); }
+  .ctl button { border: 0; background: none; min-width: 28px; padding: 4px 9px; border-radius: var(--r-sm); font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .ctl button:hover { background: var(--surface-2); color: var(--text); }
+  .ctl button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+  .ctl .zoom-level { min-width: 46px; text-align: center; font: 11px var(--mono); color: var(--text-muted); }
+
+  /* states over the canvas */
+  .center { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; padding: 24px; pointer-events: none; }
+  .center > * { pointer-events: auto; }
+  .loading-pill { position: absolute; z-index: 6; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; border-radius: 999px; background: var(--background); border: 1px solid var(--border); box-shadow: var(--shadow-md); font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .loading-pill .spinner { width: 14px; height: 14px; border-width: 2px; }
+  .state-card { width: min(440px, 100%); }
+  .result-card { background: var(--background); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--shadow-md); }
+
+  /* ---- right rail (same pieces as the code graph) ---- */
+  .panel { padding: 0; gap: 0; }
+  .appbar { display: none; }
+  #panel-body { display: flex; flex-direction: column; gap: 18px; padding: 22px 20px 28px; }
+  .r-head { display: flex; flex-direction: column; gap: 6px; }
+  .r-name { margin: 0; font: 600 18px/1.3 var(--mono); letter-spacing: -.01em; color: var(--text); word-break: break-word; }
+  .r-sub { margin: 0; font: 11px/1.5 var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+  .r-group { display: flex; flex-direction: column; gap: 4px; }
+  .r-list { display: flex; flex-direction: column; }
+  .r-row { display: flex; align-items: center; gap: 10px; width: calc(100% + 12px); margin: 0 -6px; padding: 5px 6px; border: 0; border-radius: var(--r-md); background: none;
+    color: var(--text); text-align: left; cursor: pointer; font: 13px/1.45 var(--mono); transition: background .15s; }
+  .r-row:hover { background: var(--surface-2); }
+  .r-row[disabled] { cursor: default; color: var(--text-2); }
+  .r-row[disabled]:hover { background: none; }
+  .r-row .w-icon { width: 14px; height: 14px; color: var(--text-2); }
+  .r-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r-row em { flex: none; max-width: 52%; font: normal 11px var(--mono); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r-row:disabled em { max-width: 60%; }
+  .r-more, .r-note-faint { padding: 4px 0; font: 11px/1.5 var(--mono); color: var(--text-faint); }
+  .r-kv { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-size: 12.5px; }
+  .r-kv dt { color: var(--text-muted); }
+  .r-kv dd { margin: 0; font: 12px/1.5 var(--mono); color: var(--text-2); text-align: right; overflow-wrap: anywhere; }
+  .r-hint { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+  .r-soft { padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); color: var(--text-2); font-size: 12.5px; line-height: 1.5; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .linkish { border: 0; background: none; padding: 0; font: inherit; color: var(--primary); cursor: pointer; }
+  .linkish:hover { text-decoration: underline; }
+  #gs-back { align-self: flex-start; margin: -4px 0 -6px -10px; font-size: 12.5px; color: var(--text-muted); }
+  /* columns of the selected table */
+  .cols { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+  .col-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .85fr) minmax(0, .85fr); gap: 10px; align-items: baseline; padding: 8px 6px; margin: 0 -6px;
+    border: 0; border-bottom: 1px solid var(--border); background: none; color: inherit; text-align: left; cursor: pointer; transition: background .15s; }
+  .col-row:hover { background: var(--surface-2); }
+  .col-row.on { background: var(--primary-soft); }
+  .col-row .cn { font: 12.5px/1.45 var(--mono); color: var(--text); overflow-wrap: anywhere; }
+  .col-row .ct { font: 11px/1.5 var(--mono); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-row .cnote { font-size: 12px; line-height: 1.45; color: var(--text-muted); overflow-wrap: break-word; min-width: 0; }
+  .col-row .cnote.fk { color: var(--primary); }
+  /* brain notes that link to this table */
+  .brain-box { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--r-lg); background: var(--primary-soft); }
+  .brain-box .w-label { color: var(--primary); }
+  .bn { display: flex; flex-direction: column; gap: 3px; margin: 0 -6px; padding: 5px 6px; border-radius: var(--r-md); color: var(--text); text-decoration: none; transition: background .15s; }
+  .bn:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+  .bn-top { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
+  .bn-top b { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bn-top .w-icon { width: 15px; height: 15px; color: var(--text); }
+  .bn-top .go { transition: transform .15s var(--ease); }
+  .bn:hover .go { transform: translate(2px, -2px); }
+  .bn-sub { font: 11px/1.5 var(--mono); color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .only-mobile { display: none; }
+
+  /* ---- narrow screens: a list of tables instead of the diagram ---- */
+  .mlist { display: none; }
+  .tcard { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 14px 16px; text-align: left; cursor: pointer; background: var(--background);
+    border: 1px solid var(--border); border-radius: var(--r-lg); color: inherit; transition: border-color .15s; }
+  .tcard:hover { border-color: var(--border-strong); }
+  .tcard-top { display: flex; align-items: center; gap: 8px; }
+  .tcard-top b { flex: 1; min-width: 0; font: 600 14px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tcard-top em { font-style: normal; font: 11px var(--mono); color: var(--text-muted); }
+  .tcard p { margin: 0; font-size: 13px; color: var(--text-2); }
+  .tcard p.tcard-cols { font: 12px var(--mono); color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  @media (max-width: 960px) { .w-search { width: 200px; } }
+  @media (max-width: 860px) { #count-pill { display: none; } }
+  @media (max-width: 760px) {
+    .w-toolbar { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
+    #refresh .label { display: none; }
+    .w-controls, .w-kbd { display: none !important; }
+    .canvas { display: none; }
+    .mlist { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 14px; overflow-y: auto; padding: 16px; background: var(--surface); }
+    .mlist .sub { margin: 0; font: 11px var(--mono); color: var(--text-muted); }
+    .mlist .w-search { width: 100%; }
+    .mlist .list { display: flex; flex-direction: column; gap: 8px; }
+    .panel { display: none; width: auto; flex: 1; border-left: 0; }
+    .appbar { display: flex; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface-1); z-index: 2; }
+    .back { display: inline-flex; align-items: center; min-height: 44px; padding: 8px; border: 0; border-radius: var(--r-md); background: none; color: var(--primary); font-size: 15px; font-weight: 500; cursor: pointer; }
+    #panel-body { padding: 18px 16px 24px; }
+    .only-mobile { display: flex; }
+    body.show-detail .mlist, body.show-detail .w-toolbar { display: none; }
+    body.show-detail .panel { display: flex; }
+  }
+</style>
+</head>
+<body class="no-data">
+<header class="w-toolbar">
+  <div class="w-titles"><p class="w-label" id="crumb">Code</p><h1>Data</h1></div>
+  <div class="w-controls">
+    <label class="w-search"><span class="w-icon" data-wi="search"></span><input id="search" type="search" placeholder="Find a table…" aria-label="Find a table or column" autocomplete="off" spellcheck="false"><span class="w-kbd">Ctrl K</span></label>
+    <div class="seg" id="mode" role="group" aria-label="View"><button data-mode="er" aria-pressed="true">ER</button><button data-mode="3d" aria-pressed="false">3D</button></div>
+    <div class="seg" id="stores" role="group" aria-label="Data source" hidden></div>
+  </div>
+  <div class="w-actions">
+    <span class="w-pill" id="count-pill" hidden></span>
+    <div id="picker" hidden></div>
+    <button class="btn btn-secondary icon-only" id="refresh" aria-label="Rescan" title="Rescan"><span class="w-icon" data-wi="restart"></span></button>
+    <button class="btn btn-secondary" id="zoom-fit" title="Fit every table in view"><span class="w-icon" data-wi="graph"></span>Fit</button>
+  </div>
+</header>
+
+<div class="w-split layout">
+  <main class="w-canvas canvas" id="canvas">
+    <div id="er"><div id="er-layer"><svg id="er-edges"></svg></div></div>
+    <div id="graph"></div>
+
+    <div class="gs-float"><div id="search-bar" role="status" hidden></div></div>
+    <div id="gs-dummy" hidden></div>
+
+    <div id="state"></div>
+
+    <div class="foot">
+      <p class="hint" id="hint"></p>
+      <div class="ctrls">
+        <div class="ctl only-3d"><button id="rotate3d" aria-pressed="false">Orbit</button><button id="theme3d" aria-pressed="false">Dark space</button></div>
+        <div class="ctl" aria-label="Zoom">
+          <button id="zoom-out" aria-label="Zoom out">−</button><span class="zoom-level" id="zoom-level">100%</span><button id="zoom-in" aria-label="Zoom in">+</button><button class="only-2d" id="reset-layout" title="Put every table back where the layout puts it">Reset layout</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <section class="mlist" id="mlist" aria-label="Tables">
+    <p class="sub" id="m-sub"></p>
+    <label class="w-search"><span class="w-icon" data-wi="search"></span><input id="m-search" type="search" placeholder="Find a table or column…" aria-label="Find a table or column"></label>
+    <div class="list" id="m-list"></div>
+  </section>
+
+  <aside class="w-rail panel" id="panel" aria-label="Details">
+    <div class="appbar"><button class="back" id="back">‹&nbsp; Data</button></div>
+    <div id="panel-body"></div>
+  </aside>
+</div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script src="/vendor/3d-force-graph.min.js"></script>
+<script src="/graph3d.js"></script>
+<script src="/search.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const { esc, toast } = ui;
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } } };
+  const mobile = window.matchMedia('(max-width: 760px)');
+  const EMBED = document.documentElement.classList.contains('embed');
+  const base = (p) => String(p).replaceAll('\\', '/').split('/').pop();
+  const BOX_W = 240, HEAD_H = 38, ROW_H = 26;
+  const wi = (name) => `<span class="w-icon" aria-hidden="true">${ui.icon(name)}</span>`;
+  document.querySelectorAll('[data-wi]').forEach((el) => { el.innerHTML = ui.icon(el.dataset.wi); });
+  const storeName = (s) => s.label.replace(/\s*\(.*\)$/, '');
+  // page.tsx / route.ts say nothing on their own: show their folder too
+  const shortPath = (p) => {
+    const parts = p.split('/');
+    const file = parts.pop();
+    return /^(index|page|route|layout|loading|error|main|types?|utils?|init|mod)\.[a-z]+$/i.test(file) && parts.length ? `${parts.pop()}/${file}` : file;
+  };
+
+  // colours of the 3D view, read from the tokens (they change with the theme)
+  const tok = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  let PAL = {};
+  const readPalette = () => { PAL = { accent: tok('--primary'), accent2: tok('--blue-400'), accent3: tok('--blue-300'), ink: tok('--text'), faint: tok('--text-faint'), warn: tok('--warning') }; };
+  readPalette();
+  const rgba = (hex, a) => { const h = String(hex).replace('#', ''); const n = parseInt(h.length === 3 ? [...h].map((c) => c + c).join('') : h.slice(0, 6), 16); return Number.isNaN(n) ? hex : `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+  const pageDark = () => document.documentElement.dataset.theme === 'dark';
+
+  let projects = [], current = null, D = null, S = null; // S = the shown store, indexed
+  let is3D = false, sel = null; // sel: { table } | { table, column }
+  let brainLinks = [];
+  // search: { q, hits, index, current, tables (hit tables), cols (hit column ids), owners (tables of hit columns), near (FK one hop), lit (node ids lit in 3D) }
+  let search = null;
+
+  // ======================= model =======================
+  // One store → tables with resolved FKs, and the code refs that touch each table.
+  function indexStore(st, refs) {
+    const ents = st.entities.filter((e) => e.kind === 'table' || e.kind === 'view');
+    const byName = new Map(ents.map((e) => [e.name, e]));
+    const resolve = (t) => byName.get(t) ?? byName.get(String(t).replace(/^public\./, '')) ?? ents.find((e) => e.table === t);
+    const tables = ents.map((e) => ({
+      ...e,
+      fkCols: new Set(e.fks.flatMap((f) => f.columns)),
+      out: [], in: [],
+      refs: refs.filter((r) => r.entity === e.name || (e.table && r.entity === e.table)),
+    }));
+    const T = new Map(tables.map((t) => [t.name, t]));
+    for (const t of tables) {
+      for (const fk of t.fks) {
+        const target = T.get(resolve(fk.table)?.name);
+        if (!target) continue;
+        const link = { from: t, to: target, columns: fk.columns, refColumns: fk.refColumns ?? [] };
+        t.out.push(link);
+        if (target !== t) target.in.push(link);
+      }
+    }
+    // Platform tables (auth.users…) only appear when something points at them.
+    const shown = tables.filter((t) => !t.external || t.in.length);
+    return { ...st, tables: shown, T, links: shown.flatMap((t) => t.out.filter((l) => shown.includes(l.to))) };
+  }
+  const usedFiles = (t) => new Set(t.refs.map((r) => r.path)).size;
+  const colRefs = (t, c) => t.refs.filter((r) => (r.columns ?? []).includes(c) || (r.filters ?? []).includes(c) || (r.columns ?? []).includes('*'));
+  const rlsOff = (t) => S.kind === 'supabase' && t.kind === 'table' && !t.external && !t.outsideMigrations && !t.rls;
+  const realTables = () => S.tables.filter((t) => !t.external);
+
+  // ======================= ER diagram =======================
+  const er = (() => {
+    const layer = $('er-layer'), svg = $('er-edges'), host = $('er');
+    let view = { x: 0, y: 0, k: 1 }, pos = new Map(), boxes = new Map(), heights = new Map();
+    const posKey = () => `data-pos:${current}:${S.label}`;
+
+    // Layout: tables that only point at nothing sit left; each table one column right of what it references.
+    function autoLayout() {
+      const rank = new Map();
+      const visit = (t, seen = new Set()) => {
+        if (rank.has(t.name)) return rank.get(t.name);
+        if (seen.has(t.name)) return 0;
+        seen.add(t.name);
+        const targets = t.out.map((l) => l.to).filter((x) => x !== t);
+        const r = targets.length ? 1 + Math.max(...targets.map((x) => visit(x, seen))) : 0;
+        rank.set(t.name, r);
+        return r;
+      };
+      S.tables.forEach((t) => visit(t));
+      const cols = [];
+      for (const t of S.tables) (cols[rank.get(t.name)] ??= []).push(t);
+      const order = new Map();
+      const place = new Map();
+      let x = 40;
+      for (const col of cols.filter(Boolean)) {
+        // Keep children near what they reference (average row of their targets).
+        col.sort((a, b) => avg(a) - avg(b) || a.name.localeCompare(b.name));
+        let y = 40, colX = x;
+        for (const t of col) {
+          const h = HEAD_H + t.columns.length * ROW_H + 2;
+          if (y > 40 && y + h > 1500) { y = 40; colX += BOX_W + 60; } // very tall column → wrap
+          place.set(t.name, [colX, y]);
+          order.set(t.name, y);
+          y += h + 32;
+        }
+        x = colX + BOX_W + 110;
+      }
+      function avg(t) { const ys = t.out.map((l) => order.get(l.to.name)).filter((v) => v !== undefined); return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : Infinity; }
+      return place;
+    }
+
+    function render() {
+      let saved = {};
+      try { saved = JSON.parse(store.get(posKey()) ?? '{}'); } catch { saved = {}; }
+      const auto = autoLayout();
+      pos = new Map(S.tables.map((t) => [t.name, saved[t.name] ?? auto.get(t.name)]));
+      layer.querySelectorAll('.erbox').forEach((b) => b.remove());
+      boxes = new Map();
+      S.tables.forEach((t, i) => {
+        const el = document.createElement('div');
+        el.className = `erbox${t.external ? ' ext' : ''}`;
+        el.dataset.t = t.name;
+        el.style.setProperty('--i', Math.min(i, 24));
+        const badge = rlsOff(t) ? '<span class="badge bad">RLS off</span>' : t.outsideMigrations ? '<span class="badge warn">outside migrations</span>' : t.external ? '<span class="badge muted">system</span>' : t.kind === 'view' ? '<span class="badge muted">view</span>' : '';
+        el.innerHTML = `<div class="er-head">${wi('data')}<b title="${esc(t.name)}">${esc(t.name)}</b>${badge}</div>${t.columns.map((c) => {
+          const k = c.pk ? 'pk' : t.fkCols.has(c.name) || c.ref ? 'fk' : '';
+          return `<div class="er-col${k ? ' k' : ''}" data-c="${esc(c.name)}"><span class="key ${k}">${k.toUpperCase()}</span><span class="cn" title="${esc(c.name)}">${esc(c.name)}</span><i title="${esc(c.type)}">${esc(c.type)}</i></div>`;
+        }).join('')}`;
+        layer.appendChild(el);
+        boxes.set(t.name, el);
+      });
+      boxes.forEach((el, n) => { const [x, y] = pos.get(n); el.style.left = `${x}px`; el.style.top = `${y}px`; heights.set(n, el.offsetHeight); });
+      restyle();
+    }
+
+    const rowY = (t, col) => {
+      const [, y] = pos.get(t.name);
+      const i = t.columns.findIndex((c) => c.name === col);
+      return i < 0 ? y + HEAD_H / 2 : y + HEAD_H + i * ROW_H + ROW_H / 2;
+    };
+    // Right-angle line with rounded corners: out along the row, along a shared trunk, into the other row.
+    function elbow(x1, y1, x2, y2, mx) {
+      const dy = y2 - y1, sy = Math.sign(dy);
+      if (!sy) return `M${x1} ${y1} H${x2}`;
+      const sx1 = Math.sign(mx - x1) || 1, sx2 = Math.sign(x2 - mx) || 1;
+      const r = Math.max(0, Math.min(6, Math.abs(dy) / 2, Math.abs(mx - x1), Math.abs(x2 - mx)));
+      return `M${x1} ${y1} H${mx - sx1 * r} Q${mx} ${y1} ${mx} ${y1 + sy * r} V${y2 - sy * r} Q${mx} ${y2} ${mx + sx2 * r} ${y2} H${x2}`;
+    }
+    function edges() {
+      const touching = (l) => sel && (l.from.name === sel.table || l.to.name === sel.table);
+      // Searching: lines from a hit (or a hit FK column) are on, lines between faded tables dim.
+      const vis = (n) => search.tables.has(n) || search.owners.has(n) || search.near.has(n);
+      const cls = (l) => {
+        if (!search) return touching(l) ? ' on' : '';
+        const a = l.from.name, b = l.to.name;
+        if ((search.tables.has(a) && vis(b)) || (search.tables.has(b) && vis(a)) || l.columns.some((c) => search.cols.has(`c:${a}.${c}`))) return ' on';
+        return vis(a) && vis(b) ? '' : ' dim';
+      };
+      let plain = '', lit = '';
+      const marks = [];
+      for (const l of S.links) {
+        const [fx] = pos.get(l.from.name), [tx] = pos.get(l.to.name);
+        const y1 = rowY(l.from, l.columns[0]), y2 = rowY(l.to, l.refColumns[0] ?? 'id');
+        const on = cls(l);
+        let x1, x2, mx;
+        if (l.from === l.to || Math.abs(fx - tx) < BOX_W) {
+          // Same column (or self reference): loop out on the right side.
+          x1 = fx + BOX_W; x2 = tx + BOX_W;
+          mx = Math.max(x1, x2) + 22 + Math.min(40, Math.abs(y2 - y1) / 8);
+        } else {
+          const right = tx > fx;
+          x1 = right ? fx + BOX_W : fx; x2 = right ? tx : tx + BOX_W;
+          mx = (x1 + x2) / 2;
+        }
+        // the arrow points into the table that holds the foreign key; a dot marks the key it points at
+        const d = Math.sign(x1 - mx) || 1;
+        const path = `<path class="er-edge${on}" d="${elbow(x1, y1, x2, y2, mx)}"/>`;
+        if (on === ' on') lit += path; else plain += path;
+        marks.push(`<path class="er-arrow${on}" d="M${x1} ${y1} L${x1 - d * 7} ${y1 - 3.5} L${x1 - d * 7} ${y1 + 3.5} Z"/><circle class="er-dot${on}" cx="${x2}" cy="${y2}" r="2.5"/>`);
+      }
+      // Highlighted lines drawn last so they sit on top.
+      svg.innerHTML = plain + lit + marks.join('');
+    }
+
+    function restyle() {
+      // Search styling wins over the selection while a search is lit.
+      const s = search, cur = s?.current;
+      boxes.forEach((el, n) => {
+        el.classList.toggle('sel', !s && sel?.table === n);
+        el.classList.toggle('gs-hit', Boolean(s?.tables.has(n)));
+        el.classList.toggle('gs-current', Boolean(s && cur.kind === 'table' && cur.table === n));
+        el.classList.toggle('gs-dim', Boolean(s && !s.tables.has(n) && !s.owners.has(n) && !s.near.has(n)));
+        el.querySelectorAll('.er-col').forEach((r) => {
+          const id = `c:${n}.${r.dataset.c}`;
+          r.classList.toggle('sel', !s && sel?.table === n && sel.column === r.dataset.c);
+          r.classList.toggle('gs-hit', Boolean(s?.cols.has(id)));
+          r.classList.toggle('gs-current', Boolean(s && cur.id === id));
+        });
+      });
+      edges();
+    }
+    const apply = () => {
+      layer.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+      if (!is3D) $('zoom-level').textContent = `${Math.round(view.k * 100)}%`;
+    };
+    function bbox(names) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      pos.forEach(([x, y], n) => { if (names && !names.has(n)) return; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + BOX_W); y1 = Math.max(y1, y + (heights.get(n) ?? 100)); });
+      return { x0, y0, x1, y1 };
+    }
+    function fit(names) {
+      if (!pos.size) return;
+      const b = bbox(names), W = host.clientWidth, H = host.clientHeight;
+      if (!Number.isFinite(b.x0)) return;
+      const k = Math.min(1, Math.max(0.15, Math.min((W - 80) / (b.x1 - b.x0), (H - 110) / (b.y1 - b.y0))));
+      view = { k, x: (W - (b.x1 - b.x0) * k) / 2 - b.x0 * k, y: 40 + (H - 110 - (b.y1 - b.y0) * k) / 2 - b.y0 * k };
+      apply();
+    }
+    function center(name, { k = Math.max(view.k, 0.8), still = false } = {}) {
+      const p = pos.get(name);
+      if (!p) return;
+      const W = host.clientWidth, H = host.clientHeight;
+      view.k = k;
+      view.x = W / 2 - (p[0] + BOX_W / 2) * view.k;
+      view.y = H / 2 - (p[1] + (heights.get(name) ?? 100) / 2) * view.k;
+      if (still) apply(); else animate();
+    }
+    // First view: everything if it fits readably; otherwise start readable on the most linked table
+    // (or the top-left corner) — the Fit button still shows the whole diagram.
+    function start() {
+      if (!pos.size) return;
+      const b = bbox(), W = host.clientWidth, H = host.clientHeight;
+      if (Math.min((W - 80) / (b.x1 - b.x0), (H - 110) / (b.y1 - b.y0)) >= 0.6) return fit();
+      const hub = [...S.tables].sort((a, c) => (c.in.length + c.out.length) - (a.in.length + a.out.length))[0];
+      if (hub && hub.in.length + hub.out.length) return center(hub.name, { k: 0.8, still: true });
+      view = { k: 0.8, x: 32 - b.x0 * 0.8, y: 32 - b.y0 * 0.8 };
+      apply();
+    }
+    const animate = () => {
+      layer.style.transition = 'transform .35s var(--ease)';
+      apply();
+      setTimeout(() => (layer.style.transition = ''), 400);
+    };
+    // Frame just these tables (search hits), animated.
+    function fitTo(names) {
+      layer.style.transition = 'transform .35s var(--ease)';
+      fit(new Set(names));
+      setTimeout(() => (layer.style.transition = ''), 400);
+    }
+    function zoomBy(f, cx = host.clientWidth / 2, cy = host.clientHeight / 2) {
+      const k = Math.min(2.5, Math.max(0.15, view.k * f));
+      view.x = cx - ((cx - view.x) / view.k) * k;
+      view.y = cy - ((cy - view.y) / view.k) * k;
+      view.k = k;
+      apply();
+    }
+
+    // Pointer: drag a header to move that table, drag empty space to pan, a click without moving selects.
+    let drag = null;
+    host.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const box = e.target.closest('.erbox');
+      const head = e.target.closest('.er-head');
+      // Header → move that table; anywhere else (empty space or a table body) → pan.
+      drag = { sx: e.clientX, sy: e.clientY, moved: false, box, head, row: e.target.closest('.er-col'), start: head ? [...pos.get(box.dataset.t)] : [view.x, view.y] };
+      host.setPointerCapture(e.pointerId);
+    });
+    host.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+      if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+      drag.moved = true;
+      if (drag.head) {
+        const n = drag.box.dataset.t;
+        const p = [drag.start[0] + dx / view.k, drag.start[1] + dy / view.k];
+        pos.set(n, p);
+        drag.box.style.left = `${p[0]}px`; drag.box.style.top = `${p[1]}px`;
+        edges();
+      } else {
+        host.classList.add('panning');
+        view.x = drag.start[0] + dx; view.y = drag.start[1] + dy;
+        apply();
+      }
+    });
+    host.addEventListener('pointerup', () => {
+      if (!drag) return;
+      host.classList.remove('panning');
+      const d = drag;
+      drag = null;
+      if (d.moved && d.head) {
+        const saved = Object.fromEntries([...pos].map(([n, p]) => [n, p.map(Math.round)]));
+        store.set(posKey(), JSON.stringify(saved));
+        return;
+      }
+      if (d.moved) return;
+      if (d.box) select({ table: d.box.dataset.t, column: d.row?.dataset.c });
+      else select(null);
+    });
+    host.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = host.getBoundingClientRect();
+      zoomBy(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+
+    function resetLayout() { store.set(posKey(), '{}'); render(); start(); }
+    return { render, restyle, fit: () => fit(), start, fitTo, center, zoomBy, resetLayout, apply };
+  })();
+
+  // ======================= 3D =======================
+  const g3 = (() => {
+    let g = null;
+    let near = new Set();
+    const selId = () => (!sel ? null : sel.column ? `c:${sel.table}.${sel.column}` : `t:${sel.table}`);
+    // What a selection brings into focus, with a label priority per node:
+    // a table → the tables it references and the tables that reference it (table to table), plus the FK
+    // columns that link them; a column → its table, and for an FK the table + column it points at
+    // (for a key column, the FK columns pointing at it).
+    let nearRank = new Map();
+    const tId = (n) => `t:${n}`, cId = (t, c) => `c:${t}.${c}`;
+    function computeNear() {
+      nearRank = new Map();
+      if (!sel || !S) { near = new Set(); return; }
+      const t = S.T.get(sel.table);
+      const add = (id, rank) => nearRank.set(id, Math.max(nearRank.get(id) ?? 0, rank));
+      // A related table comes in whole: all its fields light up (labels stay on tables + linking columns).
+      const addTable = (x) => { add(tId(x.name), 1e4); for (const c of x.columns) add(cId(x.name, c.name), 10); };
+      const addLink = (l) => {
+        addTable(l.from); addTable(l.to);
+        l.columns.forEach((c, i) => { add(cId(l.from.name, c), 1e3); add(cId(l.to.name, l.refColumns[i] ?? 'id'), 500); });
+      };
+      if (sel.column) {
+        addTable(t);
+        add(cId(t.name, sel.column), 1e6);
+        for (const l of t.out) if (l.columns.includes(sel.column)) addLink(l);
+        for (const l of t.in) if (l.refColumns.includes(sel.column) || (!l.refColumns.length && sel.column === 'id')) addLink(l);
+      } else {
+        addTable(t);
+        for (const l of [...t.out, ...t.in]) addLink(l);
+        nearRank.set(tId(t.name), 1e6);
+      }
+      near = new Set(nearRank.keys());
+    }
+    const ends = (l) => [l.source.id ?? l.source, l.target.id ?? l.target];
+    const linkOn = (l) => { const [s, d] = ends(l); return near.has(s) && near.has(d); };
+    // Searching: tables (and columns) one FK hop from a hit, or owning a hit column, are half lit.
+    const half = (n) => typeof n === 'object' && (search.near.has(n.table) || search.owners.has(n.table));
+    const searchColor = (n) => {
+      if (search.current?.id === n.id) return PAL.ink;
+      if (search.cols.has(n.id)) return n.kind === 'pk' ? PAL.warn : PAL.accent;
+      if (search.lit.has(n.id)) return n.kind === 'table' ? PAL.accent : n.kind === 'pk' ? PAL.warn : n.kind === 'fk' ? PAL.accent2 : PAL.faint;
+      if (n.kind === 'table' && half(n)) return rgba(PAL.accent3, 0.7);
+      return g.palette().nodeFaint;
+    };
+    const color = (n) => {
+      if (search) return searchColor(n);
+      const id = selId();
+      if (id && !near.has(n.id)) return g.palette().nodeFaint;
+      if (n.kind === 'table') return id === n.id ? PAL.ink : PAL.accent;
+      return n.kind === 'pk' ? PAL.warn : n.kind === 'fk' ? PAL.accent2 : PAL.faint;
+    };
+    const linkColor = (l) => {
+      if (search) {
+        const [s, d] = ends(l);
+        const ls = search.lit.has(s), ld = search.lit.has(d);
+        if (ls && ld) return l.fk ? rgba(PAL.accent, 0.75) : rgba(PAL.faint, 0.6);
+        if ((ls && half(l.target)) || (ld && half(l.source))) return rgba(PAL.accent2, 0.45);
+        return g.palette().linkDim;
+      }
+      const id = selId();
+      const on = id && linkOn(l);
+      if (l.fk) return on ? rgba(PAL.accent, 0.9) : id ? g.palette().linkDim : rgba(PAL.accent2, 0.55);
+      return on ? rgba(PAL.faint, 0.6) : id ? g.palette().linkDim : g.palette().link;
+    };
+    const activeLinks = () => (!search && selId() ? g.graphData().links.filter((l) => l.fk && linkOn(l)) : []);
+    const important = (n) => {
+      if (search) {
+        if (search.current?.id === n.id) return 1e7;
+        if (search.cols.has(n.id) || (n.kind === 'table' && search.tables.has(n.table))) return 1e5 + n.val;
+        return n.kind === 'table' && half(n) ? 1e3 + n.val : 0;
+      }
+      if (selId()) return nearRank.get(n.id) ?? 0;
+      return n.kind === 'table' ? 100 + n.val : 0;
+    };
+    // More labels while searching, so every hit can carry its name.
+    const opts3d = { important, label: (n) => n.name, labels: 14, labelClass: (n) => (search?.current?.id === n.id ? 'gs-current' : ''), onTheme: () => g && g.nodeColor(color).linkColor(linkColor) };
+    const labelCount = () => (search ? Math.min(40, search.hits.length + 14) : 14);
+    const fitHits = () => { if (g && search) g.zoomToFit(900, 90, (n) => search.lit.has(n.id)); };
+    const toNode = (n) => {
+      const r = 1 + 220 / Math.hypot(n.x || 1, n.y || 1, n.z || 1);
+      g.cameraPosition({ x: (n.x || 0) * r, y: (n.y || 0) * r, z: (n.z || 0) * r }, n, 900);
+    };
+    const paintButtons = () => {
+      if (!g) return;
+      const dark = g.theme() === 'dark';
+      $('theme3d').textContent = dark ? 'Light space' : 'Dark space';
+      $('theme3d').setAttribute('aria-pressed', String(dark));
+      $('rotate3d').textContent = g.rotating() ? 'Stop orbit' : 'Orbit';
+      $('rotate3d').setAttribute('aria-pressed', String(g.rotating()));
+    };
+    return {
+      show() {
+        const nodes = [], links = [];
+        for (const t of S.tables) {
+          nodes.push({ id: `t:${t.name}`, kind: 'table', name: t.name, table: t.name, val: 8 + Math.min(10, t.columns.length / 2) });
+          for (const c of t.columns) {
+            const id = `c:${t.name}.${c.name}`;
+            nodes.push({ id, kind: c.pk ? 'pk' : t.fkCols.has(c.name) ? 'fk' : 'col', name: c.name, table: t.name, column: c.name, val: 0.8 });
+            links.push({ source: `t:${t.name}`, target: id });
+          }
+        }
+        for (const l of S.links) for (const c of l.columns) if (l.from.columns.some((x) => x.name === c)) links.push({ source: `c:${l.from.name}.${c}`, target: `t:${l.to.name}`, fk: true });
+        let fitted = false;
+        if (!g) {
+          g = Graph3D.create($('graph'), opts3d)
+            .nodeId('id').nodeVal('val').nodeOpacity(0.95)
+            .nodeLabel((n) => `<b>${esc(n.kind === 'table' ? n.name : `${n.table}.${n.name}`)}</b>`)
+            .onNodeClick((n) => { select(n.kind === 'table' ? { table: n.table } : { table: n.table, column: n.column }); g3.focus(n.id); })
+            .onBackgroundClick(() => select(null));
+          g.d3Force('charge').strength(-40).distanceMax(220);
+          g.d3Force('link').distance((l) => (l.fk ? 90 : 18));
+          g.setTheme(pageDark() ? 'dark' : 'light'); // follows the window's theme; the button can still flip it
+          $('theme3d').onclick = () => { g.setTheme(g.theme() === 'dark' ? 'light' : 'dark'); paintButtons(); };
+          $('rotate3d').onclick = () => { g.setRotating(!g.rotating()); paintButtons(); };
+          paintButtons();
+        }
+        g.onEngineStop(() => {
+          if (fitted) return;
+          fitted = true;
+          if (search) fitHits(); else if (sel) g3.focus(selId()); else g.zoomToFit(700, 60);
+        });
+        g.width($('canvas').clientWidth).height($('canvas').clientHeight).nodeColor(color).linkColor(linkColor).graphData({ nodes, links });
+        computeNear();
+        opts3d.labels = labelCount();
+        g.show().setActive(activeLinks()).refreshLabels();
+        $('zoom-level').textContent = '3D';
+      },
+      hide() { g?.hide(); },
+      restyle() { if (!g || !is3D) return; computeNear(); opts3d.labels = labelCount(); g.nodeColor(color).linkColor(linkColor).setActive(activeLinks()).refreshLabels(); },
+      syncTheme() { if (!g) return; g.setTheme(pageDark() ? 'dark' : 'light'); paintButtons(); g3.restyle(); },
+      focus(id) {
+        const n = g?.graphData().nodes.find((x) => x.id === id);
+        if (!n) return;
+        // Related tables in view together: frame the whole focused group, not just the clicked node.
+        const group = [...nearRank].filter(([k, r]) => r >= 1e4 && k.startsWith('t:')).map(([k]) => k);
+        if (group.length > 1) { g.zoomToFit(900, 90, (x) => near.has(x.id)); return; }
+        toNode(n);
+      },
+      // Search: camera to one hit / frame every hit.
+      focusNode(id) { const n = g?.graphData().nodes.find((x) => x.id === id); if (n) toNode(n); },
+      fitHits,
+      zoomBy(f) { if (!g) return; const p = g.cameraPosition(); g.cameraPosition({ x: p.x / f, y: p.y / f, z: p.z / f }, undefined, 300); },
+      fit() { g?.zoomToFit(600, 60); },
+      resize() { g?.width($('canvas').clientWidth).height($('canvas').clientHeight); },
+      instance: () => g,
+    };
+  })();
+
+  // ======================= rail =======================
+  const label = (t) => `<p class="w-label">${esc(t)}</p>`;
+  const wrapPath = (p) => esc(p).replaceAll('/', '/<wbr>'); // long paths break after a slash
+  const head = (kind, name, sub) => `<div class="r-head">${label(kind)}<h2 class="r-name">${esc(name)}</h2>${sub ? `<p class="r-sub">${sub}</p>` : ''}</div>`;
+  const kvs = (rows) => { const r = rows.filter(Boolean); return r.length ? `<dl class="r-kv">${r.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>` : ''; };
+  const group = (title, inner) => `<section class="r-group">${label(title)}${inner}</section>`;
+  const tableRow = (n, extra = '') => `<button class="r-row" data-goto="${esc(n)}">${wi('data')}<span class="nm">${esc(n)}</span><em>${esc(extra)}</em></button>`;
+  const OP = { read: 'reads', write: 'writes', call: 'calls' };
+  // Code that touches a table (or column), one row per file: ops, and the first line it happens on.
+  function usedIn(title, refs) {
+    const files = new Map();
+    for (const r of refs) {
+      const f = files.get(r.path) ?? files.set(r.path, { path: r.path, ops: new Set(), lines: new Set() }).get(r.path);
+      f.ops.add(r.op);
+      if (r.line) f.lines.add(r.line);
+    }
+    const rows = [...files.values()].map((f) => {
+      const lines = [...f.lines].sort((a, b) => a - b);
+      const ops = [...f.ops].map((o) => OP[o] ?? o).join(' · ');
+      return `<button class="r-row" data-path="${esc(f.path)}" data-line="${lines[0] ?? 1}" title="${esc(f.path)}${lines.length ? `: line ${lines.join(', ')}` : ''} — open in VS Code">${wi('code')}<span class="nm">${esc(shortPath(f.path))}</span><em>${esc(ops)}${lines.length > 1 ? ` ×${lines.length}` : ''}</em></button>`;
+    });
+    return group(`${title} · ${rows.length}`, rows.length
+      ? `<div class="r-list">${rows.slice(0, 40).join('')}</div>${rows.length > 40 ? `<div class="r-more">… ${rows.length - 40} more</div>` : ''}<div class="r-note-faint">click a file to open it in VS Code</div>`
+      : '<div class="r-note-faint">no code uses it yet</div>');
+  }
+  const colNote = (t, c) => {
+    const fk = t.out.find((l) => l.columns.includes(c.name));
+    if (fk) return { cls: 'fk', text: `→ ${fk.to.name}${fk.refColumns.length && (fk.refColumns[fk.columns.indexOf(c.name)] ?? 'id') !== 'id' ? `.${fk.refColumns[fk.columns.indexOf(c.name)]}` : ''}` };
+    const bits = [c.pk && 'primary key', c.unique && !c.pk && 'unique', c.notNull && !c.pk && 'not null', c.default != null && c.default !== '' && `default ${c.default}`].filter(Boolean);
+    return { cls: '', text: bits.join(' · ') };
+  };
+  function columnsTable(t) {
+    return group(`Columns · ${t.columns.length}`, `<div class="cols">${t.columns.map((c) => {
+      const n = colNote(t, c);
+      return `<button class="col-row${sel?.column === c.name ? ' on' : ''}" data-col="${esc(c.name)}" title="${esc(`${t.name}.${c.name}`)}"><span class="cn">${esc(c.name)}</span><span class="ct" title="${esc(c.type || '')}">${esc(c.type || '—')}</span><span class="cnote ${n.cls}">${esc(n.text)}</span></button>`;
+    }).join('')}</div>`);
+  }
+  // Brain notes that link to this table (or one of its columns): [[code:table]], [[code:file#table]]…
+  const noteUrl = (notePath) => {
+    const q = new URLSearchParams({ note: notePath });
+    if (current) q.set('dir', current);
+    if (EMBED && document.documentElement.dataset.theme) q.set('theme', document.documentElement.dataset.theme);
+    return `/brain?${q}`;
+  };
+  function brainBox(t, column) {
+    const names = new Set([t.name, t.table].filter(Boolean).map((x) => x.toLowerCase()));
+    const hits = brainLinks.filter((l) => {
+      const [p, n] = l.target.split('#');
+      const one = (x) => { if (!x) return false; const v = x.toLowerCase(); const [tb, col] = v.split('.'); return names.has(v) || (names.has(tb) && (!column || col === column.toLowerCase())); };
+      return one(p) || one(n);
+    });
+    const notes = [...new Map(hits.map((h) => [h.notePath, h])).values()];
+    if (!notes.length) return '';
+    const folder = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : 'brain');
+    return `<div class="brain-box">${label(`Brain notes linking here · ${notes.length}`)}${notes.map((h) => `<a class="bn" href="${esc(noteUrl(h.notePath))}" title="Open in Notes"><span class="bn-top">${wi('notes')}<b>${esc(h.note)}</b><span class="go">${wi('external')}</span></span><span class="bn-sub">${esc(folder(h.notePath))} · links ${esc(h.target.split('/').pop())}</span></a>`).join('')}</div>`;
+  }
+  const pill = (kind, text) => `<span class="w-pill ${kind}">${esc(text)}</span>`;
+
+  let lastSubject = '';
+  function setBody(html, subject) {
+    const body = $('panel-body');
+    const fresh = subject !== lastSubject;
+    lastSubject = subject;
+    body.classList.remove('w-fade-in');
+    if (fresh) { void body.offsetWidth; body.classList.add('w-fade-in'); }
+    body.innerHTML = html;
+  }
+  function renderPanel() {
+    if (!S) { setBody('', 'none'); return; }
+    const t = sel && S.T.get(sel.table);
+    if (!t && search) return searchPanel();
+    const back = search ? `<button class="btn btn-ghost" id="gs-back">← Results for “${esc(search.q)}” · ${search.hits.length}</button>` : '';
+    if (!t) {
+      const fks = S.links.length, files = new Set(S.tables.flatMap((x) => x.refs.map((r) => r.path))).size;
+      setBody(`${head('Data', D.name, esc(S.label))}
+        ${kvs([['Tables', realTables().length], ['Relations (FK)', fks], ['Code files using them', files], ['Read from', `${S.sources.length} file${S.sources.length === 1 ? '' : 's'}`], S.unparsed && ['Unreadable statements', S.unparsed]])}
+        <p class="r-hint">Click a table or a column to see its columns, its relations and the code that uses it. Drag a table by its header to move it.</p>
+        ${group(`Read from · ${S.sources.length}`, `<div class="r-list">${S.sources.slice(0, 12).map((p) => `<button class="r-row" data-path="${esc(p)}" data-line="1" title="${esc(p)} — open in VS Code">${wi('code')}<span class="nm">${esc(shortPath(p))}</span></button>`).join('')}</div>${S.sources.length > 12 ? `<div class="r-more">… ${S.sources.length - 12} more</div>` : ''}`)}`, `summary:${current}:${S.label}`);
+      return wirePanel();
+    }
+    if (sel.column) {
+      const c = t.columns.find((x) => x.name === sel.column);
+      if (c) {
+        const fk = t.out.find((l) => l.columns.includes(c.name));
+        const idx = (t.indexes ?? []).filter((i) => i.columns.includes(c.name));
+        const tags = [fk && pill('accent', `FK → ${fk.to.name}.${fk.refColumns[fk.columns.indexOf(c.name)] ?? 'id'}`), c.pk && pill('warn', 'PK'), c.notNull && !c.pk && pill('', 'NOT NULL'), c.unique && pill('', 'UNIQUE')].filter(Boolean).join('');
+        setBody(`${back}${head('Column', c.name, `<button class="linkish" data-goto="${esc(t.name)}">${esc(t.name)}</button> · ${esc(c.type || '—')}`)}
+          ${tags ? `<div class="tags">${tags}</div>` : ''}
+          ${kvs([['Type', esc(c.type || '—')], c.default && ['Default', esc(c.default)], ['Index', idx.length ? esc(idx.map((i) => i.name ?? `(${i.columns.join(', ')})`).join(', ')) : c.pk ? 'primary key' : 'none'], c.db && ['Name in DB', esc(c.db)]])}
+          ${fk ? group('References', `<div class="r-list">${tableRow(fk.to.name, fk.refColumns[fk.columns.indexOf(c.name)] ?? 'id')}</div>`) : ''}
+          ${usedIn('Used in', colRefs(t, c.name))}
+          ${brainBox(t, c.name)}`, `c:${t.name}.${c.name}`);
+        return wirePanel();
+      }
+    }
+    const tags = [];
+    if (S.kind === 'supabase' && t.kind === 'table' && !t.external) {
+      tags.push(t.outsideMigrations ? pill('warn', `${t.rls ? 'RLS on' : 'RLS unknown'} · made outside migrations`) : t.rls ? pill('ok', `RLS on · ${t.policies.length} ${t.policies.length === 1 ? 'policy' : 'policies'}`) : pill('bad', 'RLS off'));
+    }
+    if (t.external) tags.push(pill('', 'system table'));
+    if (t.kind === 'view') tags.push(pill('', 'view'));
+    if (t.unknownColumns?.length) tags.push(pill('warn', `index uses missing columns: ${t.unknownColumns.join(', ')}`));
+    const outNames = [...new Set(t.out.filter((l) => l.to !== t).map((l) => l.to.name))];
+    const inNames = [...new Set(t.in.map((l) => l.from.name))];
+    const idx = (t.indexes ?? []).map((i) => `${i.name ?? '(index)'} (${i.columns.join(', ')})${i.unique ? ' unique' : ''}`);
+    const src = t.source?.file ? `${esc(storeName(S))} · ${wrapPath(t.source.file)}${t.source.line ? `:${t.source.line}` : ''}` : esc(storeName(S));
+    setBody(`${back}${head('Table', t.name, src)}
+      ${tags.length ? `<div class="tags">${tags.join('')}</div>` : ''}
+      ${columnsTable(t)}
+      ${outNames.length ? group(`References · ${outNames.length}`, `<div class="r-list">${outNames.map((n) => tableRow(n, t.out.filter((l) => l.to.name === n).flatMap((l) => l.columns).join(', '))).join('')}</div>`) : ''}
+      ${inNames.length ? group(`Referenced by · ${inNames.length}`, `<div class="r-list">${inNames.map((n) => tableRow(n, t.in.filter((l) => l.from.name === n).flatMap((l) => l.columns).join(', '))).join('')}</div>`) : ''}
+      ${usedIn('Used in', t.refs)}
+      ${idx.length ? group(`Indexes · ${idx.length}`, `<div class="r-list">${idx.map((i) => `<button class="r-row" disabled>${wi('link')}<span class="nm">${esc(i)}</span></button>`).join('')}</div>`) : ''}
+      ${t.policies?.length ? group(`Policies · ${t.policies.length}`, `<div class="r-list">${t.policies.map((p) => `<button class="r-row" disabled>${wi('settings')}<span class="nm">${esc(p.name)}</span></button>`).join('')}</div>`) : ''}
+      ${brainBox(t)}`, `t:${t.name}`);
+    wirePanel();
+  }
+  // Search results, grouped by kind (rows carry data-hit = index in the hit list).
+  function resultsHTML(st, max = 60) {
+    return Object.entries(SEARCH_KINDS).map(([k, v]) => {
+      const rows = st.hits.map((h, i) => [h, i]).filter(([h]) => h.kind === k);
+      if (!rows.length) return '';
+      return `<div class="gs-group"><div class="gs-group-head"><i style="background:${v.color}"></i>${esc(v.label)} · ${rows.length}</div>${rows.slice(0, max).map(([h, i]) =>
+        `<button class="gs-row${i === st.index ? ' current' : ''}" data-hit="${i}"><span>${esc(h.label)}</span>${h.sub ? `<em>${esc(h.sub)}</em>` : ''}</button>`).join('')}${rows.length > max ? `<div class="gs-more">… ${rows.length - max} more</div>` : ''}</div>`;
+    }).join('');
+  }
+  function searchPanel() {
+    setBody(`${head('Search', `“${search.q}”`, `${search.hits.length} result${search.hits.length === 1 ? '' : 's'}`)}
+      <p class="gs-hint">Lit = matches · half-lit = one foreign key away${search.near.size ? ` (${search.near.size} table${search.near.size === 1 ? '' : 's'})` : ''}</p>
+      ${resultsHTML(search)}
+      <p class="gs-foot">↑ ↓ or ‹ › step through · Enter zooms to it · click for details · Esc clears</p>`, `search:${search.q}`);
+    const body = $('panel-body');
+    body.querySelectorAll('[data-hit]').forEach((b) => (b.onclick = () => openHit(Number(b.dataset.hit))));
+    body.querySelector('.gs-row.current')?.scrollIntoView({ block: 'nearest' });
+  }
+  function wirePanel() {
+    const body = $('panel-body');
+    if ($('gs-back')) $('gs-back').onclick = () => select(null);
+    body.querySelectorAll('[data-goto]').forEach((b) => (b.onclick = () => reveal({ table: b.dataset.goto })));
+    body.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => (sel?.column === b.dataset.col ? select({ table: sel.table }) : select({ table: sel.table, column: b.dataset.col }))));
+    body.querySelectorAll('[data-path]').forEach((b) => (b.onclick = () => openInEditor(b.dataset.path, Number(b.dataset.line), b)));
+  }
+  async function openInEditor(path, line, btn) {
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/code/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current, path, line }) });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || `HTTP ${res.status}`);
+      toast(`Opened ${base(path)}${line > 1 ? ` at line ${line}` : ''} in VS Code`);
+    } catch (err) {
+      toast(`Couldn't open the file — ${err.message}`, { kind: 'error' });
+    }
+    btn.disabled = false;
+  }
+
+  // ======================= selection =======================
+  function select(next, { push = false } = {}) {
+    sel = next && S?.T.has(next.table) ? { table: next.table, column: next.column || undefined } : null;
+    const hash = sel ? `#${sel.column ? `c=${encodeURIComponent(`${sel.table}.${sel.column}`)}` : `t=${encodeURIComponent(sel.table)}`}` : location.pathname + location.search;
+    if (push) history.pushState({ fromList: true }, '', hash);
+    else history.replaceState(history.state, '', hash);
+    showDetail();
+    er.restyle();
+    g3.restyle();
+    renderPanel();
+  }
+  function reveal(next) {
+    select(next, { push: mobile.matches && !sel });
+    if (is3D) g3.focus(next.column ? `c:${next.table}.${next.column}` : `t:${next.table}`);
+    else er.center(next.table);
+  }
+  const showDetail = () => document.body.classList.toggle('show-detail', Boolean(sel) && mobile.matches);
+  function fromHash() {
+    const m = /^#(t|c)=(.+)$/.exec(location.hash);
+    if (!m) return null;
+    const v = decodeURIComponent(m[2]);
+    if (m[1] === 't') return { table: v };
+    const i = v.lastIndexOf('.');
+    return { table: v.slice(0, i), column: v.slice(i + 1) };
+  }
+
+  // ======================= search: every match lights up =======================
+  const SEARCH_KINDS = { table: { label: 'table', color: '#2F6BFF' }, column: { label: 'column', color: '#A8A49B' } };
+  // A column matches by its name, or by "table.column" when the query has a dot (else "users" would hit every users.* column).
+  const colMatch = (t, c, needle) => c.name.toLowerCase().includes(needle) || (needle.includes('.') && `${t.name}.${c.name}`.toLowerCase().includes(needle));
+  function findHits(needle) {
+    const hits = [];
+    for (const t of S.tables) if (t.name.toLowerCase().includes(needle)) hits.push({ id: `t:${t.name}`, label: t.name, kind: 'table', sub: `${t.columns.length} columns`, table: t.name });
+    for (const t of S.tables) for (const c of t.columns) if (colMatch(t, c, needle)) hits.push({ id: `c:${t.name}.${c.name}`, label: `${t.name}.${c.name}`, kind: 'column', sub: c.type, table: t.name, column: c.name });
+    return hits;
+  }
+  // The results bar (search.js keeps its own bar hidden: this one speaks English and sits on the canvas).
+  function paintBar() {
+    const st = gs.state(), bar = $('search-bar');
+    if (!st) { bar.hidden = true; bar.innerHTML = ''; return; }
+    bar.hidden = false;
+    bar.className = st.broad ? 'warn' : !st.hits.length ? 'none' : '';
+    if (st.broad) { bar.innerHTML = `<span>${st.hits.length.toLocaleString('en')} matches — too broad to light up. Type a little more.</span>`; return; }
+    if (!st.hits.length) { bar.innerHTML = `<span>No match for “${esc(st.q)}”</span>`; return; }
+    const counts = {};
+    for (const h of st.hits) counts[h.kind] = (counts[h.kind] ?? 0) + 1;
+    const kinds = Object.entries(SEARCH_KINDS).filter(([k]) => counts[k]).map(([k, v]) => `<span class="gs-kind"><i style="background:${v.color}"></i>${esc(v.label)} ${counts[k]}</span>`).join('');
+    bar.innerHTML = `<b>${st.hits.length} found</b>${kinds}<span class="gs-step"><button data-d="-1" aria-label="Previous">‹</button><span>${st.index + 1}/${st.hits.length}</span><button data-d="1" aria-label="Next">›</button></span>`;
+    bar.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => gs.step(Number(b.dataset.d))));
+  }
+  function applySearch(st) {
+    clearState();
+    paintBar();
+    const sameHits = st && search && st.q === search.q;
+    if (!st || !st.hits.length) {
+      if (!search) return;
+      search = null;
+      if (!S) return;
+      er.restyle();
+      g3.restyle();
+      renderPanel();
+      return;
+    }
+    const tables = new Set(), cols = new Set(), owners = new Set(), near = new Set(), lit = new Set();
+    for (const h of st.hits) {
+      const t = S.T.get(h.table);
+      if (h.kind === 'table') {
+        tables.add(t.name);
+        lit.add(`t:${t.name}`);
+        for (const c of t.columns) lit.add(`c:${t.name}.${c.name}`);
+        for (const l of [...t.out, ...t.in]) { near.add(l.from.name); near.add(l.to.name); }
+      } else {
+        cols.add(h.id);
+        lit.add(h.id);
+        owners.add(t.name);
+        for (const l of t.out) if (l.columns.includes(h.column)) near.add(l.to.name);
+      }
+    }
+    for (const n of tables) { near.delete(n); owners.delete(n); }
+    for (const n of owners) near.delete(n);
+    search = { q: st.q, hits: st.hits, index: st.index, current: st.hits[st.index], tables, cols, owners, near, lit };
+    er.restyle();
+    g3.restyle();
+    if (!sameHits) { if (is3D) g3.fitHits(); else er.fitTo([...tables, ...owners]); }
+    if (!sel) renderPanel();
+  }
+  // ‹ › / ↑ ↓ / Enter: bring one hit into view (the rail stays on the list).
+  const focusHit = (h) => (is3D ? g3.focusNode(h.id) : er.center(h.table));
+  // A click on a result opens its details (the search stays lit; "← Results" goes back to the list).
+  function openHit(i) {
+    gs.go(i);
+    const h = search.hits[i];
+    select({ table: h.table, column: h.column });
+  }
+  const gs = GraphSearch.attach({
+    input: $('search'), bar: $('gs-dummy'), kinds: SEARCH_KINDS,
+    find: (needle) => (S ? findHits(needle) : []),
+    apply: applySearch,
+    focus: (h) => focusHit(h),
+    empty: (q) => {
+      const t0 = S.tables[0];
+      $('state').innerHTML = `<div class="center"><div class="result-card w-empty state-card w-fade-in">${ui.emptyIcon('search', '', 'thinking')}<h2>No match for “${esc(q)}”</h2><p>Try part of a table or column name — for example ${esc(t0?.name ?? 'users')} or ${esc(t0 ? `${t0.name}.${t0.columns[0]?.name ?? 'id'}` : 'users.id')}.</p><button class="btn btn-primary" id="clear-search">Clear search</button></div></div>`;
+      $('clear-search').onclick = () => { gs.clear(); clearState(); paintBar(); $('search').focus(); };
+    },
+  });
+  // search.js clears its own state on Esc / ✕: keep the bar in step
+  $('search').addEventListener('keydown', (e) => { if (e.key === 'Escape') setTimeout(paintBar); });
+  $('search').addEventListener('search', () => setTimeout(paintBar));
+
+  // ======================= narrow screens: list of tables =======================
+  function renderList() {
+    const q = $('m-search').value.trim().toLowerCase();
+    const items = realTables().map((t) => ({ t, cols: q ? t.columns.filter((c) => colMatch(t, c, q)) : [] }))
+      .filter(({ t, cols }) => !q || t.name.toLowerCase().includes(q) || cols.length);
+    $('m-sub').textContent = `${D.name} · ${storeName(S)} · ${realTables().length} tables`;
+    $('m-list').innerHTML = items.length ? items.map(({ t, cols }) => {
+      const outs = [...new Set(t.out.filter((l) => l.to !== t).map((l) => l.to.name))];
+      const meta = [rlsOff(t) && 'RLS off', outs.length ? `FK → ${outs.join(', ')}` : t.in.length ? `referenced by ${[...new Set(t.in.map((l) => l.from.name))].join(', ')}` : null, `used in ${usedFiles(t)} file${usedFiles(t) === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+      const matched = cols.length ? `<p class="tcard-cols">matching columns: ${esc(cols.map((c) => c.name).join(', '))}</p>` : '';
+      // Only one column matched (not the table name) → the card opens that column.
+      const only = cols.length === 1 && !t.name.toLowerCase().includes(q) ? ` data-c="${esc(cols[0].name)}"` : '';
+      return `<button class="tcard" data-t="${esc(t.name)}"${only}><span class="tcard-top"><b>${esc(t.name)}</b><em>${t.columns.length} columns</em></span><p>${esc(meta)}</p>${matched}</button>`;
+    }).join('') : `<div class="w-empty">${ui.emptyIcon('search', '', 'thinking')}<h2>No match for “${esc($('m-search').value)}”</h2><p>Try another table or column name.</p></div>`;
+  }
+
+  // ======================= states =======================
+  const clearState = () => { $('state').innerHTML = ''; };
+  function showLoading(text = 'Reading the data structure…') {
+    $('state').innerHTML = `<div class="loading-pill"><span class="spinner"></span>${esc(text)}</div><div class="center"><div class="loading-art" data-anim="loading" data-loop aria-hidden="true"></div></div>`;
+    $('m-list').innerHTML = Array.from({ length: 5 }, () => '<div class="skel" style="height:72px;border-radius:10px"></div>').join('');
+    $('panel-body').innerHTML = '<div class="skel" style="width:120px;height:12px"></div><div class="skel" style="width:200px;height:20px"></div><div class="skel" style="height:12px"></div><div class="skel" style="height:12px"></div><div class="skel" style="height:160px"></div>';
+    lastSubject = '';
+  }
+  function showCenter(icon, kind, title, body, button, onClick, mood) {
+    const html = `<div class="w-empty state-card w-fade-in">${ui.emptyIcon(icon, kind, mood)}<h2>${esc(title)}</h2><p>${esc(body)}</p>${button ? `<button class="btn btn-primary" data-act>${esc(button)}</button>` : ''}</div>`;
+    $('state').innerHTML = `<div class="center">${html}</div>`;
+    $('m-list').innerHTML = html;
+    $('panel-body').innerHTML = '';
+    lastSubject = '';
+    document.querySelectorAll('[data-act]').forEach((b) => (b.onclick = onClick));
+  }
+  function paintToolbar(pillText) {
+    const name = D?.name ?? (current ? base(current) : '');
+    $('crumb').textContent = name ? `Code · ${name}` : 'Code';
+    const p = $('count-pill');
+    p.hidden = !pillText;
+    p.textContent = pillText ?? '';
+  }
+
+  // ======================= load =======================
+  function legend() {
+    const sw = (c) => `<i class="sw" style="background:${c}"></i>`;
+    $('hint').innerHTML = is3D
+      ? `<span>${sw(PAL.accent)}table</span><span>${sw(PAL.faint)}column</span><span>${sw(PAL.warn)}PK</span><span>${sw(PAL.accent2)}FK → table</span><span>drag to orbit · scroll to zoom</span>`
+      : `<span>click to open · drag a header to move · arrows point to the FK side</span>${S?.kind === 'supabase' ? '<span>red badge = RLS off</span>' : ''}`;
+  }
+  function render() {
+    document.body.classList.toggle('mode-3d', is3D);
+    legend();
+    if (!S) return;
+    if (is3D) g3.show(); else { g3.hide(); er.apply(); }
+  }
+  function useStore(i) {
+    const st = D.stores[i] ?? D.stores[0];
+    S = indexStore(st, D.refs);
+    store.set(`data-store:${current}`, st.label);
+    $('stores').hidden = D.stores.length < 2;
+    $('stores').innerHTML = D.stores.map((s, j) => `<button data-store="${j}" aria-pressed="${s === st}">${esc(storeName(s))}</button>`).join('');
+    $('stores').querySelectorAll('button').forEach((b) => (b.onclick = () => { gs.clear(); useStore(Number(b.dataset.store)); afterLoad(); }));
+    const n = realTables().length;
+    paintToolbar(`${n} table${n === 1 ? '' : 's'} · ${storeName(S)}`);
+  }
+  function afterLoad() {
+    clearState();
+    const h = fromHash();
+    sel = h && S.T.has(h.table) ? h : null;
+    lastSubject = '';
+    er.render();
+    er.start();
+    render();
+    renderList();
+    renderPanel();
+    showDetail();
+    if (sel && !is3D) er.center(sel.table);
+  }
+
+  // Project picker shared with the other pages (outside the window; the window has its own).
+  const picker = ui.projectPicker($('picker'), {
+    projects: () => projects,
+    current: () => current,
+    onChoose: (dir) => { current = dir; history.replaceState(null, '', `?dir=${encodeURIComponent(dir)}`); load(); },
+    onChanged: async (dir) => {
+      history.replaceState(null, '', dir ? `?dir=${encodeURIComponent(dir)}` : location.pathname);
+      store.set('code-project', dir ?? '');
+      current = null;
+      await loadProjects();
+    },
+  });
+  async function loadProjects() {
+    try {
+      projects = await (await fetch('/api/code/projects', { cache: 'no-store' })).json();
+    } catch {
+      return showCenter('alert', 'bad', "Can't reach the server", 'Start the server from the Overview, then try again.', 'Try again', loadProjects);
+    }
+    picker.label();
+    if (!projects.length) { paintToolbar(); return showCenter('inbox', '', 'No projects yet', 'Add a code project and wridge reads its tables from migrations, schema files and SQL.', '+ Add project', () => picker.add()); }
+    const wanted = new URLSearchParams(location.search).get('dir') ?? store.get('code-project');
+    current = projects.find((p) => p.dir === wanted)?.dir ?? projects[0].dir;
+    picker.label();
+    load();
+  }
+
+  async function load() {
+    gs.clear();
+    S = null; D = null;
+    document.body.classList.add('no-data');
+    showLoading();
+    paintToolbar('reading…');
+    $('refresh').disabled = true;
+    store.set('code-project', current);
+    let res, body;
+    try {
+      res = await fetch(`/api/code/data?dir=${encodeURIComponent(current)}`, { cache: 'no-store' });
+      body = await res.json();
+    } catch {
+      $('refresh').disabled = false;
+      paintToolbar();
+      return showCenter('alert', 'bad', "Couldn't read the data structure", "Can't reach the server — check that it's running, then try again.", 'Try again', load);
+    }
+    $('refresh').disabled = false;
+    if (!res.ok) { paintToolbar(); return showCenter('alert', 'bad', "Couldn't read the data structure", body.error || `HTTP ${res.status}`, 'Try again', load); }
+    D = body;
+    try { brainLinks = await (await fetch(`/api/brain/code-links?dir=${encodeURIComponent(current)}`, { cache: 'no-store' })).json(); if (!Array.isArray(brainLinks)) brainLinks = []; } catch { brainLinks = []; }
+    if (body.update?.gitignore?.added) toast(`Added ${body.update.gitignore.pattern} to .gitignore`, { kind: 'info' });
+    if (!D.stores.length) {
+      paintToolbar('no schema');
+      legend();
+      $('hint').innerHTML = '';
+      showCenter('inbox', '', 'No data structure here', "wridge reads tables from Supabase migrations, Prisma schemas, .sql files and CREATE TABLE in code (like sqflite). This project has none of those yet.", 'Rescan', load, 'bored');
+      setBody(`${head('Data', D.name, wrapPath(D.root ?? current))}${kvs([['Tables', 0], ['Code refs', D.refs?.length ?? 0]])}<p class="r-hint">Add a migration, a schema.prisma or a .sql file with CREATE TABLE, then press Rescan.</p>`, `empty:${current}`);
+      return;
+    }
+    document.body.classList.remove('no-data');
+    const remembered = D.stores.findIndex((s) => s.label === store.get(`data-store:${current}`));
+    useStore(Math.max(0, remembered));
+    afterLoad();
+  }
+
+  // ======================= events =======================
+  $('refresh').onclick = () => (current ? load() : loadProjects());
+  $('mode').querySelectorAll('button').forEach((b) => (b.onclick = () => {
+    is3D = b.dataset.mode === '3d';
+    $('mode').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    render();
+    if (!is3D && S) er.apply();
+  }));
+  $('zoom-in').onclick = () => (is3D ? g3.zoomBy(1.2) : er.zoomBy(1.2));
+  $('zoom-out').onclick = () => (is3D ? g3.zoomBy(1 / 1.2) : er.zoomBy(1 / 1.2));
+  $('zoom-fit').onclick = () => (is3D ? g3.fit() : er.fit());
+  $('reset-layout').onclick = () => S && er.resetLayout();
+  $('m-search').addEventListener('input', () => S && renderList());
+  $('m-list').addEventListener('click', (e) => { const b = e.target.closest('.tcard'); if (b) select({ table: b.dataset.t, column: b.dataset.c }, { push: true }); });
+  $('back').onclick = () => { if (history.state?.fromList) history.back(); else select(null); };
+  window.addEventListener('popstate', () => { if (!S) return; const h = fromHash(); sel = h && S.T.has(h.table) ? h : null; showDetail(); er.restyle(); g3.restyle(); renderPanel(); });
+  mobile.addEventListener('change', () => { showDetail(); if (!mobile.matches && S) { er.fit(); g3.resize(); } });
+  // Ctrl K: search. Esc: details → back to the summary; with nothing selected, clear the search.
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); const s = mobile.matches ? $('m-search') : $('search'); s.focus(); s.select(); return; }
+    if (e.key !== 'Escape' || !S || document.activeElement?.tagName === 'INPUT' || document.querySelector('dialog[open]')) return;
+    if (sel || !gs.state()) select(null); else { gs.clear(); paintBar(); }
+  });
+  window.addEventListener('resize', () => g3.resize());
+  // the window's light/dark switch: token colours change, and the 3D view follows
+  new MutationObserver(() => { readPalette(); document.body.classList.toggle('page-dark', pageDark()); g3.syncTheme(); legend(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  document.body.classList.toggle('page-dark', pageDark());
+
+  ui.icons();
+  legend();
+  loadProjects();
+})();
+</script>
+</body>
+</html>

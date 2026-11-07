@@ -1,0 +1,1588 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design map · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  html, body { height: 100%; }
+  .dm { min-height: 100%; display: flex; flex-direction: column; }
+  body.canvas-mode { overflow: hidden; }
+  body.canvas-mode .dm { height: 100vh; }
+  [data-ic] { display: inline-grid; }
+
+  /* ---------- header ---------- */
+  .dm-head { padding-bottom: 0; }
+  .dm-head .w-sub { max-width: 620px; }
+  .dm-head .w-actions { padding-bottom: 2px; }
+  body.canvas-mode .dm-head { padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .seg button { transition: background .15s, color .15s; }
+  .seg button:not([aria-pressed="true"]):hover { color: var(--text); }
+  #refresh .w-icon { width: 15px; height: 15px; color: currentColor; transition: transform .4s var(--ease); }
+  #refresh:hover .w-icon { transform: rotate(-60deg); }
+  #refresh.is-loading .w-icon { display: none; }
+  .sel { position: relative; display: inline-flex; align-items: center; }
+  .sel select { height: 34px; padding: 0 30px 0 12px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--background); color: var(--text);
+    appearance: none; font-size: 13px; cursor: pointer; transition: border-color .15s; }
+  .sel select:hover { border-color: var(--border-strong); }
+  .sel .w-icon { position: absolute; right: 9px; width: 14px; height: 14px; color: var(--text-faint); pointer-events: none; }
+
+  /* ---------- list view ---------- */
+  .dm-list { padding: 24px 44px 44px; display: flex; flex-direction: column; gap: 18px; transition: opacity .2s; container-type: inline-size; }
+  .dm-list.busy { opacity: .55; pointer-events: none; }
+  .strip { display: flex; align-items: center; gap: 14px; padding: 16px 22px 16px 16px; }
+  .strip .logo { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: var(--r-lg); background: var(--background); border: 1px solid var(--border); }
+  .strip .logo svg { width: 18px; height: 18px; }
+  .strip-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .strip-name { font-size: 16px; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .strip-meta { font: 11px/1.4 var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .strip-meta .spinner { width: 10px; height: 10px; border-width: 1.5px; vertical-align: -1px; margin-right: 4px; }
+  .stats { margin-left: auto; display: flex; gap: 34px; flex: none; }
+  .stat-n { display: flex; flex-direction: column; gap: 2px; min-width: 56px; }
+  .stat-n b { font-size: 19px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .stat-n span { font: 10.5px var(--mono); color: var(--text-muted); }
+  .stat-n.bad b, .stat-n.bad span { color: var(--danger); }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filters .fpill { padding: 4px 11px; font-size: 12px; background: var(--background); border: 1px solid var(--border); color: var(--text-2);
+    transition: background .15s, border-color .15s, color .15s, transform .15s var(--ease); }
+  .filters .fpill:hover { border-color: var(--border-strong); color: var(--text); }
+  .filters .fpill:active { transform: scale(.97); }
+  .filters .fpill.ink, .filters .fpill.ink:hover { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .fpill i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .fpill:focus-visible, .issue-card:focus-visible, .sec-row:focus-visible, .fchip:focus-visible, .tog:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 20px; align-items: start; }
+
+  .sec-tbl table { table-layout: fixed; }
+  .sec-tbl th { padding: 11px 16px; font: 500 10.5px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+  .sec-tbl th.c-status { width: 124px; } .sec-tbl th.c-frames { width: 80px; } .sec-tbl th.c-proto { width: 132px; }
+  .sec-tbl td { padding: 10px 16px; vertical-align: middle; border-bottom-color: var(--border); }
+  .sec-tbl td:first-child { white-space: normal; }
+  .sec-tbl tbody tr:hover td { background: transparent; }
+  .sec-row { cursor: pointer; }
+  .sec-row td { transition: background .15s; }
+  .sec-row:hover td, .sec-row.open td, .sec-more td { background: var(--surface-1) !important; }
+  .sec-row.open td { border-bottom-color: transparent; }
+  .sec-name { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .thumbs { display: flex; gap: 3px; flex: none; }
+  .thumbs span { width: 20px; height: 14px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
+  .thumbs span:empty { border-color: transparent; }
+  .thumbs img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; opacity: 0; transition: opacity .3s; }
+  .thumbs img.in { opacity: 1; }
+  .sec-title { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .sec-title b { font-size: 13.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sec-title small { font: 10.5px/1.4 var(--mono); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chev { margin-left: auto; width: 14px; height: 14px; color: var(--text-faint); opacity: 0; transform: rotate(-90deg); transition: opacity .15s, transform .2s var(--ease); }
+  .sec-row:hover .chev, .sec-row:focus-visible .chev { opacity: 1; }
+  .sec-row.open .chev { opacity: 1; transform: none; }
+  .n-cell { font: 12px var(--mono); color: var(--text-2); }
+  .proto { font: 11.5px var(--mono); white-space: nowrap; }
+  .proto.ok { color: var(--success-text); } .proto.bad { color: var(--danger-text); } .proto.warn { color: var(--warning-text); } .proto.faint { color: var(--text-faint); }
+  .no-status { font: 11px var(--mono); color: var(--text-faint); }
+  .sec-more td { padding: 2px 16px 16px; }
+  .frame-list { display: flex; flex-wrap: wrap; gap: 6px; animation: w-in .24s var(--ease); }
+  .fchip { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--background);
+    color: var(--text-2); font: 12px/1.4 var(--sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; transition: border-color .15s, color .15s; }
+  .fchip:hover { border-color: var(--border-strong); color: var(--text); }
+  .fchip.off { cursor: default; color: var(--text-muted); background: transparent; }
+  .fchip.off:hover { border-color: var(--border); color: var(--text-muted); }
+  .fchip i, .mini-key i { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  i.bad { background: var(--danger); } i.warn { background: var(--warning); } i.start { background: var(--primary); }
+  .frame-more { align-self: center; font: 11px var(--mono); color: var(--text-faint); padding: 0 4px; }
+  .mini-key { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 10px; font: 10.5px var(--mono); color: var(--text-faint); }
+  .mini-key span { display: inline-flex; align-items: center; gap: 5px; }
+  .tbl-empty td { padding: 28px 16px !important; text-align: center; font-size: 13px; color: var(--text-muted) !important; font-weight: 400 !important; }
+
+  .issues { display: flex; flex-direction: column; gap: 8px; }
+  .issues .w-label { padding: 2px 0 4px; }
+  .issues .w-label.next { padding-top: 14px; }
+  .issue-card { width: 100%; display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background);
+    color: inherit; text-align: left; font: inherit; cursor: pointer; animation: w-in .24s var(--ease) backwards;
+    transition: border-color .15s, transform .15s var(--ease), box-shadow .15s; }
+  .issue-card:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+  .issue-card.static { cursor: default; }
+  .issue-card.static:hover { transform: none; border-color: var(--border); }
+  .issue-card .t { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; line-height: 1.35; color: var(--text); }
+  .issue-card .t i { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--warning); }
+  .issue-card .go { margin-left: auto; width: 14px; height: 14px; color: var(--text-muted); transition: transform .15s var(--ease), color .15s; }
+  .issue-card:hover .go { transform: translate(1px, -1px); color: var(--text); }
+  .issue-card .b { display: block; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); overflow-wrap: anywhere; }
+  .issue-card.bad { background: var(--danger-soft); border-color: var(--danger-line); }
+  .issue-card.bad .t { color: var(--danger-text); }
+  .issue-card.bad .t i { background: var(--danger); }
+  .issue-card.bad:hover { border-color: var(--danger); }
+  .issue-card.ok .t i { background: var(--success); }
+  .issue-card.neutral .t i { background: var(--text-faint); }
+  .more-issues { align-self: flex-start; }
+
+  /* ---------- states ---------- */
+  .dm-state { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+  .dm-empty { flex: 1; margin: 24px 44px 44px; }
+  .dm-empty h2 { margin-top: 2px; }
+  .steps { list-style: none; margin: 6px 0 2px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; text-align: left;
+    background: var(--background); border: 1px solid var(--border); border-radius: var(--r-lg); width: min(420px, 100%); }
+  .steps li { display: flex; align-items: center; gap: 12px; font-size: 13.5px; color: var(--text-2); }
+  .steps .n { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); font: 500 11px var(--mono); color: var(--text-2); }
+  .steps kbd { font: 12px var(--mono); color: var(--text); }
+  .dm-empty .actions { justify-content: center; margin-top: 4px; }
+  .dm-empty .hint-line { display: flex; align-items: center; gap: 8px; font: 11px/1.5 var(--mono); color: var(--text-faint); max-width: none; }
+  .dm-empty .hint-line .spinner { width: 10px; height: 10px; border-width: 1.5px; }
+  .dm-empty .codebox { max-width: 520px; text-align: left; }
+  .sk-wrap { flex: 1; }
+  .sk-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+  .sk-row:last-child { border-bottom: 0; }
+  .sk-canvas { flex: 1; display: grid; place-items: start center; padding-top: 24px; }
+
+  /* ---------- canvas views (mindmap / 3D) ---------- */
+  .cv { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .cv-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 24px 10px 44px; border-bottom: 1px solid var(--border); background: var(--surface); }
+  .cv-bar .spacer { flex: 1; }
+  .cv-bar .btn { padding: 6px 10px; }
+  .toggles { display: flex; gap: 6px; }
+  .tog { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--background);
+    color: var(--text-faint); font-size: 12px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+  .tog i { width: 6px; height: 6px; border-radius: 50%; opacity: .35; transition: opacity .15s; }
+  .tog:hover { border-color: var(--border-strong); }
+  .tog[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); }
+  .tog[aria-pressed="true"] i { opacity: 1; }
+  body.mode-3d .only-2d, body:not(.mode-3d) .only-3d { display: none !important; }
+
+  .cv-main { flex: 1; min-height: 0; display: flex; }
+  #graph, #mindmap { position: absolute; inset: 0; }
+  #graph { display: none; }
+  #mindmap { width: 100%; height: 100%; cursor: grab; touch-action: none; }
+  #mindmap.dragging { cursor: grabbing; }
+  html body.mode-3d #graph, html body.graph3d-dark.mode-3d #graph { background: transparent; }
+  body.searching #mindmap, body.searching #graph { opacity: .2; transition: opacity .2s; }
+  .gs-float { position: absolute; z-index: 6; top: 14px; left: 16px; right: 16px; pointer-events: none; }
+  .gs-float .gs-bar { pointer-events: auto; }
+
+  .fl { background: var(--background); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-md); }
+  .bottom { position: absolute; z-index: 5; left: 16px; right: 16px; bottom: 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; pointer-events: none; }
+  .bottom > *, .bottom-left > * { pointer-events: auto; }
+  .bottom-left { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+  .ctl { display: flex; align-items: center; gap: 2px; padding: 3px; white-space: nowrap; }
+  .ctl button { min-width: 28px; height: 28px; padding: 0 9px; border: 0; border-radius: var(--r-md); background: none; color: var(--text-2); font-size: 13px; cursor: pointer; transition: background .15s, color .15s; }
+  .ctl button:hover { background: var(--surface-2); color: var(--text); }
+  .ctl button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+  .ctl-sep { width: 1px; height: 16px; margin: 0 3px; background: var(--border); }
+  .ctl .zoom-level { min-width: 46px; text-align: center; font: 11px var(--mono); color: var(--text-muted); }
+  .hint { display: flex; align-items: center; height: 36px; padding: 0 12px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 9px 12px; font-size: 12px; color: var(--text-muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .legend:empty { display: none; }
+  .sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  @media (max-width: 1280px) { .hint { display: none; } }
+
+  .center { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; padding: 24px; pointer-events: none; }
+  .center > * { pointer-events: auto; }
+  .result-card { background: var(--background); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--shadow-md); width: min(360px, 100%); }
+  .loading-pill { position: absolute; z-index: 6; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+    border-radius: 999px; background: var(--background); border: 1px solid var(--border); box-shadow: var(--shadow-md); font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .loading-pill .spinner { width: 14px; height: 14px; border-width: 2px; }
+
+  /* details rail */
+  .panel { width: 320px; flex: none; border-left: 1px solid var(--border); background: var(--surface-1); overflow-y: auto; padding: 22px 20px; display: flex; flex-direction: column; gap: 18px; }
+  .panel > * { flex: none; animation: w-in .24s var(--ease) backwards; }
+  .panel .handle { display: none; }
+  .panel h2 { margin: 6px 0 0; font-size: 19px; font-weight: 600; letter-spacing: -.02em; line-height: 1.3; word-break: break-word; }
+  .thumb { aspect-ratio: 2 / 1.15; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; display: grid; place-items: center; }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; animation: w-in .24s var(--ease); }
+  .facts { display: flex; flex-direction: column; gap: 9px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+  .kv span:first-child { color: var(--text-muted); }
+  .kv span:last-child { font: 12px var(--mono); text-align: right; color: var(--text); overflow-wrap: anywhere; }
+  .divider { height: 1px; background: var(--border); flex: none; }
+  .psec h3 { margin: 0 0 8px; }
+  .issue-box { padding: 11px 12px; border-radius: var(--r-md); background: var(--danger-soft); border: 1px solid var(--danger-line); color: var(--danger-text); font-size: 13px; line-height: 1.5; }
+  .note-box { padding: 10px 12px; border-radius: var(--r-md); background: var(--primary-soft); color: var(--primary); font-size: 13px; }
+  .quote { padding: 11px 12px; border-radius: var(--r-md); background: var(--surface-2); font-size: 13px; color: var(--text-2); }
+  .plist { display: flex; flex-direction: column; gap: 2px; }
+  .pitem { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border: 1px solid transparent; border-radius: var(--r-md); background: none; text-align: left;
+    color: var(--text-2); font-size: 13px; cursor: pointer; transition: background .12s, border-color .12s; }
+  .pitem:hover { background: var(--background); border-color: var(--border); color: var(--text); }
+  .pitem i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .pitem span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pitem em { font: normal 11px var(--mono); color: var(--text-faint); }
+  .panel-empty { margin: auto 0; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; font-size: 13px; color: var(--text-muted); }
+  .panel-empty small { font: 11px var(--mono); color: var(--text-faint); }
+  .panel .actions .btn-primary { flex: 1; }
+  #gs-back { align-self: flex-start; padding-left: 8px; }
+
+  /* mind map: colours from the kit tokens, so both themes work */
+  .mm-node { cursor: pointer; }
+  .mm-node text { font-family: var(--sans); dominant-baseline: central; pointer-events: none; }
+  .mm-node rect.body { fill: var(--background); stroke: var(--border); stroke-width: 1; transition: stroke .15s, fill .15s; }
+  .mm-node .lbl { fill: var(--text); }
+  .mm-node .badge { fill: var(--text-muted); font-family: var(--mono); }
+  .mm-node:hover rect.body { stroke: var(--border-strong); }
+  .mm-node.lv-root rect.body { fill: var(--ink); stroke: none; }
+  .mm-node.lv-root .lbl { fill: var(--on-ink); }
+  .mm-node.lv-branch rect.body { fill: var(--primary-soft); stroke: var(--blue-200); }
+  .mm-node.lv-branch .lbl { fill: var(--primary); }
+  .mm-node.lv-branch .badge { fill: var(--blue-400); }
+  .mm-node.lv-branch.open rect.body { fill: var(--primary); stroke: none; }
+  .mm-node.lv-branch.open .lbl { fill: var(--surface-1); }
+  .mm-node.lv-branch.open .badge { fill: var(--blue-100); }
+  .mm-node.k-nav rect.body { stroke: var(--primary); }
+  .mm-node.k-nav .lbl { fill: var(--primary); }
+  .mm-node.k-sub rect.body { fill: var(--surface-1); stroke: var(--border-strong); stroke-dasharray: 3 3; }
+  .mm-node.k-sub .lbl { fill: var(--text-muted); }
+  .mm-node.k-layer rect.body, .mm-node.k-note rect.body { fill: var(--background); fill-opacity: .82; stroke: none; }
+  .mm-node.k-layer .lbl { fill: var(--text-2); }
+  .mm-node.k-note .lbl { fill: var(--text-faint); }
+  .mm-node.issue rect.body { stroke: var(--danger); stroke-dasharray: 4 3; }
+  .mm-node.unused rect.body { stroke: var(--border-strong); stroke-dasharray: 4 3; }
+  .mm-node.unused .lbl { fill: var(--text-faint); }
+  .mm-node .flag { fill: var(--danger); stroke: var(--background); stroke-width: 1.5; }
+  .mm-node .tog-dot circle { fill: var(--background); stroke: var(--border-strong); stroke-width: 1; }
+  .mm-node .tog-dot text { fill: var(--text-muted); font-weight: 600; }
+  .mm-node rect.halo { display: none; fill: none; stroke: var(--primary); stroke-opacity: .18; stroke-width: 6; }
+  .mm-node.selected rect.halo { display: block; }
+  .mm-node.selected rect.body { stroke: var(--primary); stroke-width: 2; stroke-dasharray: none; }
+  .mm-edge { fill: none; stroke-linecap: round; stroke: var(--border-strong); stroke-width: 1.25; }
+  .mm-edge.d1 { stroke: var(--blue-300); stroke-width: 2.5; }
+  .mm-edge.d2 { stroke: var(--blue-200); stroke-width: 1.75; }
+  .mm-edge.nav { stroke: var(--primary); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .mm-node.dim, .mm-edge.dim { opacity: .28; }
+  .mm-node.gs-hit rect.body { stroke: var(--primary); stroke-width: 2; fill: var(--primary-soft); }
+  .mm-node.gs-hit .lbl { fill: var(--primary); }
+  .mm-node.gs-current rect.body { stroke: var(--primary); stroke-width: 2.5; fill: var(--primary); }
+  .mm-node.gs-current .lbl, .mm-node.gs-current .badge { fill: var(--surface-1); }
+  .g3d-label.gs-current { background: var(--primary); color: var(--surface-1); }
+  .gs-row.current { border-color: var(--blue-200); }
+
+  .scene-tooltip { font: 12px/1.45 var(--sans) !important; color: var(--text) !important; background: var(--background) !important;
+    border: 1px solid var(--border) !important; border-radius: var(--r-lg) !important; padding: 8px 10px !important; box-shadow: var(--shadow-md); }
+
+  /* the list follows its own width (the window's sidebar can be open or folded) */
+  @container (max-width: 760px) {
+    .cols { grid-template-columns: 1fr; }
+    .stats { gap: 22px; }
+  }
+  @media (max-width: 760px) {
+    .dm-head { flex-wrap: wrap; padding: 24px 20px 0; }
+    .dm-list, .cv-bar { padding-left: 20px; padding-right: 20px; }
+    .dm-empty { margin: 16px 20px 32px; }
+    .strip { flex-wrap: wrap; }
+    .stats { margin-left: 0; width: 100%; justify-content: space-between; }
+    .thumbs { display: none; }
+    .sec-tbl th.c-frames, .sec-tbl td.n-cell { display: none; }
+    .cv-bar .w-search { width: 100%; }
+    .toggles, .cv-bar .btn, .bottom-left .hint, .legend { display: none !important; }
+    .bottom { justify-content: center; }
+    .panel { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; width: auto; max-height: 58vh; border-left: 0; border-top: 1px solid var(--border); border-radius: 18px 18px 0 0;
+      box-shadow: var(--shadow-lg); padding: 10px 20px 28px; gap: 14px; transform: translateY(105%); visibility: hidden; transition: transform .22s var(--ease), visibility 0s .22s; }
+    .panel.open { transform: none; visibility: visible; transition: transform .22s var(--ease); }
+    .panel .handle { display: block; width: 36px; height: 4px; margin: 0 auto 4px; border-radius: 999px; background: var(--border-strong); border: 0; padding: 0; cursor: pointer; }
+    .panel .thumb { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .issue-card, .frame-list, .panel > *, .thumb img { animation: none; }
+    .issue-card:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="dm">
+  <header class="w-head dm-head">
+    <div class="w-titles">
+      <p class="w-label">Design · Figma</p>
+      <h1>Design map</h1>
+      <p class="w-sub">Every section in the open Figma file — what it holds, how far along it is, and whether its prototype is wired.</p>
+    </div>
+    <div class="w-actions">
+      <label class="sel" id="page-wrap" hidden><select id="page" aria-label="Figma page"><option value="">All pages</option></select><span class="w-icon" data-ic="chevrondown"></span></label>
+      <div class="seg" id="mode" role="group" aria-label="View">
+        <button data-mode="list" aria-pressed="true">List</button><button data-mode="2d" aria-pressed="false">Mindmap</button><button data-mode="3d" aria-pressed="false">3D</button>
+      </div>
+      <button class="btn btn-secondary" id="refresh" title="Read the Figma file again"><span class="w-icon" data-ic="restart"></span><span class="lbl">Rescan</span></button>
+    </div>
+  </header>
+
+  <div class="dm-state" id="state-view"></div>
+
+  <main class="dm-list" id="list-view" hidden>
+    <section class="w-card strip w-fade-in" id="strip" aria-label="Figma file"></section>
+    <div class="filters" id="filters" role="group" aria-label="Filter sections by review status"></div>
+    <div class="cols">
+      <div class="w-tbl sec-tbl w-fade-in">
+        <table>
+          <thead><tr><th>Section</th><th class="c-status">Status</th><th class="c-frames">Frames</th><th class="c-proto">Prototype</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <aside class="issues" id="issues" aria-label="Prototype issues"></aside>
+    </div>
+  </main>
+
+  <div class="cv" id="canvas-view" hidden>
+    <div class="cv-bar">
+      <label class="w-search"><span class="w-icon" data-ic="search"></span><input id="search" type="search" placeholder="Search the map" aria-label="Search screens and components" autocomplete="off" spellcheck="false"><span class="w-kbd">/</span></label>
+      <div class="toggles" role="group" aria-label="Show on the map">
+        <button class="tog" data-type="uses" aria-pressed="true"><i style="background:var(--text-muted)"></i>Components</button>
+        <button class="tog only-3d" data-type="navigates" aria-pressed="true"><i style="background:var(--primary)"></i>Links</button>
+        <button class="tog only-3d" data-type="breakpoint" aria-pressed="true"><i style="background:var(--warning)"></i>Breakpoints</button>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost only-2d" id="expand-all">Expand all</button>
+      <button class="btn btn-ghost only-2d" id="collapse-all">Collapse all</button>
+    </div>
+    <div class="cv-main">
+      <main class="w-canvas" id="canvas">
+        <div id="graph"></div>
+        <svg id="mindmap"><g id="mm-root"></g></svg>
+        <div class="gs-float"><div id="search-bar" role="status"></div></div>
+        <div id="canvas-state"></div>
+        <div class="bottom">
+          <div class="bottom-left">
+            <div class="fl ctl" role="group" aria-label="Zoom">
+              <button id="zoom-out" aria-label="Zoom out">−</button><span class="zoom-level" id="zoom-level">100%</span><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit</button>
+              <span class="ctl-sep only-3d"></span><button class="only-3d" id="rotate3d" aria-pressed="false">Orbit</button>
+            </div>
+            <div class="fl hint only-3d">Drag to orbit · scroll to zoom · click a ball to select</div>
+            <div class="fl hint only-2d">Click to open or fold · drag to pan</div>
+          </div>
+          <div class="fl legend" id="legend"></div>
+        </div>
+      </main>
+      <aside class="panel" id="panel" aria-label="Details"></aside>
+    </div>
+  </div>
+</div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script src="/vendor/3d-force-graph.min.js"></script>
+<script src="/graph3d.js"></script>
+<script src="/search.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const { esc, toast } = ui;
+  const canvas = $('canvas'), panel = $('panel');
+  document.querySelectorAll('[data-ic]').forEach((el) => (el.innerHTML = ui.icon(el.dataset.ic)));
+
+  // Category colours of the 3D graph and the panel dots (the mind map itself is styled by the kit tokens).
+  const dark = () => document.documentElement.dataset.theme === 'dark';
+  const PAL = {
+    light: { screen: '#2F6BFF', start: '#1D45B8', comp: '#A8A49B', issue: '#D23B2F', unused: '#D3CEC4', strong: { comp: '#5C5850', screen: '#1D45B8', unused: '#77736B' } },
+    dark: { screen: '#6B93FF', start: '#A9C0FF', comp: '#9A958B', issue: '#F06A5E', unused: '#4A463F', strong: { comp: '#CFCBC2', screen: '#A9C0FF', unused: '#9A958B' } },
+  };
+  const pal = () => PAL[dark() ? 'dark' : 'light'];
+  const LINK = { uses: 'rgba(119,115,107,.30)', navigates: 'rgba(47,107,255,.75)', breakpoint: 'rgba(194,124,14,.65)' };
+  const ISSUE_TEXT = { 'dead-end': 'Dead end — links lead here, but nothing leads on', orphan: 'No screen links here', unused: 'Not used on any screen yet' };
+  const STATUS = { draft: { label: 'Draft', cls: '', dot: 'var(--text-faint)' }, review: { label: 'In review', cls: 'warn', dot: 'var(--warning)' }, approved: { label: 'Approved', cls: 'ok', dot: 'var(--success)' }, none: { label: 'No status', dot: 'var(--border-strong)' } };
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+  let raw = null, byId = new Map(), secData = null, readAt = 0, busy = false;
+  let mode = 'list', is3D = false, selectedId = null, stateKind = null;
+  let rows = [], issues = [], rowOf = new Map(), filter = 'all', expanded = new Set(), allIssues = false;
+  let search = null; // { q, hits, index, current, ids: graph nodes hit, near: one hop away, frame: what 3D zooms to, sig }
+  const show = { uses: true, navigates: true, breakpoint: true };
+  const end = (e) => (typeof e === 'object' ? e.id : e);
+  const baseColor = (n) => { const p = pal(); return n.issue === 'unused' ? p.unused : n.issue ? p.issue : n.type === 'component' ? p.comp : n.flowStart ? p.start : p.screen; };
+  const W = () => canvas.clientWidth, H = () => canvas.clientHeight;
+  const mobile = () => matchMedia('(max-width: 760px)').matches;
+  try { const v = localStorage.getItem('wridge-design-map-view'); if (['list', '2d', '3d'].includes(v)) mode = v; } catch { /* storage blocked */ }
+
+  // ======================= section titles: "<Name> · <Kind> · <Status>" (same rule as the plugin) =======================
+  const KINDS = /^(prototype|app|web|mobile|slides?|deck|storyboard|video|graphics?|poster|social|print|diagram|illustration|doc|docs|other)$/i;
+  function parseTitle(name) {
+    const parts = String(name).trim().split(/\s+[·\-–]\s+/);
+    let status = null, kind = null;
+    if (parts.length > 1 && /^(draft|in review|review|approved)$/i.test(parts[parts.length - 1])) {
+      const w = parts.pop().toLowerCase();
+      status = w === 'approved' ? 'approved' : w === 'draft' ? 'draft' : 'review';
+    }
+    if (parts.length > 1 && (status || KINDS.test(parts[parts.length - 1]))) kind = parts.pop();
+    return { title: parts.join(' · '), kind, status, prototype: kind === null || /^(prototype|app|web|mobile)$/i.test(kind) };
+  }
+
+  // ======================= thumbnails (/api/thumb), two at a time, shared by the list and the panel =======================
+  const thumbs = new Map(), thumbUrl = new Map(); // id → Promise<url | null>; id → url once loaded
+  let thumbQueue = [], thumbBusy = 0;
+  function thumb(id, first = false) {
+    if (!thumbs.has(id)) thumbs.set(id, new Promise((resolve) => { thumbQueue[first ? 'unshift' : 'push']({ id, resolve }); pumpThumbs(); }));
+    return thumbs.get(id);
+  }
+  function pumpThumbs() {
+    while (thumbBusy < 2 && thumbQueue.length) {
+      const { id, resolve } = thumbQueue.shift();
+      thumbBusy++;
+      fetch(`/api/thumb?id=${encodeURIComponent(id)}`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.blob() : null)).then((b) => { const url = b ? URL.createObjectURL(b) : null; if (url) thumbUrl.set(id, url); resolve(url); }).catch(() => resolve(null))
+        .finally(() => { thumbBusy--; pumpThumbs(); });
+    }
+  }
+  function clearThumbs() {
+    for (const p of thumbs.values()) p.then((u) => u && URL.revokeObjectURL(u));
+    thumbs.clear();
+    thumbUrl.clear();
+    thumbQueue = [];
+  }
+  const thumbSeen = new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (!e.isIntersecting) continue;
+      thumbSeen.unobserve(e.target);
+      const box = e.target;
+      thumb(box.dataset.thumb).then((url) => {
+        if (!url || !box.isConnected) return;
+        const img = new Image();
+        img.alt = '';
+        img.onload = () => img.classList.add('in');
+        img.src = url;
+        box.replaceChildren(img);
+      });
+    }
+  }, { rootMargin: '120px' });
+
+  // ======================= list view =======================
+  function buildRows() {
+    const navOut = new Map();
+    for (const l of raw.links) if (l.type === 'navigates') navOut.set(l.source, (navOut.get(l.source) ?? 0) + 1);
+    const screens = raw.nodes.filter((n) => n.type === 'screen');
+    const picked = raw.pages.find((p) => p.id === $('page').value)?.name;
+    // Sections are read from the page open in Figma; they apply unless another page is picked here.
+    const useSecs = Boolean(secData?.sections) && (!picked || picked === secData.page);
+    const out = [], placed = new Set();
+    if (useSecs) secData.sections.forEach((s, i) => {
+      const t = parseTitle(s.name);
+      const scr = s.pages.map((p) => byId.get(p.id)).filter((n) => n?.type === 'screen');
+      scr.forEach((n) => placed.add(n.id));
+      out.push({ key: s.id, title: t.title || s.name, kind: t.kind ?? 'Prototype', status: t.status, prototype: t.prototype, frames: s.pages, screens: scr, order: i });
+    });
+    for (const p of raw.pages) {
+      const loose = screens.filter((n) => n.page === p.name && !placed.has(n.id));
+      if (!loose.length) continue;
+      const here = useSecs && p.name === secData.page;
+      out.push({ key: `loose:${p.id}`, title: here ? 'Not in a section' : p.name, kind: here ? p.name : useSecs ? 'Page · sections not read' : 'Page',
+        status: null, prototype: true, loose: true, frames: loose.map((n) => ({ id: n.id, name: n.name })), screens: loose, order: -1 });
+    }
+    rowOf = new Map();
+    for (const r of out) {
+      r.nav = r.screens.reduce((s, n) => s + (navOut.get(n.id) ?? 0), 0);
+      r.starts = r.screens.filter((n) => n.flowStart).length;
+      r.dead = r.screens.filter((n) => n.issue === 'dead-end');
+      r.orphans = r.screens.filter((n) => n.issue === 'orphan');
+      for (const n of r.screens) rowOf.set(n.id, r);
+    }
+    // Work that needs attention first: Draft, In review, Approved; prototypes before other kinds; newest first.
+    const RANK = { draft: 0, review: 1, approved: 2 };
+    return out.sort((a, b) => (Boolean(a.loose) - Boolean(b.loose)) || ((RANK[a.status] ?? 3) - (RANK[b.status] ?? 3)) || (b.prototype - a.prototype) || (b.order - a.order));
+  }
+
+  function buildIssues() {
+    const where = (r) => (r.loose ? '' : `${r.title} · `);
+    const out = [];
+    for (const r of rows) for (const n of r.dead) out.push({ kind: 'bad', title: 'Dead end', body: `${where(r)}${n.name} has no way out`, id: n.id, row: r });
+    for (const r of rows) for (const n of r.orphans) out.push({ kind: 'warn', title: 'Orphan screen', body: `${where(r)}${n.name} isn’t reached from any flow`, id: n.id, row: r });
+    for (const r of rows) if (r.prototype && !r.loose && r.screens.length && !r.starts) out.push({ kind: 'warn', title: 'No flow start', body: `${r.title} has no starting frame`, id: r.screens[0].id, row: r });
+    return out;
+  }
+
+  function protoState(r) {
+    if (!r.prototype) return { text: '—', cls: 'faint', tip: `${r.kind} section — not part of the prototype` };
+    if (!r.screens.length) return { text: '—', cls: 'faint', tip: 'No screens here' };
+    const tip = `${plural(r.nav, 'link')} · ${plural(r.starts, 'flow start')} · ${plural(r.dead.length, 'dead end')} · ${plural(r.orphans.length, 'orphan')}`;
+    if (!raw.flowsChecked) return { text: r.nav ? plural(r.nav, 'link') : 'not wired', cls: 'faint', tip: 'The flow check didn’t run, so dead ends and orphans are unknown' };
+    if (r.dead.length) return { text: plural(r.dead.length, 'dead end'), cls: 'bad', tip };
+    if (!r.nav) return { text: 'not wired', cls: 'faint', tip: 'No prototype links yet' };
+    if (!r.starts && !r.loose) return { text: 'no flow start', cls: 'warn', tip };
+    if (r.orphans.length) return { text: plural(r.orphans.length, 'orphan'), cls: 'warn', tip };
+    return { text: 'wired', cls: 'ok', tip };
+  }
+
+  function ago(t) {
+    const s = Math.round((Date.now() - t) / 1000);
+    if (s < 45) return 'just now';
+    const m = Math.round(s / 60);
+    if (m < 60) return `${m} min ago`;
+    const h = Math.round(m / 60);
+    return `${h} hr${h === 1 ? '' : 's'} ago`;
+  }
+  function metaText() {
+    const picked = raw.pages.find((p) => p.id === $('page').value)?.name;
+    const where = picked ?? (raw.pages.length > 1 ? `${raw.pages.length} pages` : raw.pages[0]?.name ?? secData?.page ?? 'Figma');
+    return `${esc(where)} · ${busy ? '<span class="spinner"></span>reading…' : `read ${ago(readAt)}`} · plugin connected`;
+  }
+
+  function renderStrip() {
+    const screens = raw.nodes.filter((n) => n.type === 'screen');
+    const comps = raw.nodes.filter((n) => n.type === 'component');
+    const unused = comps.filter((n) => n.issue === 'unused').length;
+    const stat = (n, label, tip = '', cls = '') => `<div class="stat-n ${cls}"${tip ? ` title="${esc(tip)}"` : ''}><b>${n}</b><span>${label}</span></div>`;
+    $('strip').innerHTML = `<span class="logo">${ui.icon('logo-figma')}</span>
+      <div class="strip-text"><div class="strip-name" title="${esc(raw.file)}">Figma</div><div class="strip-meta" id="strip-meta">${metaText()}</div></div>
+      <div class="stats">
+        ${stat(screens.length, 'screens', `${screens.length} prototype screens on ${plural(raw.pages.length, 'page')}`)}
+        ${stat(screens.filter((n) => n.flowStart).length, 'flows', 'Screens that start a prototype flow')}
+        ${stat(comps.length, 'components', unused ? `${unused} not used on any screen` : 'All used')}
+        ${stat(issues.length, 'issues', 'Dead ends, orphan screens and sections with no flow start', issues.length ? 'bad' : '')}
+      </div>`;
+  }
+
+  function renderFilters() {
+    const counts = { all: rows.length, approved: 0, review: 0, draft: 0, none: 0 };
+    for (const r of rows) counts[r.status ?? 'none']++;
+    if (filter !== 'all' && !counts[filter]) filter = 'all';
+    const defs = [['all', 'All'], ['approved', 'Approved'], ['review', 'In review'], ['draft', 'Draft'], ['none', 'No status']].filter(([k]) => k !== 'none' || counts.none);
+    $('filters').innerHTML = defs.map(([k, label]) => `<button class="w-pill sans fpill${filter === k ? ' ink' : ''}" data-f="${k}" aria-pressed="${filter === k}">${k === 'all' ? '' : `<i style="background:${STATUS[k].dot}"></i>`}${label} · ${counts[k]}</button>`).join('');
+  }
+
+  const inFilter = (r) => filter === 'all' || (r.status ?? 'none') === filter;
+
+  function rowHTML(r) {
+    const st = protoState(r), open = expanded.has(r.key);
+    const status = r.status ? `<span class="w-pill sans dot ${STATUS[r.status].cls}">${STATUS[r.status].label}</span>` : `<span class="no-status">${r.loose ? '—' : 'No status'}</span>`;
+    const minis = r.frames.slice(0, 3).map((f) => (thumbUrl.get(f.id) ? `<span><img class="in" alt="" src="${thumbUrl.get(f.id)}"></span>` : `<span data-thumb="${esc(f.id)}"></span>`)).join('')
+      + '<span></span>'.repeat(Math.max(0, 3 - r.frames.length));
+    return `<tr class="sec-row${open ? ' open' : ''}" data-key="${esc(r.key)}" tabindex="0" aria-expanded="${open}">
+      <td><div class="sec-name"><span class="thumbs" aria-hidden="true">${minis}</span><span class="sec-title"><b>${esc(r.title)}</b><small>${esc(r.kind)}</small></span><span class="w-icon chev">${ui.icon('chevrondown')}</span></div></td>
+      <td>${status}</td><td class="n-cell">${r.frames.length}</td>
+      <td><span class="proto ${st.cls}" title="${esc(st.tip)}">${esc(st.text)}</span></td></tr>${open ? detailHTML(r) : ''}`;
+  }
+  function detailHTML(r) {
+    const MAX = 40;
+    const chips = r.frames.slice(0, MAX).map((f) => {
+      const n = byId.get(f.id);
+      if (n?.type !== 'screen') return `<span class="fchip off" title="${esc(f.name)}">${esc(f.name)}</span>`;
+      const mark = n.issue === 'dead-end' ? '<i class="bad"></i>' : n.issue === 'orphan' ? '<i class="warn"></i>' : n.flowStart ? '<i class="start"></i>' : '';
+      return `<button class="fchip" data-open="${esc(n.id)}" title="Open ${esc(n.name)} in the mindmap">${mark}${esc(n.name)}</button>`;
+    }).join('');
+    const key = r.screens.length
+      ? '<span><i class="start"></i>flow start</span><span><i class="bad"></i>dead end</span><span><i class="warn"></i>orphan</span><span>click a screen to open it in the mindmap</span>'
+      : `<span>${esc(r.kind)} frames aren’t part of the prototype map</span>`;
+    return `<tr class="sec-more"><td colspan="4"><div class="frame-list">${chips}${r.frames.length > MAX ? `<span class="frame-more">+${r.frames.length - MAX} more</span>` : ''}</div><div class="mini-key">${key}</div></td></tr>`;
+  }
+  function renderRows() {
+    const shown = rows.filter(inFilter);
+    const body = $('rows');
+    body.innerHTML = shown.length ? shown.map(rowHTML).join('') : `<tr class="tbl-empty"><td colspan="4">No ${esc(STATUS[filter]?.label.toLowerCase() ?? '')} sections</td></tr>`;
+    body.querySelectorAll('[data-thumb]').forEach((el) => thumbSeen.observe(el));
+  }
+
+  function renderIssues() {
+    const list = issues.filter((i) => inFilter(i.row));
+    const MAX = 12;
+    const shown = allIssues ? list : list.slice(0, MAX);
+    let html = `<p class="w-label">Prototype issues · ${list.length}</p>`;
+    if (!raw.flowsChecked) html += `<button class="issue-card neutral" data-rescan><span class="t"><i></i>Flow check didn’t run<span class="w-icon go">${ui.icon('restart')}</span></span><span class="b">Dead ends and orphans are unknown — rescan to try again.</span></button>`;
+    else if (!list.length) html += `<div class="issue-card ok static"><span class="t"><i></i>All clear</span><span class="b">No dead ends, orphan screens or missing flow starts${filter === 'all' ? '' : ' here'}.</span></div>`;
+    html += shown.map((it, i) => `<button class="issue-card ${it.kind}" data-open="${esc(it.id)}" style="animation-delay:${Math.min(i, 10) * 30}ms" title="Open in the mindmap">
+      <span class="t"><i></i>${esc(it.title)}<span class="w-icon go">${ui.icon('external')}</span></span><span class="b">${esc(it.body)}</span></button>`).join('');
+    if (list.length > MAX) html += `<button class="btn btn-ghost more-issues" data-all>${allIssues ? 'Show fewer' : `Show all ${list.length}`}</button>`;
+    const unused = raw.nodes.filter((n) => n.issue === 'unused');
+    if (filter === 'all' && unused.length) {
+      const names = unused.slice(0, 5).map((n) => n.name).join(', ') + (unused.length > 5 ? ` and ${unused.length - 5} more` : '');
+      html += `<p class="w-label next">Unused components · ${unused.length}</p>
+        <button class="issue-card neutral" data-open="${esc(unused[0].id)}" title="Open in the mindmap"><span class="t"><i></i>Not on any screen<span class="w-icon go">${ui.icon('external')}</span></span><span class="b">${esc(names)}</span></button>`;
+    }
+    $('issues').innerHTML = html;
+  }
+
+  function renderList() {
+    renderStrip();
+    renderFilters();
+    renderRows();
+    renderIssues();
+  }
+
+  function toggleRow(key) {
+    if (expanded.has(key)) expanded.delete(key); else expanded.add(key);
+    renderRows();
+    document.querySelector(`.sec-row[data-key="${CSS.escape(key)}"]`)?.focus({ preventScroll: true });
+  }
+
+  $('filters').onclick = (e) => {
+    const b = e.target.closest('[data-f]');
+    if (!b || b.dataset.f === filter) return;
+    filter = b.dataset.f;
+    allIssues = false;
+    renderFilters(); renderRows(); renderIssues();
+  };
+  $('rows').addEventListener('click', (e) => {
+    const open = e.target.closest('[data-open]');
+    if (open) return openInMap(open.dataset.open);
+    const row = e.target.closest('.sec-row');
+    if (row) toggleRow(row.dataset.key);
+  });
+  $('rows').addEventListener('keydown', (e) => {
+    const row = e.target.closest('.sec-row');
+    if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleRow(row.dataset.key); }
+  });
+  $('issues').addEventListener('click', (e) => {
+    if (e.target.closest('[data-rescan]')) return load(true);
+    if (e.target.closest('[data-all]')) { allIssues = !allIssues; return renderIssues(); }
+    const open = e.target.closest('[data-open]');
+    if (open) openInMap(open.dataset.open);
+  });
+  setInterval(() => { const el = $('strip-meta'); if (el && raw) el.innerHTML = metaText(); }, 30000);
+
+  // From the list (an issue, a frame) to the mind map, with that screen selected and in view.
+  function openInMap(id) {
+    setMode('2d');
+    if (raw && byId.has(id)) reveal(id);
+  }
+
+  // ======================= side panel (mind map / 3D) =======================
+  const handle = '<button class="handle" aria-label="Close details"></button>';
+  const kv = (k, v) => `<div class="kv"><span>${esc(k)}</span><span>${esc(v)}</span></div>`;
+  const item = (tid, count) => {
+    const t = byId.get(tid); if (!t) return '';
+    return `<button class="pitem" data-id="${esc(tid)}"><i style="background:${baseColor(t)}"></i><span>${esc(t.name)}</span>${count ? `<em>×${count}</em>` : ''}</button>`;
+  };
+  const section = (title, list) => (list.length ? `<div class="psec"><h3 class="w-label">${title} · ${list.length}</h3><div class="plist">${list.join('')}</div></div>` : '');
+
+  function panelSummary() {
+    if (!raw) { panel.innerHTML = `${handle}<div class="panel-empty">Pick a screen on the map to see its details.</div>`; return; }
+    const screens = raw.nodes.filter((n) => n.type === 'screen'), comps = raw.nodes.filter((n) => n.type === 'component');
+    const bad = raw.nodes.filter((n) => n.issue && n.issue !== 'unused');
+    panel.innerHTML = `${handle}<div><p class="w-label">File</p><h2>${esc(raw.file)}</h2></div>
+      <div class="facts">${kv('Screens', screens.length)}${kv('Flow starts', screens.filter((n) => n.flowStart).length)}${kv('Components', comps.length)}${kv('Not used', comps.filter((n) => n.issue === 'unused').length)}</div>
+      ${bad.length ? `<div class="divider"></div>${section('Needs fixing', bad.map((n) => item(n.id)))}` : ''}
+      <div class="panel-empty">Pick a screen on the map to see its details.<small>${is3D ? 'drag to orbit · scroll to zoom' : 'click to open or fold · drag to pan'}</small></div>`;
+    wirePanel();
+  }
+
+  function select(id) {
+    selectedId = id;
+    if (is3D) graph3d.restyle(); else mindmap.mark();
+    const n = id && byId.get(id);
+    const layer = id && !n && mindmap.layer(id);
+    if (!n && !layer) {
+      if (search) return searchPanel();
+      panelSummary(); panel.classList.remove('open'); return;
+    }
+    let html = handle + (search ? `<button class="btn btn-ghost" id="gs-back">← Results for “${esc(search.q)}” · ${search.hits.length}</button>` : '');
+    if (layer) {
+      const KIND = { frame: 'Frame', text: 'Text', instance: 'Instance', image: 'Image', icon: 'Icon' };
+      const screen = byId.get(layer.screenId);
+      html += `<div><p class="w-label">${KIND[layer.kind] ?? 'Layer'} · ${esc(id)}</p><h2>${esc(layer.name)}</h2></div>
+        ${screen ? `<div class="facts">${kv('In screen', screen.name)}</div>` : ''}
+        ${layer.text ? `<div class="quote">“${esc(layer.text)}”</div>` : ''}
+        <div class="actions"><button class="btn btn-primary" id="pick">Select in Figma</button>
+        ${screen ? `<button class="btn btn-secondary" data-id="${esc(screen.id)}" id="to-screen">Go to screen</button>` : ''}</div>`;
+    } else if (n.type === 'screen') {
+      const out = raw.links.filter((l) => l.source === id), inc = raw.links.filter((l) => l.target === id);
+      const uses = out.filter((l) => l.type === 'uses');
+      const navOut = out.filter((l) => l.type === 'navigates'), navIn = inc.filter((l) => l.type === 'navigates');
+      const row = rowOf.get(id);
+      html += `<div><p class="w-label">Screen · ${esc(n.id)}</p><h2>${esc(n.name)}</h2></div>
+        <div class="thumb" id="thumb"><span class="skel" style="width:100%;height:100%;border-radius:0"></span></div>
+        <div class="facts">${row && !row.loose ? kv('Section', row.title) + kv('Status', STATUS[row.status ?? 'none'].label) : ''}${kv('Size', n.size)}${kv('Page', n.page)}
+          ${kv('Instances', `${uses.reduce((s, l) => s + l.value, 0)} · ${plural(uses.length, 'component')}`)}${kv('Links out', plural(navOut.length, 'screen'))}${kv('Links in', plural(navIn.length, 'screen'))}</div>
+        ${n.flowStart ? '<div class="note-box">▶ Starts a flow</div>' : ''}
+        ${n.issue ? `<div class="divider"></div><div class="psec"><h3 class="w-label">Needs fixing</h3><div class="issue-box">${ISSUE_TEXT[n.issue]}</div></div>` : ''}
+        ${section('Goes to', navOut.map((l) => item(l.target)))}
+        ${section('Comes from', navIn.map((l) => item(l.source)))}
+        ${section('Uses components', uses.sort((a, b) => b.value - a.value).map((l) => item(l.target, l.value)))}
+        ${section('Other sizes', [...out, ...inc].filter((l) => l.type === 'breakpoint').map((l) => item(l.source === id ? l.target : l.source)))}
+        <div class="actions"><button class="btn btn-primary" id="pick">Select in Figma</button></div>`;
+    } else {
+      const inc = raw.links.filter((l) => l.target === id && l.type === 'uses');
+      html += `<div><p class="w-label">Component</p><h2>${esc(n.name)}</h2></div>
+        <div class="facts">${kv('Used', plural(n.count, 'time'))}${kv('On screens', n.screens)}</div>
+        ${n.issue ? `<div class="issue-box">${ISSUE_TEXT[n.issue]}</div>` : ''}
+        ${section('Used on', inc.sort((a, b) => b.value - a.value).map((l) => item(l.source, l.value)))}`;
+    }
+    panel.innerHTML = html;
+    panel.classList.add('open');
+    wirePanel();
+    if (n?.type === 'screen') loadThumb(n.id);
+    const pick = $('pick');
+    if (pick) pick.onclick = () => pickInFigma(n ? n.id : id, pick);
+  }
+
+  function wirePanel() {
+    panel.querySelectorAll('[data-id]').forEach((el) => (el.onclick = () => reveal(el.dataset.id)));
+    panel.querySelector('.handle').onclick = () => (selectedId ? select(null) : panel.classList.remove('open'));
+    if ($('gs-back')) $('gs-back').onclick = () => select(null);
+  }
+
+  async function loadThumb(id) {
+    const url = await thumb(id, true);
+    const box = $('thumb');
+    if (selectedId !== id || !box) return;
+    if (!url) return box.remove();
+    box.innerHTML = `<img alt="Preview of ${esc(byId.get(id)?.name)}" src="${url}">`;
+  }
+
+  function reveal(id) {
+    select(id);
+    if (is3D) graph3d.focus(id); else mindmap.reveal(id);
+  }
+
+  async function pickInFigma(id, btn) {
+    ui.setLoading(btn, true, 'Selecting…');
+    try {
+      const res = await fetch('/api/tool', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'select_nodes', args: { nodeIds: [id] } }) });
+      if ((await res.json()).isError) throw new Error();
+      toast('Selected in Figma');
+    } catch {
+      toast('Couldn’t select it in Figma — is the plugin still open?', { kind: 'error' });
+    }
+    ui.setLoading(btn, false);
+  }
+
+  // ======================= mind map (2D, static SVG) =======================
+  const mindmap = (() => {
+    const svg = $('mindmap'), root = $('mm-root');
+    const NS = 'http://www.w3.org/2000/svg';
+    const GAP_X = 56, GAP_Y = 12;
+    const measureCtx = document.createElement('canvas').getContext('2d');
+    let tree = null, open = new Set(), view = { x: 0, y: 0, k: 1 };
+    let builtFrom = null, drawn = new Map(), highlight = null, beforeSearch = null;
+
+    const sizes = {
+      root: { font: 15, h: 44, pad: 18, weight: 600 },
+      branch: { font: 13, h: 34, pad: 14, weight: 500 },
+      leaf: { font: 13, h: 34, pad: 12, weight: 500 },
+    };
+    const level = (t) => (t.kind === 'root' ? 'root' : t.depth === 1 || t.kind === 'sgroup' ? 'branch' : 'leaf');
+
+    function textWidth(text, s) {
+      measureCtx.font = `${s.weight} ${s.font}px "IBM Plex Sans Thai", system-ui, sans-serif`;
+      return measureCtx.measureText(text).width;
+    }
+
+    const outlines = new Map();   // screen/layer id → frame_outline result, fetched when first expanded
+    const layerInfo = new Map();  // layer id → { name, kind, text, screenId } for the side panel
+    const LAYER_ICON = { text: 'T  ', instance: '◇  ', image: '▣  ', icon: '✦  ', frame: '▢  ' };
+
+    // "Shop/01 Home" → "Shop"; "03a Booking – Zoomed" → "03"; otherwise ungrouped.
+    // A slash right after a digit is a fraction ("anim 2/8"), not a path separator.
+    function groupKey(name) {
+      for (let i = name.length - 1; i > 0; i--) {
+        if (name[i] !== '/') continue;
+        const before = name.slice(0, i).trimEnd();
+        if (before && !/\d$/.test(before)) return before;
+      }
+      const m = /^(\d+)/.exec(name.trim());
+      return m ? m[1] : null;
+    }
+    function groupLabel(key, screens) {
+      if (!/^\d+$/.test(key)) return key;
+      // Shortest base name: "03 Booking – Venue overview" / "03a Booking – Zoomed" → "03 Booking".
+      return screens.map((s) => s.name.split(/\s+[–—·-]\s+/)[0]).sort((a, b) => a.length - b.length)[0];
+    }
+
+    function layerNodes(outline, screenId) {
+      const kids = (outline.children ?? []).map((o) => layerNode(o, screenId));
+      if (outline.more) kids.push({ key: `more:${outline.id}`, label: `+${outline.more} more`, kind: 'note', children: [] });
+      return kids;
+    }
+    function layerNode(o, screenId) {
+      layerInfo.set(o.id, { ...o, screenId });
+      const node = { key: `l:${o.id}`, id: o.id, label: LAYER_ICON[o.kind] + (o.kind === 'text' ? `“${o.text}”` : o.name), kind: 'layer', layerKind: o.kind, children: [] };
+      const loaded = outlines.get(o.id);
+      if (o.children) node.children = layerNodes(o, screenId);
+      else if (loaded) node.children = layerNodes(loaded, screenId);
+      else if (o.childCount) { node.lazy = { id: o.id, depth: 2 }; node.badge = `${o.childCount}`; }
+      return node;
+    }
+
+    function build() {
+      const uses = new Map(), usedBy = new Map(), navOut = new Map();
+      const push = (m, k, v) => (m.has(k) ? m.get(k) : m.set(k, []).get(k)).push(v);
+      for (const l of raw.links) {
+        if (l.type === 'uses') { push(uses, l.source, l); push(usedBy, l.target, l); }
+        if (l.type === 'navigates') push(navOut, l.source, l);
+      }
+      const name = (id) => byId.get(id)?.name ?? id;
+
+      const screenNode = (s) => {
+        const loaded = outlines.get(s.id);
+        const kids = [{ key: `s:${s.id}:layers`, label: 'Layers', kind: 'sub', children: loaded ? layerNodes(loaded, s.id) : [],
+          lazy: loaded ? null : { id: s.id, depth: 3 } }];
+        const used = show.uses ? uses.get(s.id) ?? [] : [];
+        if (used.length) kids.push({ key: `s:${s.id}:uses`, label: 'Components', kind: 'sub', badge: `${used.length}`,
+          children: used.sort((a, b) => b.value - a.value).map((l) => ({ key: `s:${s.id}>c>${l.target}`, id: l.target, label: name(l.target),
+            kind: 'ref', badge: `×${l.value}`, node: byId.get(l.target) })) });
+        const nav = navOut.get(s.id) ?? [];
+        if (nav.length) kids.push({ key: `s:${s.id}:nav`, label: '→ Goes to', kind: 'sub', badge: `${nav.length}`,
+          children: nav.map((l) => ({ key: `s:${s.id}>nav>${l.target}`, id: l.target, label: `→ ${name(l.target)}`, kind: 'nav', node: byId.get(l.target) })) });
+        return { key: `s:${s.id}`, id: s.id, label: (s.flowStart ? '▶ ' : '') + s.name, kind: 'screen', node: s, children: kids };
+      };
+
+      const t = { key: 'root', label: raw.file, kind: 'root', children: [] };
+      for (const p of raw.pages) {
+        const screens = raw.nodes.filter((n) => n.type === 'screen' && n.page === p.name).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)); // code-point order: "01 Login" before "01b …"
+        if (!screens.length) continue;
+        const groups = new Map();
+        for (const s of screens) {
+          const k = groupKey(s.name) ?? `__${s.id}`;
+          if (!groups.has(k)) groups.set(k, []);
+          groups.get(k).push(s);
+        }
+        const children = [...groups].map(([k, members]) =>
+          members.length === 1 || k.startsWith('__')
+            ? screenNode(members[0])
+            : { key: `g:${p.id}:${k}`, label: groupLabel(k, members), kind: 'sgroup', badge: `${members.length}`, children: members.map(screenNode) });
+        t.children.push({ key: `page:${p.id}`, label: p.name, kind: 'page', badge: `${screens.length}`, children });
+      }
+      if (show.uses) {
+        const comps = raw.nodes.filter((n) => n.type === 'component').sort((a, b) => b.count - a.count);
+        if (comps.length) t.children.push({ key: 'components', label: 'Components', kind: 'group', badge: `${comps.length}`,
+          children: comps.map((c) => ({ key: `c:${c.id}`, id: c.id, label: c.name, kind: 'component', node: c, badge: c.count ? `×${c.count}` : 'unused',
+            children: (usedBy.get(c.id) ?? []).sort((a, b) => b.value - a.value).map((l) => ({ key: `c:${c.id}>${l.source}`, id: l.source,
+              label: name(l.source), kind: 'ref', badge: `×${l.value}`, node: byId.get(l.source) })) })) });
+      }
+      annotate(t, 0, null);
+      tree = t;
+      builtFrom = raw;
+    }
+
+    function annotate(n, depth, parent) {
+      n.depth = depth; n.parent = parent;
+      const s = sizes[level(n)];
+      n.h = n.kind === 'layer' || n.kind === 'note' || n.kind === 'sub' ? 28 : s.h;
+      n.w = textWidth(n.label, s) + s.pad * 2 + (n.badge ? textWidth(n.badge, sizes.leaf) + 14 : 0) + (n.children?.length || n.lazy ? 14 : 0);
+      n.children?.forEach((c) => annotate(c, depth + 1, n));
+    }
+
+    async function loadLazy(n) {
+      const { id, depth } = n.lazy;
+      n.label = `${n.label} …`;
+      relayout();
+      try {
+        const res = await fetch(`/api/outline?id=${encodeURIComponent(id)}&depth=${depth}`, { cache: 'no-store' });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error);
+        outlines.set(id, body);
+      } catch {
+        outlines.set(id, { id, children: [] });
+        toast('Couldn’t read the layers of this frame', { kind: 'error' });
+      }
+      const keep = open;
+      build();
+      open = keep;
+      relayout();
+      const fresh = findPath(tree, n.key);
+      if (fresh) ensureVisible(fresh[fresh.length - 1]);
+    }
+
+    const isOpen = (n) => n.kind === 'root' || open.has(n.key);
+    function span(n) {
+      if (!isOpen(n) || !n.children?.length) return n.h;
+      return Math.max(n.h, n.children.reduce((s, c) => s + span(c), 0) + GAP_Y * (n.children.length - 1));
+    }
+    function place(n, x, y, side) {
+      n.x = x; n.y = y; n.side = side;
+      if (!isOpen(n) || !n.children?.length) return;
+      const total = n.children.reduce((s, c) => s + span(c), 0) + GAP_Y * (n.children.length - 1);
+      let cy = y - total / 2;
+      for (const c of n.children) {
+        const h = span(c);
+        place(c, x + side * (n.w / 2 + GAP_X + c.w / 2), cy + h / 2, side);
+        cy += h + GAP_Y;
+      }
+    }
+    function layout() {
+      tree.x = 0; tree.y = 0;
+      // Balance first-level branches between the left and right sides.
+      const left = [], right = [];
+      let lh = 0, rh = 0;
+      tree.children.forEach((c) => {
+        if (rh <= lh) { right.push(c); rh += span(c) + GAP_Y * 2; } else { left.push(c); lh += span(c) + GAP_Y * 2; }
+      });
+      for (const [group, side] of [[right, 1], [left, -1]]) {
+        const total = group.reduce((s, c) => s + span(c), 0) + GAP_Y * 2 * Math.max(0, group.length - 1);
+        let cy = -total / 2;
+        for (const c of group) {
+          const h = span(c);
+          place(c, side * (tree.w / 2 + GAP_X * 1.4 + c.w / 2), cy + h / 2, side);
+          cy += h + GAP_Y * 2;
+        }
+      }
+    }
+
+    function el(name, attrs, parent) {
+      const e = document.createElementNS(NS, name);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      parent.appendChild(e);
+      return e;
+    }
+
+    function render() {
+      root.innerHTML = '';
+      drawn = new Map();
+      const edges = el('g', {}, root), nodes = el('g', {}, root);
+      const walk = (n) => {
+        drawn.set(n.key, n);
+        if (n.parent) {
+          const p = n.parent, side = n.side;
+          const x1 = p.x + side * p.w / 2, x2 = n.x - side * n.w / 2, mx = (x1 + x2) / 2;
+          const kind = n.kind === 'nav' ? 'nav' : n.depth === 1 ? 'd1' : n.depth === 2 ? 'd2' : 'dn';
+          el('path', { class: `mm-edge ${kind}`, 'data-key': n.key, d: `M${x1},${p.y} C${mx},${p.y} ${mx},${n.y} ${x2},${n.y}` }, edges);
+        }
+        drawNode(n, nodes);
+        if (isOpen(n)) n.children?.forEach(walk);
+      };
+      walk(tree);
+      applyView();
+      mark();
+    }
+
+    // Look per kind comes from CSS classes (kit tokens): root = ink pill, pages/groups = accent pills,
+    // screens/components = cards, sub-groups dashed, layers light; issues dashed red, unused faint.
+    function nodeClass(n) {
+      const lvl = level(n), c = ['mm-node', `lv-${lvl}`];
+      if (lvl === 'branch' && isOpen(n)) c.push('open');
+      if (lvl === 'leaf') c.push(`k-${n.kind}`);
+      if (n.node?.issue === 'unused') c.push('unused'); else if (n.node?.issue) c.push('issue');
+      return c.join(' ');
+    }
+
+    function drawNode(n, parent) {
+      const lvl = level(n), s = sizes[lvl];
+      const small = n.kind === 'layer' || n.kind === 'note';
+      const pill = lvl !== 'leaf' || n.kind === 'nav';
+      const g = el('g', { class: nodeClass(n), transform: `translate(${n.x - n.w / 2},${n.y - n.h / 2})`, 'data-key': n.key }, parent);
+      const rx = pill ? n.h / 2 : small ? 6 : 8;
+      el('rect', { class: 'halo', x: -3, y: -3, width: n.w + 6, height: n.h + 6, rx: rx + 3 }, g);
+      el('rect', { class: 'body', width: n.w, height: n.h, rx }, g);
+      const label = el('text', { class: 'lbl', x: s.pad, y: n.h / 2, 'font-size': small ? 12 : s.font, 'font-weight': lvl === 'root' ? 600 : small ? 400 : 500 }, g);
+      label.textContent = n.label;
+      if (n.badge) {
+        const b = el('text', { class: 'badge', x: s.pad + textWidth(n.label, s) + 10, y: n.h / 2, 'font-size': 11 }, g);
+        b.textContent = n.badge;
+      }
+      if (n.node?.issue && n.node.issue !== 'unused') el('circle', { class: 'flag', cx: n.w - 4, cy: 4, r: 4 }, g);
+      const expandable = (n.children?.length || n.lazy) && n.kind !== 'root';
+      if (expandable) {
+        const cx = n.side > 0 ? n.w : 0;
+        const dot = el('g', { class: 'tog-dot', transform: `translate(${cx},${n.h / 2})` }, g);
+        el('circle', { r: 8 }, dot);
+        const t = el('text', { 'text-anchor': 'middle', y: 0.5, 'font-size': isOpen(n) && !n.lazy ? 13 : 10 }, dot);
+        t.textContent = isOpen(n) && !n.lazy ? '−' : n.lazy ? '+' : String(n.children.length);
+      }
+      g.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (n.lazy) {
+          open.add(n.key);
+          loadLazy(n);
+        } else if (expandable) {
+          if (open.has(n.key)) open.delete(n.key); else open.add(n.key);
+          relayout();
+        }
+        // References jump to the screen/component they point at; everything else just selects.
+        if (n.kind === 'ref' || n.kind === 'nav') return reveal(n.id);
+        if (n.id) select(n.id);
+        ensureVisible(n);
+      });
+    }
+
+    function relayout() { layout(); render(); }
+
+    // Selection outline plus the search highlight: fn(node) → class string, null (leave), undefined (fade).
+    function mark() {
+      root.querySelectorAll('.mm-node').forEach((g) => {
+        const key = g.getAttribute('data-key');
+        g.classList.toggle('selected', Boolean(selectedId) && [`s:${selectedId}`, `c:${selectedId}`, `l:${selectedId}`].includes(key));
+        g.classList.remove('dim', 'gs-hit', 'gs-current');
+        if (!highlight) return;
+        const c = highlight(drawn.get(key));
+        if (c === undefined) g.classList.add('dim'); else if (c) g.classList.add(...c.split(' '));
+      });
+      root.querySelectorAll('.mm-edge').forEach((e) => e.classList.toggle('dim', Boolean(highlight) && highlight(drawn.get(e.getAttribute('data-key'))) === undefined));
+    }
+
+    // Keep a node and its open branch inside the free part of the canvas (below the search bar, above the zoom bar).
+    function ensureVisible(n) {
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      const walk = (m) => {
+        minX = Math.min(minX, m.x - m.w / 2); maxX = Math.max(maxX, m.x + m.w / 2);
+        minY = Math.min(minY, m.y - m.h / 2); maxY = Math.max(maxY, m.y + m.h / 2);
+        if (isOpen(m)) m.children?.forEach(walk);
+      };
+      walk(n);
+      const { top, bottom } = freeArea();
+      const right = W() - 24;
+      const sx = (x) => x * view.k + view.x, sy = (y) => y * view.k + view.y;
+      if (sx(maxX) > right) view.x -= sx(maxX) - right;
+      if (sx(minX) < 24) view.x += 24 - sx(minX);
+      if (sy(maxY) > bottom) view.y -= sy(maxY) - bottom;
+      if (sy(minY) < top) view.y += top - sy(minY);
+      if (sy(n.y) < top || sy(n.y) > bottom) view.y = (top + bottom) / 2 - n.y * view.k;
+      applyView();
+    }
+
+    function freeArea() {
+      const box = canvas.getBoundingClientRect();
+      const bar = $('search-bar');
+      const top = bar.hidden ? 20 : bar.getBoundingClientRect().bottom - box.top + 16;
+      const bt = document.querySelector('.bottom').getBoundingClientRect();
+      const sheet = mobile() && panel.classList.contains('open') ? panel.getBoundingClientRect().top : Infinity;
+      return { top, bottom: Math.min(bt.top, sheet) - box.top - 16 };
+    }
+
+    function applyView() {
+      root.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+      if (!is3D) $('zoom-level').textContent = `${Math.round(view.k * 100)}%`;
+    }
+
+    function fit() {
+      const box = root.getBBox();
+      if (!box.width) return;
+      const { top, bottom } = freeArea();
+      view.k = Math.max(0.15, Math.min(1.25, (W() - 64) / box.width, Math.max(160, bottom - top) / box.height));
+      view.x = W() / 2 - (box.x + box.width / 2) * view.k;
+      view.y = top + (bottom - top) / 2 - (box.y + box.height / 2) * view.k;
+      applyView();
+    }
+
+    function zoomBy(f, cx = W() / 2, cy = H() / 2) {
+      const k = Math.min(3, Math.max(0.15, view.k * f));
+      view.x = cx - (cx - view.x) * (k / view.k);
+      view.y = cy - (cy - view.y) * (k / view.k);
+      view.k = k;
+      applyView();
+    }
+
+    function centerOn(n) {
+      view.k = Math.max(view.k, 0.9);
+      const { top, bottom } = freeArea();
+      view.x = W() / 2 - n.x * view.k;
+      view.y = (top + bottom) / 2 - n.y * view.k;
+      applyView();
+    }
+
+    function findPath(n, key, path = []) {
+      if (n.key === key) return [...path, n];
+      for (const c of n.children ?? []) {
+        const p = findPath(c, key, [...path, n]);
+        if (p) return p;
+      }
+      return null;
+    }
+
+    function revealInMap(id) {
+      const path = findPath(tree, `s:${id}`) ?? findPath(tree, `c:${id}`);
+      if (!path) return;
+      path.slice(0, -1).forEach((n) => n.kind !== 'root' && open.add(n.key));
+      relayout();
+      centerOn(path[path.length - 1]);
+    }
+
+    // Search: open only the branches leading to these key paths (root excluded) and fit them;
+    // what was open before comes back when the search ends.
+    function revealMany(paths) {
+      beforeSearch ??= new Set(open);
+      open = new Set();
+      for (const keys of paths) keys.slice(0, -1).forEach((k) => open.add(k));
+      relayout();
+      fit();
+    }
+    function endReveal() {
+      if (!beforeSearch) return;
+      open = beforeSearch;
+      beforeSearch = null;
+      relayout();
+      fit();
+    }
+    // Center one node, opening its branch if it was folded.
+    function centerPath(keys) {
+      if (!keys?.length) return;
+      const size = open.size;
+      keys.slice(0, -1).forEach((k) => open.add(k));
+      if (open.size !== size || !drawn.has(keys.at(-1))) relayout();
+      const n = drawn.get(keys.at(-1));
+      if (n) centerOn(n);
+    }
+
+    function setAll(expand) {
+      open.clear();
+      if (expand) {
+        const walk = (n) => { if (n.children?.length) { open.add(n.key); n.children.forEach(walk); } };
+        walk(tree);
+      } else tree.children.forEach((c) => open.add(c.key));
+      relayout();
+      fit();
+    }
+
+    // pan & zoom
+    let drag = null;
+    svg.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('.mm-node')) return;
+      drag = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
+      svg.classList.add('dragging');
+      try { svg.setPointerCapture(e.pointerId); } catch { /* pointer already released */ }
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      view.x = drag.vx + e.clientX - drag.x; view.y = drag.vy + e.clientY - drag.y;
+      drag.moved = drag.moved || Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 4;
+      applyView();
+    });
+    svg.addEventListener('pointerup', () => {
+      if (drag && !drag.moved) select(null);
+      drag = null; svg.classList.remove('dragging');
+    });
+    svg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const box = canvas.getBoundingClientRect();
+      zoomBy(Math.exp(-e.deltaY * 0.0015), e.clientX - box.left, e.clientY - box.top);
+    }, { passive: false });
+
+    return {
+      show() {
+        build();
+        open = new Set(tree.children.map((c) => c.key));
+        beforeSearch = null;
+        svg.style.display = 'block';
+        relayout();
+        fit();
+      },
+      hide() { svg.style.display = 'none'; },
+      rebuild() { const keep = open; build(); open = keep; relayout(); },
+      reveal: revealInMap, mark, setAll, fit, zoomBy, revealMany, endReveal, centerPath,
+      setHighlight(fn) { highlight = fn ?? null; mark(); },
+      tree() { if (raw && (!tree || builtFrom !== raw)) build(); return tree; }, // search reads it, also in 3D
+      layer: (id) => layerInfo.get(id),
+    };
+  })();
+
+  // ======================= 3D graph =======================
+  const graph3d = (() => {
+    let g = null;
+    let focusSet = new Set();
+    function computeFocus() {
+      focusSet = new Set();
+      if (!selectedId) return;
+      for (const l of raw.links) {
+        if (end(l.source) === selectedId) focusSet.add(end(l.target));
+        if (end(l.target) === selectedId) focusSet.add(end(l.source));
+      }
+    }
+    const nodeVal = (n) => (n.type === 'component' ? 2 + Math.sqrt(n.count || 0) * 1.8 : n.flowStart ? 9 : 6);
+    const nodeColor = (n) => {
+      const p = pal();
+      if (search) {
+        if (search.current?.node === n.id) return dark() ? '#EEECE7' : '#111111';
+        if (search.ids.has(n.id)) return baseColor(n);
+        if (search.near.has(n.id)) return dark() ? 'rgba(107,147,255,.45)' : 'rgba(143,174,255,.85)';
+        return g.palette().nodeFaint;
+      }
+      if (!selectedId) return baseColor(n);
+      if (n.id !== selectedId && !focusSet.has(n.id)) return g.palette().nodeFaint;
+      const c = baseColor(n);
+      return c === p.comp ? p.strong.comp : c === p.screen ? p.strong.screen : c === p.unused ? p.strong.unused : c;
+    };
+    const linkColor = (l) => {
+      if (search) {
+        const s = end(l.source), d = end(l.target), hs = search.ids.has(s), hd = search.ids.has(d);
+        if (hs && hd) return 'rgba(47,107,255,.75)';
+        if ((hs && search.near.has(d)) || (hd && search.near.has(s))) return 'rgba(107,147,255,.45)';
+        return g.palette().linkDim;
+      }
+      return selectedId && end(l.source) !== selectedId && end(l.target) !== selectedId ? g.palette().linkDim : LINK[l.type];
+    };
+    // Labels for flow starts first, then the screens most linked to, then the most used components.
+    const important = (n) => (search ? (search.current?.node === n.id ? 1e7 : search.ids.has(n.id) ? 1e5 + (n.inLinks ?? n.count ?? 0) : search.near.has(n.id) ? 1e3 + (n.inLinks ?? n.count ?? 0) : 0)
+      : selectedId ? (n.id === selectedId ? 1e6 : focusSet.has(n.id) ? 1e3 + (n.inLinks ?? n.count ?? 0) : 0)
+      : n.flowStart ? 1000 : n.type === 'screen' ? 100 + (n.inLinks ?? 0) : n.count ?? 0);
+    const selectedLinks = () => (selectedId ? g.graphData().links.filter((l) => end(l.source) === selectedId || end(l.target) === selectedId) : []);
+    // More labels while searching, so every hit can carry its name.
+    const opts3d = { important, label: (n) => n.name, labels: 14, labelClass: (n) => (search?.current?.node === n.id ? 'gs-current' : ''), onTheme: () => g && g.nodeColor(nodeColor).linkColor(linkColor) };
+    const labelCount = () => (search ? Math.min(40, search.ids.size + 14) : 14);
+    const tooltip = (n) => {
+      const sub = n.type === 'screen' ? `${esc(n.page)} · ${esc(n.size)}` : `Used ${plural(n.count, 'time')} · ${plural(n.screens, 'screen')}`;
+      return `<b>${esc(n.name)}</b><div style="color:var(--text-muted)">${sub}</div>${n.issue ? `<div style="color:var(--danger)">⚠ ${ISSUE_TEXT[n.issue]}</div>` : ''}`;
+    };
+    function paintRotate() {
+      const b = $('rotate3d');
+      b.textContent = g?.rotating() ? 'Stop orbit' : 'Orbit';
+      b.setAttribute('aria-pressed', String(Boolean(g?.rotating())));
+    }
+    $('rotate3d').onclick = () => { if (!g) return; g.setRotating(!g.rotating()); paintRotate(); };
+    return {
+      // Created once and reused: destroying it leaves the camera controls firing events into a dead scene.
+      show() {
+        $('graph').style.display = 'block';
+        const links = raw.links.filter((l) => show[l.type]).map((l) => ({ ...l }));
+        const nodes = raw.nodes.filter((n) => n.type !== 'component' || show.uses).map((n) => ({ ...n }));
+        let fitted = false;
+        if (!g) {
+          g = Graph3D.create($('graph'), opts3d)
+            .nodeId('id').nodeLabel(tooltip).nodeVal(nodeVal).nodeOpacity(0.95)
+            .linkOpacity(0.7)
+            .linkCurvature((l) => (l.type === 'navigates' ? 0.18 : 0))
+            .onNodeClick((n) => reveal(n.id)).onBackgroundClick(() => select(null));
+          g.d3Force('charge').strength(-70).distanceMax(220);
+          paintRotate();
+        }
+        graph3d.syncTheme();
+        g.onEngineStop(() => { if (!fitted) { fitted = true; if (search) graph3d.fitIds(search.frame); else g.zoomToFit(700, 70); } });
+        const inLinks = new Map();
+        for (const l of links) inLinks.set(end(l.target), (inLinks.get(end(l.target)) ?? 0) + 1);
+        for (const n of nodes) n.inLinks = inLinks.get(n.id) ?? 0;
+        g.width(W()).height(H()).nodeColor(nodeColor).linkColor(linkColor).graphData({ nodes, links });
+        computeFocus();
+        opts3d.labels = labelCount();
+        g.nodeColor(nodeColor).show().setActive(search ? [] : selectedLinks()).refreshLabels();
+        $('zoom-level').textContent = '3D';
+      },
+      hide() {
+        g?.hide();
+        $('graph').style.display = 'none';
+      },
+      restyle() {
+        if (!g) return;
+        computeFocus();
+        opts3d.labels = labelCount();
+        g.nodeColor(nodeColor).linkColor(linkColor).setActive(search ? [] : selectedLinks()).refreshLabels();
+      },
+      // The 3D scene follows the window's light / dark theme.
+      syncTheme() { const want = dark() ? 'dark' : 'light'; if (g && g.theme() !== want) g.setTheme(want); },
+      // Frame these nodes (and nothing else): every search hit, or the screens of a page / group.
+      fitIds(ids) { if (g && ids?.size) g.zoomToFit(900, 80, (n) => ids.has(n.id)); },
+      focus(id) {
+        const n = g?.graphData().nodes.find((x) => x.id === id);
+        if (!n) return;
+        const d = 240, r = 1 + d / Math.hypot(n.x || 1, n.y || 1, n.z || 1);
+        g.cameraPosition({ x: (n.x || 0) * r, y: (n.y || 0) * r, z: (n.z || 0) * r }, n, 1000);
+      },
+      zoomBy(f) {
+        if (!g) return;
+        const p = g.cameraPosition();
+        g.cameraPosition({ x: p.x / f, y: p.y / f, z: p.z / f }, undefined, 300);
+      },
+      fit() { g?.zoomToFit(600, 70); },
+      instance: () => g, // for debugging in the browser console
+      resize() { g?.width(W()).height(H()); },
+    };
+  })();
+
+  // ======================= search: every match lights up =======================
+  const SEARCH_KINDS = { screen: { label: 'Screens', color: 'var(--primary)' }, component: { label: 'Components', color: 'var(--text-faint)' }, group: { label: 'Pages and groups', color: 'var(--ink)' } };
+  // Walks the mind map's tree so hits carry their key path (2D) and screen ids (3D); tree order = step order.
+  function findHits(needle) {
+    const t = mindmap.tree(), hits = [];
+    if (!t) return hits;
+    const screensUnder = (n) => (n.kind === 'screen' ? [n.id] : (n.children ?? []).flatMap(screensUnder));
+    const walk = (n, path, page) => {
+      const name = n.node?.name ?? n.label;
+      const match = name.toLowerCase().includes(needle);
+      if (n.kind === 'screen' && match) hits.push({ id: n.key, key: n.key, path, label: name, kind: 'screen', sub: page, node: n.id });
+      else if (n.kind === 'component' && match) hits.push({ id: n.key, key: n.key, path, label: name, kind: 'component', sub: n.badge, node: n.id });
+      else if ((n.kind === 'page' || n.kind === 'sgroup') && match) {
+        hits.push({ id: n.key, key: n.key, path, label: n.label, kind: 'group', sub: n.kind === 'page' ? `Page · ${plural(Number(n.badge), 'screen')}` : `Group · ${page} · ${plural(Number(n.badge), 'screen')}`, members: screensUnder(n) });
+      }
+      if (n.kind === 'screen' || n.kind === 'component') return; // their children are references, not new things
+      for (const c of n.children ?? []) walk(c, [...path, c.key], n.kind === 'page' ? n.label : page);
+    };
+    walk(t, [], '');
+    return hits;
+  }
+  // Mind map: only the branches with hits are open; hits outlined, related left as is, the rest faded.
+  function showSearchInTree(reopen) {
+    const hitKeys = new Set(search.hits.map((h) => h.key));
+    const onPath = new Set(search.hits.flatMap((h) => h.path.slice(0, -1)));
+    const cur = search.current?.key;
+    if (reopen) mindmap.revealMany(search.hits.map((h) => h.path));
+    mindmap.setHighlight((n) => {
+      if (!n || n.kind === 'root') return null;
+      if (hitKeys.has(n.key)) return n.key === cur ? 'gs-hit gs-current' : 'gs-hit';
+      if (onPath.has(n.key) || (n.id && (search.ids.has(n.id) || search.near.has(n.id)))) return null;
+      for (let p = n.parent; p; p = p.parent) if (hitKeys.has(p.key)) return null; // inside an opened hit
+      return undefined;
+    });
+  }
+  function applySearch(st) {
+    clearCanvasState();
+    if (!st || !st.hits.length) {
+      if (!search) return;
+      search = null;
+      mindmap.setHighlight(null); // first: the old highlight reads the search that just ended
+      if (!is3D) mindmap.endReveal();
+      select(selectedId); // back to the summary, or details without "← Results"
+      return;
+    }
+    const ids = new Set(), members = new Set();
+    for (const h of st.hits) { if (h.node) ids.add(h.node); h.members?.forEach((id) => members.add(id)); }
+    const near = new Set(members);
+    for (const l of raw.links) {
+      if (!show[l.type]) continue;
+      const s = end(l.source), d = end(l.target);
+      if (ids.has(s)) near.add(d);
+      if (ids.has(d)) near.add(s);
+    }
+    for (const id of ids) near.delete(id);
+    const sig = st.hits.map((h) => h.id).join('|');
+    const sameHits = search?.sig === sig;
+    search = { q: st.q, hits: st.hits, index: st.index, current: st.hits[st.index], ids, near, frame: new Set([...ids, ...members]), sig };
+    if (!is3D) showSearchInTree(!sameHits);
+    graph3d.restyle();
+    if (is3D && !sameHits) graph3d.fitIds(search.frame);
+    if (!selectedId) searchPanel();
+    else if ($('gs-back')) $('gs-back').textContent = `← Results for “${search.q}” · ${search.hits.length}`;
+  }
+  function searchPanel() {
+    panel.innerHTML = `${handle}<div><p class="w-label">Search</p><h2>“${esc(search.q)}” · ${plural(search.hits.length, 'result')}</h2></div>
+      <div class="gs-hint">Lit = matches · half-lit = one link away${search.near.size ? ` (${search.near.size})` : ''}</div>
+      ${GraphSearch.listHTML(search, SEARCH_KINDS)}
+      <div class="gs-foot">↑ ↓ or ‹ › to step · Enter zooms in · click to open · Esc clears</div>`;
+    panel.classList.add('open');
+    wirePanel();
+    panel.querySelectorAll('[data-hit]').forEach((b) => (b.onclick = () => openHit(Number(b.dataset.hit))));
+    panel.querySelector('.gs-row.current')?.scrollIntoView({ block: 'nearest' });
+  }
+  // ‹ › / ↑ ↓ / Enter: bring one hit into view (the panel stays on the list).
+  function focusHit(h) {
+    if (is3D) { if (h.node) graph3d.focus(h.node); else graph3d.fitIds(new Set(h.members)); return; }
+    mindmap.centerPath(h.path);
+  }
+  // A click on a result opens its details (the search stays lit; "← Results" goes back to the list).
+  function openHit(i) {
+    gs.go(i);
+    const h = search?.hits[i];
+    if (h?.node) select(h.node);
+  }
+  const gs = GraphSearch.attach({
+    input: $('search'), bar: $('search-bar'), kinds: SEARCH_KINDS,
+    find: (needle) => (raw ? findHits(needle) : []),
+    apply: applySearch,
+    focus: (h) => focusHit(h),
+    empty: (q) => {
+      document.body.classList.add('searching');
+      $('canvas-state').innerHTML = `<div class="center"><div class="result-card empty">${ui.emptyIcon('search', '', 'thinking')}
+        <h3>No match for “${esc(q)}”</h3><p>Try a frame or component name, like ${esc(raw?.nodes.slice(0, 2).map((n) => n.name).join(', ') ?? '')}</p>
+        <button class="btn btn-primary" id="clear-search">Clear search</button></div></div>`;
+      $('clear-search').onclick = () => { gs.clear(); clearCanvasState(); $('search').focus(); };
+    },
+  });
+  // search.js still writes its results bar in Thai; this page shows it in English until the shared file is translated.
+  const EN = [
+    [/^พบ ([\d,]+) รายการ — .*$/, '$1 matches — too broad to highlight. Type a little more.'],
+    [/^ไม่พบ “(.*)”$/, 'No match for “$1”'],
+    [/^พบ (\d+)$/, '$1 found'],
+    [/^… อีก (\d+)$/, '… $1 more'],
+  ];
+  function english(rootEl) {
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT);
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+      for (const [re, to] of EN) if (re.test(t.nodeValue)) { t.nodeValue = t.nodeValue.replace(re, to); break; }
+    }
+    rootEl.querySelectorAll('[aria-label="ก่อนหน้า"]').forEach((b) => b.setAttribute('aria-label', 'Previous'));
+    rootEl.querySelectorAll('[aria-label="ถัดไป"]').forEach((b) => b.setAttribute('aria-label', 'Next'));
+  }
+  for (const target of [$('search-bar'), panel]) new MutationObserver(() => english(target)).observe(target, { childList: true, subtree: true });
+
+  // ======================= canvas chrome =======================
+  function clearCanvasState() { $('canvas-state').innerHTML = ''; document.body.classList.remove('searching'); }
+
+  function render() {
+    select(null);
+    renderLegend();
+    if (!raw.nodes.length) {
+      mindmap.hide(); graph3d.hide();
+      $('canvas-state').innerHTML = `<div class="center"><div class="result-card empty">${ui.emptyIcon('inbox', '', 'thinking')}<h3>No prototype screens</h3>
+        <p>The map shows frames in Prototype sections and frames placed on the page. Add some in Figma, then rescan.</p></div></div>`;
+      return;
+    }
+    clearCanvasState();
+    if (is3D) { mindmap.hide(); graph3d.show(); } else { graph3d.hide(); mindmap.show(); if (search) showSearchInTree(true); }
+  }
+
+  function renderLegend() {
+    if (!raw) return;
+    const p = pal();
+    const screens = raw.nodes.filter((n) => n.type === 'screen');
+    const comps = raw.nodes.filter((n) => n.type === 'component');
+    const bad = raw.nodes.filter((n) => n.issue && n.issue !== 'unused').length;
+    const unused = comps.filter((n) => n.issue === 'unused').length;
+    const sw = (c, ring) => `<i class="sw" style="${ring ? `border:1.5px solid ${c}` : `background:${c}`}"></i>`;
+    $('legend').innerHTML = is3D
+      ? `<span>${sw(p.screen)}Screen <b>${screens.length}</b></span><span>${sw(p.start)}Flow start <b>${screens.filter((n) => n.flowStart).length}</b></span>
+         <span>${sw(p.comp)}Component <b>${comps.length - unused}</b></span><span>${sw(p.issue)}Issue <b>${bad}</b></span><span>${sw(p.unused)}Unused <b>${unused}</b></span>`
+      : `<span>${sw('var(--ink)')}File</span><span>${sw('var(--primary)')}Page / group</span><span>${sw('var(--border-strong)', true)}Screen</span><span>${sw('var(--danger)')}Issue <b>${bad}</b></span>`;
+  }
+
+  // ======================= view mode & states =======================
+  function setMode(m) {
+    if (m === mode && !stateKind && raw) return;
+    mode = m;
+    try { localStorage.setItem('wridge-design-map-view', m); } catch { /* not kept */ }
+    applyMode();
+  }
+  function applyMode() {
+    is3D = mode === '3d';
+    const onCanvas = mode !== 'list';
+    $('mode').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
+    document.body.classList.toggle('canvas-mode', onCanvas && !stateKind);
+    document.body.classList.toggle('mode-3d', is3D);
+    if (stateKind || !raw) {
+      $('list-view').hidden = true; $('canvas-view').hidden = true; $('state-view').hidden = false;
+      if (stateKind === 'loading') showState('loading');
+      return;
+    }
+    $('state-view').hidden = true;
+    $('list-view').hidden = onCanvas;
+    $('canvas-view').hidden = !onCanvas;
+    if (onCanvas) render();
+    else { graph3d.hide(); mindmap.hide(); renderList(); }
+  }
+
+  let waitTimer = null;
+  function stopWaiting() { clearInterval(waitTimer); waitTimer = null; }
+  // Not connected: check every few seconds and load by itself once the plugin joins.
+  function waitForPlugin() {
+    stopWaiting();
+    waitTimer = setInterval(async () => {
+      try {
+        const s = await (await fetch('/api/status', { cache: 'no-store' })).json();
+        if (s.pluginConnected && stateKind === 'unplugged') { stopWaiting(); load(); }
+      } catch { /* server away: keep waiting */ }
+    }, 5000);
+  }
+
+  function showState(kind, detail = '') {
+    stateKind = kind;
+    document.body.classList.remove('canvas-mode');
+    $('list-view').hidden = true; $('canvas-view').hidden = true;
+    const v = $('state-view');
+    v.hidden = false;
+    const sk = (w, h, r = 6) => `<span class="skel" style="width:${w};height:${h}px;border-radius:${r}px;flex:none"></span>`;
+    if (kind === 'loading') {
+      v.innerHTML = mode === 'list'
+        ? `<div class="dm-list sk-wrap" aria-busy="true">
+            <div class="w-card strip">${sk('40px', 40, 10)}<div class="strip-text">${sk('150px', 15)}<span class="strip-meta"><span class="spinner"></span>Reading the Figma file…</span></div>
+              <div class="stats">${[0, 1, 2, 3].map(() => `<div class="stat-n">${sk('28px', 20)}${sk('56px', 9)}</div>`).join('')}</div></div>
+            <div class="filters">${[64, 104, 96, 72].map((w) => sk(`${w}px`, 26, 999)).join('')}</div>
+            <div class="cols"><div class="w-tbl">${[0, 1, 2, 3, 4, 5].map((i) => `<div class="sk-row">${sk('66px', 14, 3)}${sk(`${[150, 120, 170, 100, 140, 110][i]}px`, 12)}<span style="flex:1"></span>${sk('64px', 20, 999)}${sk('70px', 10)}</div>`).join('')}</div>
+              <div class="issues">${sk('140px', 10)}${[0, 1, 2].map(() => sk('100%', 64, 10)).join('')}</div></div></div>`
+        : `<div class="w-canvas sk-canvas" aria-busy="true"><div class="loading-pill" style="position:static;transform:none"><span class="spinner"></span>Reading the Figma file…</div></div>`;
+      return;
+    }
+    stopWaiting();
+    const box = (sticker, title, body, extra, actions, foot = '') => `<div class="w-empty dm-empty w-fade-in">${ui.emptyIcon('inbox', '', sticker)}<h2>${title}</h2><p>${body}</p>${extra}<div class="actions">${actions}</div>${foot}</div>`;
+    const retry = '<button class="btn btn-secondary" data-act="retry">Try again</button>';
+    if (kind === 'unplugged') {
+      v.innerHTML = box('phone', 'Figma isn’t connected to wridge', 'The design map reads the open Figma file through the wridge plugin, and the plugin isn’t talking to this server right now.',
+        `<ol class="steps">
+          <li><span class="n">1</span>Open your design file in the Figma desktop app.</li>
+          <li><span class="n">2</span><span>Run <kbd>Plugins → Development → wridge</kbd>.</span></li>
+          <li><span class="n">3</span>Keep the plugin open — it connects on localhost:3155.</li></ol>`,
+        `<button class="btn btn-primary" data-act="connect">How to connect</button>${retry}`, '<p class="hint-line"><span class="spinner"></span>Waiting for the plugin — this page opens by itself</p>');
+      waitForPlugin();
+    } else if (kind === 'offline') {
+      v.innerHTML = box('sleeping', 'Can’t reach the wridge server', 'The server that reads Figma isn’t answering. Start it from Overview, then try again.', '',
+        `<button class="btn btn-primary" data-act="overview">Go to Overview</button>${retry}`);
+    } else if (kind === 'error') {
+      v.innerHTML = box('dizzy', 'Couldn’t read the design map', 'Figma answered, but reading the file failed. Try again — if it keeps happening, the message below helps.',
+        `<div class="codebox">${esc(detail)}</div>`, retry.replace('btn-secondary', 'btn-primary'));
+    } else if (kind === 'empty') {
+      v.innerHTML = box('thinking', 'Nothing to map yet', 'Put frames on the page — or group them in a section named “Checkout · Prototype · Draft” — then rescan.', '',
+        '<button class="btn btn-primary" data-act="retry">Rescan</button>');
+    }
+  }
+  $('state-view').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (act === 'retry') load(true);
+    else if (act === 'connect') ui.go('settings');
+    else if (act === 'overview') ui.go('overview');
+  });
+
+  function setBusy(on) {
+    busy = on;
+    const b = $('refresh');
+    b.classList.toggle('is-loading', on);
+    b.querySelector('.spinner')?.remove();
+    if (on) b.prepend(Object.assign(document.createElement('span'), { className: 'spinner' }));
+    b.querySelector('.lbl').textContent = on ? 'Scanning…' : 'Rescan';
+    $('list-view').classList.toggle('busy', on && Boolean(raw));
+    const meta = $('strip-meta');
+    if (meta && raw) meta.innerHTML = metaText();
+    if (on && raw && mode !== 'list' && !stateKind) $('canvas-state').insertAdjacentHTML('beforeend', '<div class="loading-pill" id="rescan-pill"><span class="spinner"></span>Reading the Figma file…</div>');
+    if (!on) $('rescan-pill')?.remove();
+  }
+
+  let loadSeq = 0;
+  async function load(refresh = false) {
+    const seq = ++loadSeq;
+    stopWaiting();
+    if (!raw) showState('loading');
+    setBusy(true);
+    const q = new URLSearchParams();
+    if ($('page').value) q.set('pageId', $('page').value);
+    if (refresh) q.set('refresh', '1');
+    let res, body, secs;
+    try {
+      [res, secs] = await Promise.all([
+        fetch(`/api/graph?${q}`, { cache: 'no-store' }),
+        // Section names ("<Name> · <Kind> · <Status>") and their frames, on the page open in Figma.
+        fetch('/api/pdf/sections', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+      body = await res.json().catch(() => ({}));
+    } catch {
+      if (seq !== loadSeq) return;
+      setBusy(false);
+      raw = null;
+      return showState('offline');
+    }
+    if (seq !== loadSeq) return;
+    setBusy(false);
+    if (!res.ok) {
+      raw = null;
+      return showState(res.status === 503 ? 'unplugged' : 'error', body.error || `HTTP ${res.status}`);
+    }
+    if (refresh) clearThumbs();
+    raw = body;
+    secData = secs;
+    readAt = Date.now();
+    byId = new Map(raw.nodes.map((n) => [n.id, n]));
+    if ($('page').options.length === 1 && raw.pages.length > 1) {
+      for (const p of raw.pages) $('page').add(new Option(p.name, p.id));
+      $('page-wrap').hidden = false;
+    }
+    rows = buildRows();
+    issues = buildIssues();
+    const known = new Set(rows.map((r) => r.key));
+    expanded = new Set([...expanded].filter((k) => known.has(k)));
+    if (!rows.length && !raw.nodes.length) return showState('empty');
+    stateKind = null;
+    applyMode();
+    gs.rerun(); // keep the search lit on the fresh data
+  }
+
+  // ======================= wiring =======================
+  $('mode').querySelectorAll('button').forEach((b) => (b.onclick = () => setMode(b.dataset.mode)));
+  document.querySelectorAll('.tog[data-type]').forEach((b) => (b.onclick = () => {
+    show[b.dataset.type] = !show[b.dataset.type];
+    b.setAttribute('aria-pressed', String(show[b.dataset.type]));
+    if (!raw || mode === 'list') return;
+    if (is3D) graph3d.show(); else mindmap.rebuild();
+    gs.rerun(); // component hits come and go with the filter
+  }));
+  $('expand-all').onclick = () => raw && mindmap.setAll(true);
+  $('collapse-all').onclick = () => raw && mindmap.setAll(false);
+  $('refresh').onclick = () => load(true);
+  $('page').onchange = () => { expanded.clear(); load(); };
+  $('zoom-in').onclick = () => (is3D ? graph3d : mindmap).zoomBy(1.2);
+  $('zoom-out').onclick = () => (is3D ? graph3d : mindmap).zoomBy(1 / 1.2);
+  $('zoom-fit').onclick = () => (is3D ? graph3d : mindmap).fit();
+  document.addEventListener('keydown', (e) => {
+    const typing = e.target.closest?.('input, textarea, select, [contenteditable]');
+    if (e.key === '/' && !typing && mode !== 'list' && raw && !stateKind) { e.preventDefault(); $('search').focus(); return; }
+    if (e.key === 'Escape' && document.activeElement !== $('search') && mode !== 'list') select(null);
+  });
+  window.addEventListener('resize', () => graph3d.resize());
+  // The window switches theme live: the 3D scene, its legend and its colours follow.
+  new MutationObserver(() => {
+    graph3d.syncTheme();
+    if (raw && mode !== 'list' && !stateKind) { renderLegend(); graph3d.restyle(); }
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  panelSummary();
+  applyMode();
+  load();
+</script>
+</body>
+</html>

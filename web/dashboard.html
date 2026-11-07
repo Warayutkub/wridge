@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  .page { max-width: 1264px; margin: 0 auto; padding: 40px 32px 64px; display: flex; flex-direction: column; gap: 28px; }
+  .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--lg); flex-wrap: wrap; }
+  .page-header h1 { margin: 0 0 6px; font-size: 32px; font-weight: 700; line-height: 1.25; letter-spacing: -.01em; }
+  .page-header p { margin: 0; font-size: 14px; color: var(--text-muted); }
+  .banners { display: flex; flex-direction: column; gap: var(--md); }
+  .banners:empty { display: none; }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--lg); }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--xl); align-items: start; }
+  .side { display: flex; flex-direction: column; gap: var(--lg); }
+
+  .log { overflow: hidden; }
+  .log-head { display: flex; align-items: center; gap: 10px; padding: 16px 20px; }
+  .log-head .meta-mono { margin-left: 2px; }
+  .rows { border-top: 1px solid var(--border); max-height: 560px; overflow-y: auto; overscroll-behavior: contain; }
+  .row { display: grid; grid-template-columns: 72px auto minmax(0, 1fr) minmax(0, 220px) 64px; align-items: center; gap: var(--lg);
+    padding: 12px 20px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .row:last-child { border-bottom: 0; }
+  .row .time, .row .dur { font: 12px var(--mono); color: var(--text-muted); }
+  .row .dur { text-align: right; }
+  .tag { padding: 2px 8px; border-radius: var(--r-sm); background: var(--surface-2); font: 500 11px var(--mono); color: #475569; }
+  .row .tool { font: 13px var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row .result { font-weight: 500; color: var(--success); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.fail .result { color: var(--danger); }
+  .row .dot { display: none; }
+
+  .prompt-hint { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+  .kv { display: flex; justify-content: space-between; gap: var(--md); font-size: 13px; }
+  .kv span:first-child { color: var(--text-muted); }
+  .kv span:last-child { font: 12px var(--mono); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stack { display: flex; flex-direction: column; gap: var(--md); }
+  .promo { background: var(--primary-soft); border-color: transparent; }
+  .promo h2 { color: var(--blue-900); }
+  .promo p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--blue-800); }
+  .promo .btn { align-self: flex-start; }
+
+  .skel-line { display: block; height: 12px; }
+  body.offline .page { display: none; }
+  body:not(.offline) #offline { display: none; }
+
+  @media (max-width: 1100px) {
+    .main { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 760px) {
+    .page { padding: 24px 16px 40px; gap: 20px; }
+    .page-header { align-items: stretch; }
+    .page-header h1 { font-size: 26px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--md); }
+    .log-head { padding: 14px 16px; justify-content: space-between; }
+    .row { grid-template-columns: 8px minmax(0, 1fr) auto; grid-template-areas: "dot tool dur" "dot meta meta"; row-gap: 2px; column-gap: var(--md); padding: 12px 16px; }
+    .row .dot { display: block; grid-area: dot; width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    .row.fail .dot { background: var(--danger); }
+    .row .tool { grid-area: tool; font-weight: 500; }
+    .row .dur { grid-area: dur; }
+    .row .time { grid-area: meta; font-size: 11px; }
+    .row .tag, .row .result { display: none; }
+    .row.fail .dur { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <a class="wordmark" href="/"><span data-icon="logo"></span>wridge</a>
+    <nav class="nav"><a href="/" aria-current="page">หน้าควบคุม</a><a href="/graph">แผนผังดีไซน์</a><a href="/code">กราฟโค้ด</a><a href="/data">โครงสร้างข้อมูล</a><a href="/flows">โฟล</a><a href="/motion">โมชัน</a><a href="/pdf">เอกสาร PDF</a><a href="/skills">สกิล</a></nav>
+  </div>
+  <div class="topbar-right">
+    <span class="meta-mono" id="version">localhost</span>
+    <span class="chip" id="server-chip">กำลังเชื่อมต่อ…</span>
+  </div>
+</header>
+
+<main class="page" id="page">
+  <div class="page-header">
+    <div>
+      <h1>หน้าควบคุม</h1>
+      <p id="meta">ตัวกลางระหว่าง Figma กับ AI</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" id="pause-btn">หยุดรับคำสั่งชั่วคราว</button>
+      <button class="btn btn-primary" id="restart-btn">รีสตาร์ท</button>
+      <button class="btn btn-danger" id="stop-btn">ปิด server</button>
+    </div>
+  </div>
+
+  <div class="banners" id="banners"></div>
+
+  <section class="stats" aria-label="สถานะ">
+    <div class="card stat"><span class="stat-label">Figma plugin</span><span class="stat-value" id="s-plugin"><span class="skel skel-line" style="width:120px;height:20px"></span></span><span class="stat-hint" id="h-plugin">&nbsp;</span></div>
+    <div class="card stat"><span class="stat-label">คำสั่งจาก AI</span><span class="stat-value" id="s-ai"><span class="skel skel-line" style="width:100px;height:20px"></span></span><span class="stat-hint" id="h-ai">&nbsp;</span></div>
+    <div class="card stat"><span class="stat-label">วันนี้</span><span class="stat-value" id="s-today"><span class="skel skel-line" style="width:90px;height:20px"></span></span><span class="stat-hint" id="h-today">&nbsp;</span></div>
+    <div class="card stat"><span class="stat-label">พอร์ต</span><span class="stat-value" id="s-ports"><span class="skel skel-line" style="width:110px;height:20px"></span></span><span class="stat-hint">plugin · MCP / dashboard</span></div>
+  </section>
+
+  <div class="main">
+    <section class="card log">
+      <div class="log-head"><h2>คำสั่งล่าสุด</h2><span class="meta-mono" id="log-count"></span></div>
+      <div class="rows" id="rows">
+        <div class="row"><span class="skel skel-line"></span><span class="skel skel-line" style="width:36px"></span><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-line"></span></div>
+        <div class="row"><span class="skel skel-line"></span><span class="skel skel-line" style="width:36px"></span><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-line"></span></div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card card-pad stack">
+        <h2>ใช้กับ session ที่เปิดอยู่แล้ว</h2>
+        <p class="prompt-hint">คัดลอกไปวางใน session ก่อนสั่งงาน Figma — session ที่เปิดหลัง server ได้คู่มืออัตโนมัติ</p>
+        <div class="codebox" id="prompt">…</div>
+        <div class="actions">
+          <button class="btn btn-primary" id="copy-btn">คัดลอกข้อความ</button>
+          <a class="btn btn-ghost" href="/guide" target="_blank" rel="noopener">เปิดคู่มือ</a>
+        </div>
+      </section>
+
+      <section class="card card-pad stack">
+        <h2>การเชื่อมต่อ</h2>
+        <div class="kv"><span>MCP</span><span id="k-mcp">—</span></div>
+        <div class="kv"><span>Profile</span><span id="k-profile">—</span></div>
+        <div class="kv"><span>Plugin</span><span id="k-plugin">—</span></div>
+        <div class="kv"><span>Skills</span><span id="k-skills">—</span></div>
+      </section>
+
+      <section class="card card-pad stack promo">
+        <h2>แผนผังดีไซน์</h2>
+        <p>ดูหน้าจอ flow และ component ทั้งไฟล์เป็นมายแมพ — คลิกกางเข้าไปดูข้างในแต่ละ frame ได้</p>
+        <a class="btn btn-primary" href="/graph">เปิดแผนผัง →</a>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<section class="system" id="offline">
+  <div class="card system-card">
+    <div class="empty-icon bad" data-icon="unplug"></div>
+    <div>
+      <h1>เชื่อมต่อ server ไม่ได้</h1>
+      <p>server ของ wridge ไม่ได้ทำงานอยู่ เปิดแอป wridge (ไอคอนแมวในถาด) แล้วกด Start server หน้านี้จะเชื่อมต่อเองอัตโนมัติ</p>
+    </div>
+    <div class="retry"><span class="spinner"></span>กำลังลองเชื่อมต่อใหม่ทุก 3 วินาที</div>
+    <div class="actions"><button class="btn btn-primary" id="retry-btn">ลองตอนนี้</button></div>
+  </div>
+</section>
+
+<script src="/ui.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const { esc, chip, toast, confirmDialog, setLoading } = ui;
+  let state = null;
+  let restarting = null; // { pid, until } while waiting for the new server
+  let timer = null;
+
+  function since(ms) {
+    const s = Math.floor((Date.now() - ms) / 1000);
+    if (s < 60) return `${s} วินาที`;
+    if (s < 3600) return `${Math.floor(s / 60)} นาที`;
+    return `${Math.floor(s / 3600)} ชม. ${Math.floor((s % 3600) / 60)} นาที`;
+  }
+  const duration = (ms) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
+
+  function banner(kind, icon, title, body, action, onAction) {
+    const el = document.createElement('div');
+    el.className = `banner ${kind}`;
+    el.setAttribute('role', 'status');
+    el.innerHTML = `${ui.ICONS[icon]}<div class="banner-text"><b>${esc(title)}</b>${esc(body)}</div>${action ? `<button class="banner-action">${esc(action)}</button>` : ''}`;
+    if (action) el.querySelector('.banner-action').onclick = onAction;
+    return el;
+  }
+
+  // "Plugin connected" art when the plugin connects while the page is open (not on first load).
+  let lastPlugin = null;
+  function pluginArt(connected) {
+    if (lastPlugin === false && connected) {
+      const card = $('s-plugin').closest('.card');
+      // the art sits right of the text: a card narrowed by the side menu has no room, so say it instead
+      if (card.clientWidth < 320) { lastPlugin = connected; return toast('เชื่อมต่อ Figma แล้ว'); }
+      const el = document.createElement('div');
+      el.className = 'plug-art';
+      el.setAttribute('aria-hidden', 'true');
+      card.append(el);
+      ui.playAnim(el, 'plugin-connected', { onDone: () => setTimeout(() => el.remove(), 900) });
+      setTimeout(() => el.remove(), 4000); // also when the tab is in the background and the art never finishes
+    }
+    lastPlugin = connected;
+  }
+
+  // Logo intro: the first time the dashboard opens each day; a click skips it.
+  function intro() {
+    const today = new Date().toDateString();
+    let seen = null;
+    try { seen = localStorage.getItem('wara-intro-day'); localStorage.setItem('wara-intro-day', today); } catch { return; }
+    if (seen === today || ui.reducedMotion()) return;
+    const el = document.createElement('div');
+    el.className = 'intro';
+    el.innerHTML = '<div></div>';
+    el.setAttribute('aria-hidden', 'true');
+    document.body.append(el);
+    const done = () => { el.classList.add('leaving'); setTimeout(() => el.remove(), 320); };
+    el.onclick = done;
+    ui.playAnim(el.firstChild, 'logo-intro', { onDone: () => setTimeout(done, 250) });
+    setTimeout(done, 2500); // never longer than this, even if the art fails to load
+  }
+  intro();
+
+  function render(s) {
+    document.body.classList.remove('offline');
+    pluginArt(Boolean(s.pluginConnected));
+    const isRestarting = Boolean(restarting);
+    if (isRestarting) chip($('server-chip'), '', 'กำลังรีสตาร์ท…');
+    else chip($('server-chip'), s.paused ? 'warn' : 'ok', s.paused ? 'หยุดชั่วคราว' : 'ทำงานอยู่');
+    $('version').textContent = `v${s.version ?? '1'} · localhost:${s.ports.http}`;
+    $('meta').textContent = `ตัวกลางระหว่าง Figma กับ AI · pid ${s.pid} · ทำงานมา ${since(s.startedAt)}`;
+
+    $('pause-btn').textContent = s.paused ? 'รับคำสั่งต่อ' : 'หยุดรับคำสั่งชั่วคราว';
+    if (!isRestarting) setLoading($('restart-btn'), false);
+
+    const banners = [];
+    if (!s.pluginConnected) banners.push(banner('warn', 'warn', 'ยังไม่ได้เชื่อมต่อกับ Figma', 'เปิด Figma → Plugins → Development → wridge แล้วหน้านี้จะอัปเดตเอง'));
+    if (s.paused) banners.push(banner('info', 'info', 'หยุดรับคำสั่งชั่วคราว', 'คำสั่งจาก AI จะถูกปฏิเสธจนกว่าจะกดรับคำสั่งต่อ', 'รับคำสั่งต่อ', togglePause));
+    $('banners').replaceChildren(...banners);
+
+    $('s-plugin').textContent = s.pluginConnected ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ';
+    $('h-plugin').textContent = s.pluginConnected ? (s.fileName ? `ไฟล์ ${s.fileName}` : 'เปิดหน้าต่าง plugin ค้างไว้') : 'เปิดปลั๊กอินใน Figma';
+    $('s-ai').textContent = s.paused ? 'หยุดชั่วคราว' : 'รับคำสั่ง';
+    $('h-ai').textContent = `profile core · ${s.coreToolCount} เครื่องมือ`;
+    const t = s.today;
+    $('s-today').textContent = `${t.count} คำสั่ง`;
+    $('h-today').textContent = t.count ? `${t.errors} error · เฉลี่ย ${duration(Math.round(t.totalMs / t.count))}` : 'ยังไม่มีคำสั่งวันนี้';
+    $('s-ports').textContent = `${s.ports.plugin} · ${s.ports.http}`;
+
+    $('k-mcp').textContent = `http://127.0.0.1:${s.ports.http}/mcp`;
+    $('k-profile').textContent = `core · ${s.coreToolCount} เครื่องมือ`;
+    $('k-plugin').textContent = `ws://localhost:${s.ports.plugin}`;
+    $('k-skills').textContent = `${s.skillCount} skill · โหลดเมื่อใช้`;
+    $('prompt').textContent =
+      `ก่อนทำงาน Figma ให้อ่านคู่มือ ${s.guidePath} ให้จบก่อน แล้วทำตามนั้น\n` +
+      `ถ้าไม่มีเครื่องมือ MCP ชื่อ wridge ให้ใช้ CLI: "${s.cliPath}" <tool> key=value\n` +
+      `ห้ามเขียน helper หรือตัวเรียก MCP เอง`;
+
+    $('log-count').textContent = `${s.history.length} รายการ`;
+    renderRows(s.history);
+  }
+
+  function renderRows(history) {
+    const box = $('rows');
+    if (!history.length) {
+      box.innerHTML = `<div class="empty">${ui.emptyIcon("inbox")}<h3>ยังไม่มีคำสั่ง</h3>
+        <p>เปิด session AI แล้วสั่งงาน Figma — คำสั่งจะขึ้นที่นี่ทันที</p>
+        <button class="btn btn-primary" id="copy-empty">คัดลอกข้อความเริ่มต้น</button></div>`;
+      $('copy-empty').onclick = copyPrompt;
+      return;
+    }
+    box.innerHTML = history.map((h) => {
+      const time = new Date(h.time).toLocaleTimeString('th-TH', { hour12: false });
+      const result = h.ok ? 'สำเร็จ' : h.error;
+      return `<div class="row${h.ok ? '' : ' fail'}">
+        <span class="dot"></span><span class="time">${time} · ${esc(h.source)}${h.ok ? '' : ` · ${esc(h.error)}`}</span>
+        <span class="tag">${esc(h.source)}</span><span class="tool">${esc(h.tool)}</span>
+        <span class="result" title="${esc(result)}">${esc(result)}</span><span class="dur">${duration(h.ms)}</span></div>`;
+    }).join('');
+    // Desktop shows time in its own column; the combined line is only for the stacked mobile row.
+    if (matchMedia('(min-width: 761px)').matches) box.querySelectorAll('.time').forEach((el) => (el.textContent = el.textContent.split(' · ')[0]));
+  }
+
+  function showOffline() {
+    document.body.classList.add('offline');
+    chip($('server-chip'), 'bad', 'ออฟไลน์');
+  }
+
+  async function refresh() {
+    clearTimeout(timer);
+    try {
+      const res = await fetch('/api/status', { cache: 'no-store' });
+      const s = await res.json();
+      if (restarting && s.pid !== restarting.pid) {
+        restarting = null;
+        toast('รีสตาร์ทเรียบร้อย');
+      } else if (restarting && Date.now() > restarting.until) {
+        // still the old server after the wait: the restart never happened
+        restarting = null;
+        toast('รีสตาร์ทไม่สำเร็จ — server เดิมยังทำงานอยู่ ลองกด Stop แล้ว Start server ใหม่ในแอป wridge', { kind: 'error' });
+      }
+      state = s;
+      render(s);
+      timer = setTimeout(refresh, 2000);
+    } catch {
+      if (restarting && Date.now() < restarting.until) { timer = setTimeout(refresh, 1000); return; }
+      if (restarting) {
+        restarting = null;
+        setLoading($('restart-btn'), false);
+        toast('รีสตาร์ทไม่สำเร็จ', { kind: 'error', action: 'ลองอีกครั้ง', onAction: refresh });
+      }
+      showOffline();
+      timer = setTimeout(refresh, 3000);
+    }
+  }
+
+  async function post(path, body) {
+    try {
+      const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+      return res.ok;
+    } catch { return false; }
+  }
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText($('prompt').textContent);
+      toast('คัดลอกข้อความแล้ว');
+    } catch {
+      toast('คัดลอกไม่ได้ — เลือกข้อความเอง', { kind: 'error' });
+    }
+  }
+
+  async function togglePause() {
+    const paused = !state?.paused;
+    if (await post('/api/pause', { paused })) toast(paused ? 'หยุดรับคำสั่งแล้ว' : 'กลับมารับคำสั่งแล้ว', { kind: paused ? 'info' : 'success' });
+    refresh();
+  }
+
+  $('copy-btn').onclick = copyPrompt;
+  $('pause-btn').onclick = togglePause;
+  $('retry-btn').onclick = () => { setLoading($('retry-btn'), true, 'กำลังลอง…'); refresh().finally(() => setLoading($('retry-btn'), false)); };
+
+  $('restart-btn').onclick = async () => {
+    const ok = await confirmDialog({
+      title: 'รีสตาร์ท server?',
+      body: 'คำสั่งที่กำลังทำอยู่จะถูกยกเลิก แล้ว server จะกลับมาใน 2–3 วินาที ปลั๊กอินจะเชื่อมต่อใหม่เอง',
+      confirm: 'รีสตาร์ท',
+    });
+    if (!ok) return;
+    restarting = { pid: state?.pid, until: Date.now() + 20_000 };
+    setLoading($('restart-btn'), true, 'กำลังรีสตาร์ท…');
+    chip($('server-chip'), '', 'กำลังรีสตาร์ท…');
+    if (!(await post('/api/restart'))) {
+      restarting = null;
+      setLoading($('restart-btn'), false);
+      toast('รีสตาร์ทไม่สำเร็จ — ดูสาเหตุใน wara.log', { kind: 'error' });
+    }
+    timer = setTimeout(refresh, 1200);
+  };
+
+  $('stop-btn').onclick = async () => {
+    const ok = await confirmDialog({
+      title: 'ปิด server?',
+      body: 'AI ทุก session จะสั่งงาน Figma ไม่ได้จนกว่าจะกด Start server ในแอป wridge — หน้านี้จะใช้งานไม่ได้ด้วย',
+      confirm: 'ปิด server',
+      danger: true,
+    });
+    if (!ok) return;
+    await post('/api/stop');
+    showOffline();
+    timer = setTimeout(refresh, 3000);
+  };
+
+  refresh();
+</script>
+</body>
+</html>

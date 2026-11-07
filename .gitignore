@@ -1,0 +1,17 @@
+node_modules/
+target/
+.wara/
+*.log
+figma-plugin/code.js
+legacy-node/node_modules/
+
+# Rust server crates (standalone packages, each with its own build folder)
+server/*/target/
+
+# stays on this computer: the developer's own project list and test projects
+legacy-node/code-projects.json
+server/parity-projects.json
+
+# Dart parser build output (dart pub get + dart compile exe)
+legacy-node/codegraph/dart/.dart_tool/
+legacy-node/codegraph/dart/build/

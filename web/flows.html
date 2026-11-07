@@ -1,0 +1,1193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flows · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+
+  /* ---- toolbar (Figma "wridge Screens" → Flows) ---- */
+  .fl-toolbar { flex: none; gap: 12px; }
+  .fl-toolbar .topbar-left { flex: none; gap: 10px; } /* outside the window, ui.js puts the menu button here */
+  .fl-toolbar .w-search { width: 240px; margin-left: 14px; }
+  .fl-toolbar .w-search input::-webkit-search-cancel-button { display: none; }
+  .fl-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .fl-tools .btn { height: 36px; padding: 0 13px 0 11px; }
+  .fl-tools .btn-primary { padding: 0 14px; }
+  .btn .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .btn[disabled] { opacity: .45; }
+  .fl-iconbtn { width: 34px; height: 34px; padding: 0; color: var(--text-muted); }
+  .fl-iconbtn .w-icon { color: inherit; }
+  .fl-iconbtn:hover { color: var(--text); }
+  .fl-iconbtn.busy .w-icon { animation: spin .9s linear infinite; }
+
+  /* ---- flow list ---- */
+  .fl-split { flex: 1; min-height: 0; }
+  .fl-rail { width: 220px; flex: none; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--border); background: var(--surface); }
+  .fl-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .fl-group { position: sticky; top: 0; z-index: 1; margin: 0 -10px; padding: 16px 18px 8px; background: var(--surface); }
+  .fl-group + .fl-none { margin-top: -2px; }
+  .fl-item { width: 100%; gap: 10px; padding: 7px 10px; background: none; font: inherit; font-size: 13px; text-align: left;
+    transition: background .15s var(--ease), border-color .15s var(--ease), box-shadow .15s var(--ease); }
+  .fl-item .w-icon { color: var(--text-muted); }
+  .fl-item[aria-current="true"] { box-shadow: var(--shadow-sm); }
+  .fl-item[aria-current="true"] .w-icon { color: var(--text); }
+  .fl-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fl-item.draft { align-items: flex-start; }
+  .fl-item.draft .nm { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow-wrap: anywhere; font: 11.5px/1.45 var(--mono); }
+  .fl-item .mth { flex: none; width: 36px; font: 500 9.5px/1.75 var(--mono); letter-spacing: .03em; color: var(--text-muted); }
+  .fl-item.draft .sdot { margin-top: 5px; }
+  .fl-item:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .sdot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--text-faint); }
+  .sdot.ok { background: var(--success); }
+  .sdot.warn { background: var(--warning); }
+  .sdot.info { background: var(--primary); }
+  .fl-none { margin: 0; padding: 4px 10px; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+  .fl-more { margin: 4px 10px 0; font: 11px var(--mono); color: var(--text-faint); }
+  .fl-foot { flex: none; margin: 0; padding: 12px 18px 14px; border-top: 1px solid var(--border); font-size: 11.5px; line-height: 1.55; color: var(--text-faint); }
+  .fl-foot code { font: 11px var(--mono); color: var(--text-muted); }
+  body:not(.has-flow) .drag-hint { display: none; }
+
+  /* ---- canvas ---- */
+  .fl-main { position: relative; }
+  .stage { position: absolute; inset: 0; overflow: hidden; touch-action: none; cursor: grab; }
+  .stage.panning { cursor: grabbing; }
+  .fl-main:not(.has-flow) .stage { cursor: default; }
+  #layer { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .fl-main:not(.has-flow) .fl-head, .fl-main:not(.has-flow) .fl-zoom, .fl-main:not(.has-flow) .fl-check { display: none; }
+
+  /* flow name over the canvas, zoom on the right */
+  .fl-head { position: absolute; z-index: 4; top: 12px; left: 16px; right: 220px; display: flex; align-items: center; gap: 10px; min-width: 0; pointer-events: none; }
+  .fl-head > * { pointer-events: auto; }
+  .fl-title { flex: none; max-width: 360px; margin-left: -6px; padding: 3px 6px; border: 0; border-radius: var(--r-md); background: none; color: var(--text);
+    font: 600 15px/1.35 var(--sans); letter-spacing: -.01em; text-align: left; cursor: text; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background .15s var(--ease); }
+  .fl-title:hover { background: var(--surface-2); }
+  .fl-title:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .fl-file { min-width: 0; font: 11px var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fl-zoom { top: 10px; right: 14px; display: flex; align-items: center; gap: 1px; padding: 3px; border-radius: 8px; box-shadow: var(--shadow-sm); }
+  .fl-zoom button { height: 26px; min-width: 28px; padding: 0 6px; border: 0; border-radius: 5px; background: none; color: var(--text-2); font-size: 14px; line-height: 1; cursor: pointer; transition: background .15s var(--ease); }
+  .fl-zoom button:hover { background: var(--surface-2); color: var(--text); }
+  .fl-zoom button:focus-visible { outline: 2px solid var(--primary); }
+  .fl-zoom .fit { font-size: 12px; font-weight: 500; padding: 0 9px; }
+  .fl-zoom .lvl { min-width: 42px; text-align: center; font: 11px var(--mono); color: var(--text-muted); }
+  .fl-zoom .sep { width: 1px; height: 16px; margin: 0 3px; background: var(--border); }
+
+  /* check banner */
+  .fl-check { position: absolute; z-index: 4; left: 18px; right: 18px; bottom: 16px; display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 6px 8px 6px 14px;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--background); font-size: 13px; line-height: 1.45; color: var(--text); animation: w-in .24s var(--ease); }
+  .fl-check.warn { background: var(--warning-soft); border-color: var(--warning-line); }
+  .fl-check.info { background: var(--primary-soft); border-color: var(--blue-200); }
+  .fl-check .msg { flex: 1 1 260px; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .fl-check .ilink { cursor: pointer; border-radius: 2px; }
+  .fl-check .ilink:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .fl-check .ilink:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .fl-check .inav { flex: none; display: flex; align-items: center; gap: 2px; font: 11px var(--mono); color: var(--text-muted); }
+  .fl-check .inav button { width: 22px; height: 22px; border: 0; border-radius: 4px; background: none; color: var(--text-2); cursor: pointer; font-size: 13px; line-height: 1; }
+  .fl-check .inav button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+  .fl-check .sum { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 11px var(--mono); color: var(--text-muted); white-space: nowrap; }
+  .fl-check .acts { flex: none; display: flex; align-items: center; gap: 6px; }
+  .fl-check .acts .btn { padding: 5px 11px; font-size: 12.5px; }
+  .fl-check .edits { font: 11px var(--mono); color: var(--text-2); white-space: nowrap; }
+
+  /* lanes: one per actor */
+  .lane { position: absolute; left: 0; border: 1px solid var(--border); border-radius: var(--r-lg); background: color-mix(in srgb, var(--background) 72%, transparent);
+    transition: background .15s var(--ease), border-color .15s var(--ease); }
+  .lane.alt { background: color-mix(in srgb, var(--surface-1) 72%, transparent); }
+  .lane.drop { background: color-mix(in srgb, var(--primary-soft) 75%, transparent); border-color: var(--blue-300); }
+  .lane-label { position: absolute; left: 10px; top: 9px; max-width: calc(100% - 24px); padding: 2px 4px; border-radius: var(--r-sm); font: 500 10.5px/1.4 var(--mono);
+    letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: text; transition: background .15s, color .15s; }
+  .lane-label::before { content: "◇ "; }
+  .lane-label:hover { background: var(--surface-2); color: var(--text-2); }
+
+  /* arrows */
+  .edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .edges .edge, .edges .head { fill: none; stroke: var(--text-muted); stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+  .edges .on { stroke: var(--primary); stroke-width: 1.6; }
+  .edges .start, .edges .end-i { fill: var(--text-2); }
+  .edges .bar { fill: var(--text-muted); }
+  .edges .end-o { fill: var(--background); stroke: var(--text-2); stroke-width: 1.4; }
+  .edges .stub { fill: none; stroke: var(--warning); stroke-width: 1.4; stroke-dasharray: 3 3; }
+  .edges .tmp { fill: none; stroke: var(--primary); stroke-width: 1.6; stroke-dasharray: 5 4; }
+
+  /* steps */
+  .fstep { position: absolute; width: 100px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 8px 9px;
+    border: 1px solid var(--border); border-radius: var(--r-md); background: var(--background); color: var(--text); text-align: center; cursor: grab; user-select: none;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease), background .15s var(--ease); }
+  .fstep:hover { border-color: var(--border-strong); }
+  .fstep .t { max-width: 100%; font: 500 12px/1.35 var(--sans); overflow-wrap: anywhere; }
+  .fstep .t.code { font: 500 11px/1.35 var(--mono); }
+  .fstep .c { max-width: 100%; font: 10px/1.35 var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+  .fstep .clock { width: 13px; height: 13px; display: block; color: var(--warning); }
+  .fstep .clock svg { width: 100%; height: 100%; display: block; }
+  .fstep.wait { background: var(--warning-soft); border-color: var(--warning-line); }
+  .fstep.issue { border-color: var(--warning); box-shadow: 0 0 0 .5px var(--warning); }
+  .fstep.stale .c, .fstep.stale .t.code { color: var(--warning-text); }
+  .fstep.sel { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent); }
+  .fstep.dragging { z-index: 5; border-color: var(--primary); box-shadow: var(--shadow-md); cursor: grabbing; transition: none; }
+  .fstep.target { outline: 2px dashed var(--primary); outline-offset: 3px; }
+  .handle { position: absolute; right: -6px; top: 50%; width: 11px; height: 11px; margin-top: -5.5px; border-radius: 50%; background: var(--background); border: 1.5px solid var(--primary);
+    cursor: crosshair; opacity: 0; transform: scale(.5); transition: opacity .15s var(--ease), transform .15s var(--ease); }
+  .fstep:hover .handle, .fstep.sel .handle { opacity: 1; transform: none; }
+  .placeholder { position: absolute; width: 100px; border-radius: var(--r-md); border: 1px dashed var(--border-strong); background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+  .insert { position: absolute; width: 2px; border-radius: 2px; background: var(--primary); }
+  .drag-tip { position: absolute; z-index: 6; padding: 3px 8px; border-radius: var(--r-md); background: var(--ink); color: var(--on-ink); font: 500 11px/1.5 var(--sans); white-space: nowrap; box-shadow: var(--shadow-md); }
+  .blabel { position: absolute; z-index: 2; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font: 500 11px/1.5 var(--sans); white-space: nowrap; }
+  .blabel.ok { background: var(--success-soft); color: var(--success-text); }
+  .blabel.bad { background: var(--danger-soft); color: var(--danger-text); }
+  .bar-label { position: absolute; z-index: 2; padding: 1px 6px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); color: var(--text-muted);
+    font: 500 9.5px/1.5 var(--mono); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+  .branch-input { position: absolute; z-index: 6; width: 200px; padding: 8px 10px; border: 1px solid var(--primary); border-radius: var(--r-lg); background: var(--background); box-shadow: var(--shadow-md); }
+  .branch-input small { display: block; font: 500 10px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); }
+  .branch-input input { width: 100%; margin: 3px 0; padding: 0; border: 0; outline: 0; background: none; font-size: 13px; color: var(--text); }
+  .branch-input em { font-style: normal; font-size: 11px; color: var(--text-faint); }
+
+  /* entrance: lanes, then steps one after another, then arrows */
+  #layer.enter .lane { animation: w-in .24s var(--ease) both; }
+  #layer.enter .fstep { animation: w-in .24s var(--ease) both; animation-delay: calc(60ms + var(--i, 0) * 18ms); }
+  #layer.enter .edges, #layer.enter .blabel, #layer.enter .bar-label { animation: fl-fade .3s var(--ease) .18s both; }
+  @keyframes fl-fade { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { #layer.enter .lane, #layer.enter .fstep, #layer.enter .edges, #layer.enter .blabel, #layer.enter .bar-label, .fl-check, .pop.enter { animation: none; } }
+
+  /* states under the lanes */
+  .states { position: absolute; display: flex; flex-direction: column; gap: 16px; }
+  .states h3 { margin: 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; font-weight: 400; }
+  .states h3 code { font: 500 12px var(--mono); color: var(--text); }
+  .states h3 small { font-size: 12px; color: var(--text-faint); }
+  .srow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+  .spill { padding: 3px 11px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--background); color: var(--text); font: 500 12px var(--mono);
+    cursor: grab; user-select: none; transition: border-color .15s var(--ease), background .15s var(--ease); }
+  .spill:hover { border-color: var(--text-muted); }
+  .spill.target { border-color: var(--primary); background: var(--primary-soft); }
+  .sarrow { color: var(--text-faint); }
+  .snote { font-size: 12px; color: var(--text-muted); }
+  .sx { padding: 0 3px; border: 0; border-radius: 4px; background: none; color: var(--text-faint); font-size: 14px; line-height: 1; cursor: pointer; }
+  .sx:hover { color: var(--danger); background: var(--danger-soft); }
+  .linkish { padding: 0; border: 0; background: none; color: var(--primary); font-size: 12px; font-weight: 500; text-align: left; cursor: pointer; }
+  .linkish:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .hint-sm { font-size: 11.5px; line-height: 1.5; color: var(--text-faint); }
+
+  /* step popover */
+  .pop { position: absolute; z-index: 8; width: 300px; padding: 14px; display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-lg);
+    background: var(--background); box-shadow: var(--shadow-md); cursor: default; }
+  .pop.enter { animation: w-in .2s var(--ease); }
+  .pop-top { display: flex; justify-content: space-between; align-items: center; }
+  .pop-top button { padding: 2px 6px; border: 0; border-radius: var(--r-sm); background: none; color: var(--danger); font-size: 12px; font-weight: 500; cursor: pointer; transition: background .15s; }
+  .pop-top button:hover { background: var(--danger-soft); }
+  .pop textarea { width: 100%; min-height: 40px; resize: vertical; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--r-md); outline: 0;
+    background: var(--background); color: var(--text); font: 13px/1.5 var(--sans); transition: border-color .15s, box-shadow .15s; }
+  .pop textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .pop .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pop .blabel { position: static; display: inline-flex; align-items: center; gap: 4px; }
+  .ref { padding: 2px 8px; border-radius: var(--r-sm); background: var(--primary-soft); color: var(--primary); font: 500 11.5px var(--mono); }
+  .ref.bad { background: var(--warning-soft); color: var(--warning-text); }
+  .trace { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-1); color: var(--text-2); font-size: 12px; line-height: 1.5; }
+  .checks { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12.5px; color: var(--text-2); }
+  .checks label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .checks input { accent-color: var(--ink); }
+
+  /* loading / empty / error over the canvas */
+  .center { position: absolute; z-index: 6; inset: 0; display: grid; place-items: center; padding: 24px; overflow: auto; }
+  .center .w-empty { border-radius: var(--r-xl); background: color-mix(in srgb, var(--surface) 90%, transparent); }
+  .center .w-empty .btn { margin-top: 4px; }
+  .fl-path { font: 11px var(--mono); color: var(--text-faint); }
+  .loading-pill { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--background);
+    box-shadow: var(--shadow-sm); font-size: 13px; font-weight: 500; color: var(--text-2); }
+  .loading-pill .spinner { width: 15px; height: 15px; border-width: 2px; }
+
+  /* phones: a list, then one flow as a column of steps */
+  .mview { display: none; }
+  @media (max-width: 760px) {
+    .fl-toolbar { padding: 10px 16px; min-height: 60px; }
+    .fl-toolbar .w-search, .fl-tools { display: none; }
+    .fl-toolbar .fl-iconbtn { margin-left: auto; }
+    .fl-rail, .fl-main { display: none; }
+    .mview { display: flex; flex: 1; min-width: 0; flex-direction: column; overflow-y: auto; background: var(--surface); }
+    .mlist { display: flex; flex-direction: column; gap: 10px; padding: 18px 16px 24px; }
+    .mlist .w-empty { padding: 32px 8px; }
+    .mlist .loading-pill { align-self: flex-start; }
+    .msub { margin: 0; font: 11px var(--mono); color: var(--text-muted); }
+    .mgroup { display: flex; flex-direction: column; gap: 2px; padding: 4px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); }
+    .mgroup .fl-item { min-height: 44px; }
+    .mgroup .fl-item[aria-current="true"] { box-shadow: none; }
+    .mdetail { display: none; flex-direction: column; min-height: 100%; background: var(--surface); }
+    .mdetail .appbar { position: sticky; top: 0; z-index: 2; display: flex; padding: 6px 8px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--r-md); background: none; color: var(--text); font-size: 15px; font-weight: 500; cursor: pointer; }
+    .back:hover { background: var(--surface-2); }
+    .mbody { display: flex; flex-direction: column; gap: 12px; padding: 18px 16px 32px; }
+    .mbody h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+    .mstep { display: flex; gap: 10px; align-items: center; }
+    .mstep.branch { padding-left: 22px; }
+    .mstep .who { width: 70px; flex: none; font: 500 10px/1.4 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--text-muted); overflow-wrap: anywhere; }
+    .mstep .who i { display: block; font-style: normal; text-transform: none; letter-spacing: 0; color: var(--text-faint); }
+    .mstep .fstep { position: static; flex: 1; width: auto; align-items: flex-start; text-align: left; cursor: pointer; }
+    .mstep .fstep .clock { margin-bottom: 2px; }
+    body.show-detail .mlist, body.show-detail .w-toolbar { display: none; }
+    body.show-detail .mdetail { display: flex; }
+  }
+</style>
+</head>
+<body>
+<header class="w-toolbar fl-toolbar">
+  <div class="topbar-left">
+    <div class="w-titles"><p class="w-label" id="crumb">Code</p><h1>Flows</h1></div>
+  </div>
+  <label class="w-search"><span class="w-icon" data-wicon="search"></span><input id="search" type="search" placeholder="Find a flow…" aria-label="Find a flow" autocomplete="off" spellcheck="false"><span class="w-kbd">Ctrl K</span></label>
+  <button class="btn btn-ghost fl-iconbtn" id="refresh" title="Reload flows" aria-label="Reload flows"><span class="w-icon" data-wicon="restart"></span></button>
+  <div id="picker" hidden></div>
+  <div class="fl-tools">
+    <button class="btn btn-secondary" data-tool="step" title="Adds after the selected step — or drag it onto the diagram" disabled><span class="w-icon" data-wicon="plus"></span>Step</button>
+    <button class="btn btn-secondary" data-tool="wait" title="A step that waits (a person, a webhook, a timer) — click or drag onto the diagram" disabled><span class="w-icon" data-wicon="plus"></span>Wait step</button>
+    <button class="btn btn-secondary" id="add-lane" title="Add a lane for another actor" disabled><span class="w-icon" data-wicon="plus"></span>Actor</button>
+    <button class="btn btn-primary" id="new-flow">New flow</button>
+  </div>
+</header>
+
+<div class="w-split fl-split">
+  <aside class="fl-rail" aria-label="Flows">
+    <div class="fl-list" id="flow-list"></div>
+    <p class="fl-foot"><span class="drag-hint">Drag a step to move it, drag the dot on its edge to branch, double-click to edit. </span>Flows are files in <code>docs/flows/</code>; drafts are traced from the code and not saved.</p>
+  </aside>
+
+  <main class="w-canvas fl-main" id="main">
+    <div class="stage" id="stage"><div id="layer"></div></div>
+    <div class="fl-head" id="fhead"></div>
+    <div class="w-float fl-zoom" id="zoom" role="group" aria-label="Zoom" title="Scroll to zoom · drag the empty canvas to pan">
+      <button id="zoom-out" aria-label="Zoom out">−</button><span class="lvl" id="zoom-level">100%</span><button id="zoom-in" aria-label="Zoom in">+</button><span class="sep"></span><button class="fit" id="zoom-fit">Fit</button>
+    </div>
+    <div class="fl-check" id="check" role="status" aria-live="polite" hidden></div>
+    <div id="state"></div>
+  </main>
+
+  <section class="mview" id="mview">
+    <div class="mlist" id="mlist"></div>
+    <div class="mdetail" id="mdetail"><div class="appbar"><button class="back" id="back">‹ Flows</button></div><div class="mbody" id="mbody"></div></div>
+  </section>
+</div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const { esc, toast } = ui;
+  // ui.js dialogs still label Cancel in Thai: relabel them here until the shared kit is English.
+  const enCancel = (p) => { document.querySelectorAll('dialog.dialog [data-cancel], dialog.dialog [value="cancel"]').forEach((x) => (x.textContent = 'Cancel')); return p; };
+  const ask = (o) => enCancel(ui.inputDialog(o));
+  const sure = (o) => enCancel(ui.confirmDialog(o));
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } } };
+  const mobile = window.matchMedia('(max-width: 760px)');
+  // Diagram geometry (layer pixels): lanes are stacked panels; one column per step.
+  const LANE_H = 124, LANE_GAP = 10, CARD_W = 100, COL_W = 122, START_X = 50, PAD = 16, HEAD_H = 56;
+  const laneTop = (i) => i * (LANE_H + LANE_GAP);
+  const ACTOR_EN = { user: 'User', web: 'Web', server: 'Server', db: 'DB', admin: 'Admin', cron: 'Cron', webhook: 'Webhook', email: 'Email' };
+  const actorName = (a) => ACTOR_EN[String(a).toLowerCase()] ?? a;
+  const refsIn = (t) => [...String(t).matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+  const plain = (t) => String(t).replace(/`([^`]+)`/g, '$1');
+  const baseName = (p) => String(p ?? '').replaceAll('\\', '/').split('/').filter(Boolean).pop() ?? '';
+  const wicon = (name) => `<span class="w-icon" aria-hidden="true">${ui.icon(name)}</span>`;
+  // long routes and names break after a slash or between camelCase words, not mid-word
+  const wbr = (t) => esc(t).replace(/([/._-])/g, '$1<wbr>').replace(/([a-z])([A-Z])/g, '$1<wbr>$2');
+  const CLOCK = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M8 4.9V8l2.1 1.4"/></svg>';
+  const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+  let uidN = 0;
+  const uid = () => `s${++uidN}`;
+
+  let projects = [], current = null, data = null;
+  // The open flow: base = as loaded (or as the latest file after a conflict); ops = the user's edits on top.
+  let open = null; // { key, file, hash, draft, base, ops, lanes, checks }
+  let model = null; // replay(base, ops)
+  let sel = null;   // selected step id
+  let issueAt = 0;  // which check issue the banner shows
+  let enterNext = false, contentW = 800;
+
+  // ======================= model & edits =======================
+  function fromParsed(f) {
+    const ids = new Map();
+    const steps = f.steps.map((s) => { const id = uid(); ids.set(s.id, id); return { id, actor: s.actor, text: s.text, wait: Boolean(s.wait), group: s.group ? `g${s.group}` : null, branches: s.branches.map((b) => ({ ...b })) }; });
+    for (const s of steps) for (const b of s.branches) b.to = b.to === 'end' ? 'end' : ids.get(b.to) ?? null;
+    return { title: f.title, entry: f.entry ?? '', steps, states: (f.states ?? []).map((st) => ({ column: st.column, values: [...(st.values ?? [])], transitions: (st.transitions ?? []).map((t) => ({ ...t })) })), notes: f.notes ?? '', extra: f.extra ?? [] };
+  }
+  const clone = (x) => JSON.parse(JSON.stringify(x));
+  function apply(m, op) {
+    const step = (id) => m.steps.find((s) => s.id === id);
+    switch (op.t) {
+      case 'title': m.title = op.v; break;
+      case 'text': if (step(op.id)) step(op.id).text = op.v; break;
+      case 'wait': if (step(op.id)) step(op.id).wait = op.v; break;
+      case 'actor': if (step(op.id)) step(op.id).actor = op.v; break;
+      case 'renameLane': m.steps.forEach((s) => { if (s.actor === op.from) s.actor = op.to; }); break;
+      case 'parallel': {
+        const i = m.steps.findIndex((s) => s.id === op.id);
+        if (i < 1) break;
+        const prev = m.steps[i - 1];
+        if (op.v) { prev.group ??= `g${prev.id}`; m.steps[i].group = prev.group; } else m.steps[i].group = null;
+        break;
+      }
+      case 'move': {
+        const i = m.steps.findIndex((s) => s.id === op.id);
+        if (i < 0) break;
+        const [s] = m.steps.splice(i, 1);
+        s.actor = op.actor ?? s.actor;
+        s.group = null;
+        m.steps.splice(Math.min(op.index, m.steps.length), 0, s);
+        break;
+      }
+      case 'add': m.steps.splice(Math.min(op.index, m.steps.length), 0, clone(op.step)); break;
+      case 'delete': m.steps = m.steps.filter((s) => s.id !== op.id); m.steps.forEach((s) => (s.branches = s.branches.filter((b) => b.to !== op.id))); break;
+      case 'branch': if (step(op.id)) step(op.id).branches.push({ label: op.label, to: op.to }); break;
+      case 'unbranch': if (step(op.id)) step(op.id).branches.splice(op.i, 1); break;
+      case 'transition': {
+        let st = m.states.find((x) => x.column === op.column);
+        if (!st) m.states.push((st = { column: op.column, values: [], transitions: [] }));
+        if (!st.transitions.some((t) => t.from === op.from && t.to === op.to)) st.transitions.push({ from: op.from, to: op.to, note: null });
+        [op.from, op.to].forEach((v) => !st.values.includes(v) && st.values.push(v));
+        break;
+      }
+      case 'untransition': { const st = m.states.find((x) => x.column === op.column); if (st) st.transitions.splice(op.i, 1); break; }
+      case 'stateColumn': m.states.push({ column: op.column, values: op.values ?? [], transitions: [] }); break;
+      case 'stateValue': { const st = m.states.find((x) => x.column === op.column); if (st && !st.values.includes(op.v)) st.values.push(op.v); break; }
+      default: break;
+    }
+    return m;
+  }
+  const replay = () => { model = open.ops.reduce(apply, clone(open.base)); };
+  function edit(op) {
+    open.ops.push(op);
+    apply(model, op);
+    render();
+  }
+  function undo() {
+    if (!open?.ops.length) return;
+    open.ops.pop();
+    replay();
+    if (sel && !model.steps.some((s) => s.id === sel)) sel = null;
+    render();
+  }
+
+  // Lanes: actors in order of first use, plus empty lanes the user added.
+  function lanes() {
+    const out = [];
+    for (const s of model.steps) if (!out.includes(s.actor)) out.push(s.actor);
+    for (const l of open.lanes) if (!out.includes(l)) out.push(l);
+    return out.length ? out : ['user', 'web', 'server', 'db'];
+  }
+  // Columns: one per step, except a parallel group shares one column.
+  function columns() {
+    const col = new Map();
+    let c = -1, last = null;
+    for (const s of model.steps) {
+      if (s.group && s.group === last) col.set(s.id, c);
+      else col.set(s.id, ++c);
+      last = s.group;
+    }
+    return { col, count: c + 1 };
+  }
+  const refOk = (r) => open.checks?.get(r) ?? true;
+  const stepName = (s) => plain(s.text.replace(/`[^`]+`/g, '').trim()) || plain(s.text) || 'Untitled step';
+  const short = (t, n = 48) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+
+  // What the check banner reports: branches that lead nowhere, and code names that are gone.
+  function issuesOf() {
+    const out = [];
+    for (const s of model.steps) {
+      const name = short(stepName(s));
+      for (const b of s.branches) if (!b.to) out.push({ id: s.id, text: `“${name}” has no path for ${short(b.label || 'one outcome', 60)}.` });
+      for (const r of refsIn(s.text)) if (!refOk(r)) out.push({ id: s.id, text: `“${name}” points at ${r}, which isn't in the code anymore.` });
+    }
+    return out;
+  }
+  // Status dot of a flow in the list (from what the server parsed and checked).
+  const statusOf = (f, draft) => (draft ? '' : f.check?.stale?.length || f.steps.some((s) => s.branches.some((b) => !b.to)) ? 'warn' : 'ok');
+
+  // ======================= diagram =======================
+  const layer = $('layer'), stage = $('stage'), main = $('main');
+  let view = { x: PAD, y: HEAD_H, k: 1 };
+  function applyView() {
+    layer.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.k})`;
+    $('zoom-level').textContent = `${Math.round(view.k * 100)}%`;
+    // the dot grid moves and scales with the diagram
+    main.style.backgroundSize = `${22 * view.k}px ${22 * view.k}px`;
+    main.style.backgroundPosition = `${view.x}px ${view.y}px`;
+    fillWidth();
+  }
+  // Lanes always reach the right edge of the canvas, at any zoom.
+  function fillWidth() {
+    const w = Math.max(contentW, (stage.clientWidth - PAD - view.x) / view.k);
+    layer.querySelectorAll('.lane').forEach((l) => (l.style.width = `${w}px`));
+    $('edges')?.setAttribute('width', Math.ceil(w));
+  }
+  const pos = new Map(); // step id → { x, y, w, h }
+
+  function render() {
+    if (!open) return;
+    main.classList.add('has-flow');
+    document.body.classList.add('has-flow');
+    toolsEnabled(true);
+    const L = lanes();
+    const { col, count } = columns();
+    contentW = START_X + (Math.max(count, 1) - 1) * COL_W + CARD_W + 36; // last step + its end mark
+    const lanesH = laneTop(L.length) - LANE_GAP;
+    let html = '';
+    L.forEach((a, i) => { html += `<div class="lane${i % 2 ? ' alt' : ''}" data-lane="${esc(a)}" style="top:${laneTop(i)}px;height:${LANE_H}px"><span class="lane-label" data-rename="${esc(a)}" title="Double-click to rename">${esc(actorName(a))}</span></div>`; });
+    html += `<svg class="edges" id="edges" width="${contentW}" height="${lanesH + 40}"></svg>`;
+    model.steps.forEach((s, i) => {
+      const x = START_X + col.get(s.id) * COL_W, y = laneTop(L.indexOf(s.actor)) + 38;
+      const refs = refsIn(s.text);
+      const stale = refs.some((r) => !refOk(r));
+      const missing = s.branches.some((b) => !b.to);
+      const name = plain(s.text.replace(/`[^`]+`/g, '').trim());
+      const code = refs.join(', ');
+      html += `<div class="fstep${s.wait ? ' wait' : ''}${stale ? ' stale' : ''}${stale || missing ? ' issue' : ''}${sel === s.id ? ' sel' : ''}" data-step="${s.id}" style="left:${x}px;top:${y}px;--i:${i}">${s.wait ? `<span class="clock" title="Wait step">${CLOCK}</span>` : ''}${name ? `<div class="t">${esc(name)}</div>${code ? `<div class="c">${wbr(code)}</div>` : ''}` : `<div class="t code">${wbr(code || s.text || 'Untitled step')}</div>`}<span class="handle" data-handle="${s.id}" title="Drag to another step to branch"></span></div>`;
+    });
+    html += `<div class="states" id="states" style="left:${START_X}px;top:${lanesH + 32}px;width:${Math.max(560, contentW - START_X - 40)}px"></div>`;
+    layer.innerHTML = html;
+    if (enterNext) {
+      enterNext = false;
+      layer.classList.add('enter');
+      clearTimeout(render.t);
+      render.t = setTimeout(() => layer.classList.remove('enter'), 900);
+    }
+    // Centre each step in its lane now that its height is known.
+    pos.clear();
+    layer.querySelectorAll('.fstep[data-step]').forEach((c) => {
+      const s = model.steps.find((x) => x.id === c.dataset.step);
+      const h = c.offsetHeight;
+      const top = laneTop(L.indexOf(s.actor)) + Math.max(30, Math.round((LANE_H - h) / 2) + 6);
+      c.style.top = `${top}px`;
+      pos.set(c.dataset.step, { x: c.offsetLeft, y: top, w: c.offsetWidth, h });
+    });
+    fillWidth();
+    drawEdges();
+    renderStates();
+    renderPopover();
+    renderHead();
+    renderCheck();
+    renderList();
+    renderMobile();
+  }
+
+  // Orthogonal path through points, corners slightly rounded.
+  function ortho(pts, r = 4) {
+    let d = `M${pts[0][0]} ${pts[0][1]}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+      const d1 = Math.hypot(x1 - x0, y1 - y0), d2 = Math.hypot(x2 - x1, y2 - y1);
+      const rr = Math.min(r, d1 / 2, d2 / 2);
+      if (rr < 0.5) { d += ` L${x1} ${y1}`; continue; }
+      d += ` L${x1 - ((x1 - x0) / d1) * rr} ${y1 - ((y1 - y0) / d1) * rr} Q${x1} ${y1} ${x1 + ((x2 - x1) / d2) * rr} ${y1 + ((y2 - y1) / d2) * rr}`;
+    }
+    const [lx, ly] = pts.at(-1);
+    return `${d} L${lx} ${ly}`;
+  }
+  const tone = (label) => (/สำเร็จ|ผ่าน$|\bok\b|success|paid|done|approved|\byes\b|valid/i.test(label) && !/ไม่|\bnot\b|\bno\b|fail|invalid/i.test(label) ? 'ok'
+    : /ไม่|fail|error|reject|expired|หมด|\bnot\b|\bno\b|cancel|timeout|timed out|invalid|denied/i.test(label) ? 'bad' : '');
+
+  function drawEdges() {
+    const svg = $('edges');
+    if (!svg) return;
+    const { col } = columns();
+    const steps = model.steps;
+    const P = (id) => pos.get(id);
+    const right = (id) => { const p = P(id); return [p.x + p.w, p.y + p.h / 2]; };
+    const left = (id) => { const p = P(id); return [p.x, p.y + p.h / 2]; };
+    const head = (x, y, on, up) => `<path class="head${on ? ' on' : ''}" d="${up ? `M${x - 3.5} ${y + 5} L${x} ${y} L${x + 3.5} ${y + 5}` : `M${x - 5} ${y - 3.5} L${x} ${y} L${x - 5} ${y + 3.5}`}"/>`;
+    const path = (pts, on, arrow = true) => {
+      const [x, y] = pts.at(-1), [px, py] = pts.at(-2);
+      return `<path class="edge${on ? ' on' : ''}" d="${ortho(pts)}"/>${arrow ? head(x, y, on, px === x && py > y) : ''}`;
+    };
+    const label = (text, x, y, align = '') => labels.push(`<span class="blabel ${tone(text)}" style="left:${x}px;top:${y}px${align ? `;transform:translateX(${align})` : ''}" title="${esc(text)}">${esc(short(text, 28))}</span>`);
+    // Step → step: straight when level, an elbow hugging the source otherwise; going back, a loop that leaves
+    // the source's bottom and comes up into the target's bottom.
+    const link = (fromId, toId, on, text) => {
+      const [x1, y1] = right(fromId), [x2, y2] = left(toId);
+      const a = P(fromId), t = P(toId);
+      if (x2 - x1 >= 16) {
+        // a step in the way (a branch that skips ahead in the same lane): go over it instead of behind it
+        const inWay = [...pos].filter(([id, q]) => id !== fromId && id !== toId && q.x < x2 && q.x + q.w > x1 + 12 && q.y < y2 + 2 && q.y + q.h > y2 - 2).map(([, q]) => q);
+        if (inWay.length) {
+          const yTop = Math.min(a.y, t.y, ...inWay.map((q) => q.y)) - 12;
+          if (text) label(text, t.x, t.y - 22);
+          return path([[x1, y1], [x1 + 12, y1], [x1 + 12, yTop], [x2 - 12, yTop], [x2 - 12, y2], [x2 - 1, y2]], on);
+        }
+        if (text) label(text, t.x, t.y - 22);
+        return path(Math.abs(y1 - y2) < 1 ? [[x1, y1], [x2 - 1, y2]] : [[x1, y1], [x1 + 12, y1], [x1 + 12, y2], [x2 - 1, y2]], on);
+      }
+      const sx = a.x + a.w - 16, tx = t.x + 16, yb = Math.max(a.y + a.h, t.y + t.h) + 16;
+      if (text) label(text, (sx + tx) / 2, yb - 9, '-50%');
+      return path([[sx, a.y + a.h], [sx, yb], [tx, yb], [tx, t.y + t.h + 1]], on);
+    };
+    const endMark = (x, y) => `<circle class="end-o" cx="${x}" cy="${y}" r="5"/><circle class="end-i" cx="${x}" cy="${y}" r="2.4"/>`;
+    let out = '';
+    const labels = [];
+    // Group the steps by column to draw forks/joins between columns.
+    const byCol = [];
+    for (const s of steps) (byCol[col.get(s.id)] ??= []).push(s);
+    for (let c = 0; c < byCol.length; c++) {
+      const here = byCol[c], next = byCol[c + 1];
+      if (!here) continue;
+      for (const s of here) {
+        const on = sel === s.id;
+        // Branches to another step: labelled arrows.
+        for (const b of s.branches) if (b.to && b.to !== 'end' && pos.has(b.to)) out += link(s.id, b.to, on, b.label);
+        // Under the step: branches that end the flow (◉ with their label) and branches with no path yet (dashed stub).
+        const below = [...s.branches.filter((b) => b.to === 'end'), ...s.branches.filter((b) => !b.to)];
+        const p = P(s.id), bottom = p.y + p.h;
+        below.forEach((b, k) => {
+          const x = p.x + p.w / 2 - 8 + (k - (below.length - 1) / 2) * 16;
+          if (b.to === 'end') {
+            out += path([[x, bottom], [x, bottom + 12]], on, false) + endMark(x, bottom + 17);
+            label(b.label, x - 7, bottom + 6, '-100%');
+          } else out += `<path class="stub" d="M${x} ${bottom + 3} V${bottom + 26}"><title>${esc(b.label)}</title></path>`;
+        });
+      }
+      if (!next) continue;
+      // Steps with their own branches don't flow on to the next column by themselves.
+      const from = here.filter((s) => !s.branches.some((b) => b.to));
+      if (!from.length) continue;
+      const fork = next.length > 1, join = here.length > 1;
+      if (!fork && !join) { for (const a of from) out += link(a.id, next[0].id); continue; }
+      const top = Math.min(...[...here, ...next].map((s) => P(s.id).y)) - 6;
+      const bottom = Math.max(...[...here, ...next].map((s) => P(s.id).y + P(s.id).h)) + 6;
+      // A bar: a join waits for every incoming step, a fork starts the next ones together.
+      const bx = join ? Math.max(...here.map((s) => right(s.id)[0])) + 9 : left(next[0].id)[0] - 12;
+      for (const a of from) { const [x, y] = right(a.id); out += path([[x, y], [bx, y]], false, false); }
+      out += `<rect class="bar" x="${bx}" y="${top}" width="3" height="${bottom - top}" rx="1.5"/>`;
+      labels.push(`<span class="bar-label" style="left:${bx + 1.5}px;top:${top - 21}px;transform:translateX(-50%)">${join ? 'Waits for all' : 'In parallel'}</span>`);
+      for (const n of next) { const [x2, y2] = left(n.id); out += path([[bx + 3, y2], [x2 - 1, y2]]); }
+    }
+    // Start ● into the first step; end ◉ after the last step (unless its branches end elsewhere).
+    if (steps.length) {
+      const [x, y] = left(steps[0].id);
+      out += `<circle class="start" cx="${x - 22}" cy="${y}" r="4.5"/>${path([[x - 17, y], [x - 1, y]])}`;
+      const last = steps.at(-1);
+      if (!last.branches.length) { const [ex, ey] = right(last.id); out += path([[ex, ey], [ex + 15, ey]], false, false) + endMark(ex + 20, ey); }
+    }
+    svg.innerHTML = out;
+    layer.querySelectorAll('.blabel, .bar-label').forEach((n) => n.remove());
+    layer.insertAdjacentHTML('beforeend', labels.join(''));
+  }
+
+  function renderStates() {
+    const box = $('states');
+    if (!box) return;
+    const parts = model.states.map((st, si) => {
+      const used = new Set(st.transitions.flatMap((t) => [t.from, t.to]));
+      const lone = st.values.filter((v) => !used.has(v));
+      return `<div class="srow-wrap" data-col="${esc(st.column)}"><h3><span class="w-label">State</span><code>${esc(st.column)}</code><small>${st.transitions.length ? '' : 'Values found in the code — no moves yet'}</small></h3>
+        ${st.transitions.map((t, i) => `<div class="srow"><span class="spill" data-col="${esc(st.column)}" data-v="${esc(t.from)}">${esc(t.from)}</span><span class="sarrow">→</span><span class="spill" data-col="${esc(st.column)}" data-v="${esc(t.to)}">${esc(t.to)}</span>${t.note ? `<span class="snote">${esc(t.note)}</span>` : ''}<button class="sx" data-untr="${si}:${i}" aria-label="Remove this move" title="Remove this move">×</button></div>`).join('')}
+        ${lone.length ? `<div class="srow">${lone.map((v) => `<span class="spill" data-col="${esc(st.column)}" data-v="${esc(v)}">${esc(v)}</span>`).join('')}</div>` : ''}
+        <div class="srow"><button class="linkish" data-addv="${esc(st.column)}">+ Value</button><span class="hint-sm">Drag one state onto another to add a move</span></div></div>`;
+    });
+    box.innerHTML = `${parts.join('')}<button class="linkish" id="add-state">+ Add state (a status column)</button>`;
+  }
+
+  function renderHead() {
+    const issues = issuesOf().length;
+    const file = open.draft ? 'draft · traced from code' : open.file ? `${open.file.startsWith('docs/') ? open.file : `docs/flows/${open.file}`}${open.isNew ? ' · not saved yet' : ''}` : 'not saved yet';
+    const pill = open.draft ? '<span class="w-pill dot">Draft</span>' : issues ? `<span class="w-pill dot warn">${plural(issues, 'issue')}</span>` : open.isNew ? '<span class="w-pill dot accent">New</span>' : '<span class="w-pill dot ok">Checked</span>';
+    $('fhead').innerHTML = `<button class="fl-title" id="flow-title" title="Rename this flow">${esc(model.title || 'Untitled')}</button><span class="fl-file">${esc(file)}</span>${pill}`;
+  }
+
+  // The check banner: the first issue (click to show it), a mono summary, and save / confirm.
+  function renderCheck() {
+    const box = $('check');
+    const issues = issuesOf();
+    issueAt = Math.min(issueAt, Math.max(0, issues.length - 1));
+    const n = open.ops.length;
+    const deadEnds = model.steps.reduce((k, s) => k + s.branches.filter((b) => !b.to).length, 0);
+    const stale = model.steps.reduce((k, s) => k + refsIn(s.text).filter((r) => !refOk(r)).length, 0);
+    const summary = [deadEnds ? plural(deadEnds, 'dead end') : 'no dead ends', stale ? `${stale} not in code` : '', plural(model.steps.length, 'step'), plural(lanes().length, 'actor')].filter(Boolean).join(' · ');
+    const kind = issues.length ? 'warn' : open.draft ? 'info' : 'ok';
+    const msg = issues.length ? `<span class="ilink" role="button" tabindex="0" data-issue="${issues[issueAt].id}" title="Show this step">${esc(issues[issueAt].text)}</span>`
+      : open.draft ? 'Drafted from the code, not by AI. Name the steps, then confirm it as a flow.'
+        : model.steps.some((x) => refsIn(x.text).length) ? 'Every code name in this flow still exists.' : 'Nothing to check yet — put code names in `backticks` and wridge checks they exist.';
+    const nav = issues.length > 1 ? `<span class="inav"><button data-inav="-1" aria-label="Previous issue">‹</button>${issueAt + 1}/${issues.length}<button data-inav="1" aria-label="Next issue">›</button></span>` : '';
+    const acts = open.draft ? '<button class="btn btn-ghost" id="drop-draft">Discard draft</button><button class="btn btn-primary" id="confirm-draft">Confirm as flow</button>'
+      : n || open.isNew ? `<span class="edits">${n ? `${plural(n, 'edit')} · unsaved` : 'unsaved'}</span><button class="btn btn-ghost" id="undo" ${n ? '' : 'disabled'} title="Undo (Ctrl+Z)">Undo</button><button class="btn btn-primary" id="save" title="Save (Ctrl+S)">Save</button>`
+        : '';
+    box.className = `fl-check ${kind}`;
+    box.innerHTML = `<i class="sdot ${kind}"></i><div class="msg">${msg}</div>${nav}<span class="sum" title="${esc(summary)}">${esc(summary)}</span>${acts ? `<div class="acts">${acts}</div>` : ''}`;
+    box.hidden = false;
+  }
+  // Select a step and bring it into view.
+  function focusStep(id) {
+    const p = pos.get(id);
+    if (p) {
+      const sx = view.x + p.x * view.k, sy = view.y + p.y * view.k;
+      if (sx < 20 || sy < HEAD_H || sx + p.w * view.k > stage.clientWidth - 20 || sy + p.h * view.k > stage.clientHeight - 80) {
+        view.x = stage.clientWidth / 2 - (p.x + p.w / 2) * view.k;
+        view.y = stage.clientHeight / 2 - (p.y + p.h / 2) * view.k;
+        applyView();
+      }
+    }
+    sel = id;
+    render();
+  }
+
+  // ======================= popover =======================
+  let traceTimer = null, popFor = null;
+  function renderPopover() {
+    layer.querySelectorAll('.pop').forEach((n) => n.remove());
+    const s = sel && model.steps.find((x) => x.id === sel);
+    if (!s || !pos.has(s.id)) { popFor = null; return; }
+    const p = pos.get(s.id);
+    const i = model.steps.indexOf(s);
+    const refs = refsIn(s.text);
+    const canParallel = i > 0;
+    const pop = document.createElement('div');
+    pop.className = `pop${popFor !== s.id ? ' enter' : ''}`;
+    popFor = s.id;
+    pop.innerHTML = `<div class="pop-top"><span class="w-label">Step ${i + 1} · ${esc(actorName(s.actor))}</span><button id="pop-del">Delete step</button></div>
+      <textarea id="pop-text" rows="2" aria-label="Step text">${esc(s.text)}</textarea>
+      <div class="hint-sm">Put code names in \`backticks\` — \`createOrder\`, \`POST /api/orders\`, \`orders\` — and wridge checks they still exist.</div>
+      ${refs.length ? `<div class="row">${refs.map((r) => `<span class="ref${refOk(r) ? '' : ' bad'}" title="${refOk(r) ? 'Found in the code' : 'Not in the code anymore'}">${esc(r)}</span>`).join('')}</div><div class="trace" id="pop-trace">Tracing the code…</div>` : ''}
+      <div class="checks"><label><input type="checkbox" id="pop-wait" ${s.wait ? 'checked' : ''}> Wait step</label>${canParallel ? `<label><input type="checkbox" id="pop-par" ${s.group && model.steps[i - 1]?.group === s.group ? 'checked' : ''}> Runs with the step before</label>` : ''}</div>
+      ${s.branches.length ? `<div class="row">${s.branches.map((b, bi) => `<span class="blabel ${b.to ? tone(b.label) : 'bad'}">${esc(b.label)} → ${b.to === 'end' ? 'end' : b.to ? `step ${model.steps.findIndex((x) => x.id === b.to) + 1}` : 'no path'} <button class="sx" data-unbr="${bi}" aria-label="Remove this branch">×</button></span>`).join('')}</div>` : ''}
+      <button class="linkish" id="pop-end">+ Branch that ends here</button>`;
+    layer.appendChild(pop);
+    // Above the step when it fits on screen, else below, else beside it — never under the name or the check banner.
+    const ph = pop.offsetHeight;
+    const minY = (HEAD_H - 4 - view.y) / view.k, maxY = (stage.clientHeight - 72 - view.y) / view.k;
+    let left = Math.max(START_X, p.x + p.w / 2 - 150), top;
+    if (p.y - ph - 12 >= minY) top = p.y - ph - 12;
+    else if (p.y + p.h + 12 + ph <= maxY) top = p.y + p.h + 12;
+    else { left = p.x + p.w + 16; top = Math.max(minY, Math.min(p.y + p.h / 2 - ph / 2, maxY - ph)); }
+    pop.style.left = `${left}px`;
+    pop.style.top = `${top}px`;
+    const text = $('pop-text');
+    text.addEventListener('change', () => text.value !== s.text && edit({ t: 'text', id: s.id, v: text.value }));
+    text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); text.blur(); } e.stopPropagation(); });
+    $('pop-del').onclick = () => { edit({ t: 'delete', id: s.id }); sel = null; render(); };
+    $('pop-wait').onchange = (e) => edit({ t: 'wait', id: s.id, v: e.target.checked });
+    if ($('pop-par')) $('pop-par').onchange = (e) => edit({ t: 'parallel', id: s.id, v: e.target.checked });
+    pop.querySelectorAll('[data-unbr]').forEach((b) => (b.onclick = () => edit({ t: 'unbranch', id: s.id, i: Number(b.dataset.unbr) })));
+    $('pop-end').onclick = async () => {
+      const label = await ask({ title: 'Branch that ends here', label: 'Condition', placeholder: 'e.g. cancelled, timed out', confirm: 'Add branch' });
+      if (label) edit({ t: 'branch', id: s.id, label, to: 'end' });
+    };
+    pop.addEventListener('pointerdown', (e) => e.stopPropagation());
+    const target = refs.find((r) => /^(GET|POST|PUT|PATCH|DELETE)?\s*\//i.test(r) || /^[A-Za-z_$][\w$]*$/.test(r));
+    clearTimeout(traceTimer);
+    if (target && !open.draftNoTrace) traceTimer = setTimeout(() => loadTrace(target), 250);
+    else if ($('pop-trace')) $('pop-trace').textContent = 'Nothing to trace here (a route or a function name).';
+  }
+  async function loadTrace(target) {
+    try {
+      const t = await (await fetch(`/api/flows/trace?dir=${encodeURIComponent(current)}&target=${encodeURIComponent(target)}`, { cache: 'no-store' })).json();
+      const box = $('pop-trace');
+      if (!box) return;
+      if (t.error) { box.textContent = `In the code: ${t.error}`; return; }
+      const w = [...new Set(t.data.filter((d) => d.op === 'write').map((d) => d.entity))];
+      const r = [...new Set(t.data.filter((d) => d.op === 'read').map((d) => d.entity))].filter((x) => !w.includes(x));
+      const calls = t.calls.filter((c) => c.level === 1).map((c) => c.name);
+      box.textContent = `In the code: ${[r.length && `reads ${r.slice(0, 4).join(', ')}`, w.length && `writes ${w.slice(0, 4).join(', ')}`, calls.length && `calls ${calls.slice(0, 4).join(', ')}`].filter(Boolean).join(' · ') || 'no calls and no data reads or writes found'}`;
+    } catch {
+      if ($('pop-trace')) $('pop-trace').textContent = 'Couldn’t trace the code.';
+    }
+  }
+
+  // ======================= pointer: pan, select, move, branch, state links =======================
+  let drag = null, toolAddedAt = 0;
+  const toLayer = (e) => { const r = stage.getBoundingClientRect(); return [(e.clientX - r.left - view.x) / view.k, (e.clientY - r.top - view.y) / view.k]; };
+  function dropTarget(x, y) {
+    const L = lanes();
+    const lane = L[Math.max(0, Math.min(L.length - 1, Math.floor(y / (LANE_H + LANE_GAP))))];
+    // Insert before the first step whose column centre is right of the pointer.
+    const order = model.steps.filter((s) => s.id !== drag?.id);
+    let index = order.length;
+    for (let i = 0; i < order.length; i++) { const p = pos.get(order[i].id); if (p && x < p.x + CARD_W / 2) { index = i; break; } }
+    const before = order[index], after = order[index - 1];
+    const lineX = before ? pos.get(before.id).x - 16 : after ? pos.get(after.id).x + CARD_W + 14 : START_X;
+    return { lane, index, lineX, laneIdx: L.indexOf(lane) };
+  }
+  stage.addEventListener('pointerdown', (e) => {
+    if (!open || e.button !== 0 || e.target.closest('.pop')) return;
+    const [x, y] = toLayer(e);
+    const handle = e.target.closest('[data-handle]');
+    const card = e.target.closest('.fstep');
+    const pill = e.target.closest('.spill');
+    if (handle) drag = { kind: 'branch', id: handle.dataset.handle, sx: e.clientX, sy: e.clientY };
+    else if (pill) drag = { kind: 'state', col: pill.dataset.col, v: pill.dataset.v, sx: e.clientX, sy: e.clientY };
+    else if (card) drag = { kind: 'card', id: card.dataset.step, sx: e.clientX, sy: e.clientY, ox: x - card.offsetLeft, oy: y - card.offsetTop, el: card };
+    else if (e.target.closest('.lane-label, .linkish, .sx, button, input, textarea, .branch-input')) return;
+    else drag = { kind: 'pan', sx: e.clientX, sy: e.clientY, start: [view.x, view.y] };
+    drag.moved = false;
+    stage.setPointerCapture(e.pointerId);
+  });
+  stage.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+    drag.moved = true;
+    const [x, y] = toLayer(e);
+    if (drag.kind === 'pan') { stage.classList.add('panning'); view.x = drag.start[0] + e.clientX - drag.sx; view.y = drag.start[1] + e.clientY - drag.sy; applyView(); return; }
+    if (drag.kind === 'card' || drag.kind === 'new') {
+      const el = drag.el;
+      if (!drag.started) {
+        drag.started = true;
+        el.classList.add('dragging');
+        if (drag.kind === 'card') { const p = pos.get(drag.id); layer.insertAdjacentHTML('beforeend', `<div class="placeholder" style="left:${p.x}px;top:${p.y}px;height:${p.h}px"></div>`); }
+        layer.insertAdjacentHTML('beforeend', '<div class="insert"></div><div class="drag-tip"></div>');
+      }
+      el.style.left = `${x - drag.ox}px`; el.style.top = `${y - drag.oy}px`;
+      const t = dropTarget(x, y);
+      const ins = layer.querySelector('.insert'), tip = layer.querySelector('.drag-tip');
+      Object.assign(ins.style, { left: `${t.lineX}px`, top: `${laneTop(t.laneIdx) + 8}px`, height: `${LANE_H - 16}px` });
+      tip.textContent = `${drag.kind === 'new' ? 'Add' : 'Move'} as step ${t.index + 1} · ${actorName(t.lane)}`;
+      Object.assign(tip.style, { left: `${x - drag.ox}px`, top: `${y - drag.oy + el.offsetHeight + 8}px` });
+      layer.querySelectorAll('.lane').forEach((l, i) => l.classList.toggle('drop', i === t.laneIdx));
+      return;
+    }
+    if (drag.kind === 'branch') {
+      const [x1, y1] = (() => { const p = pos.get(drag.id); return [p.x + p.w, p.y + p.h / 2]; })();
+      let tmp = $('edges').querySelector('.tmp');
+      if (!tmp) { $('edges').insertAdjacentHTML('beforeend', '<path class="tmp"/>'); tmp = $('edges').querySelector('.tmp'); }
+      tmp.setAttribute('d', `M${x1} ${y1} H${(x1 + x) / 2} V${y} H${x}`);
+      layer.querySelectorAll('.fstep').forEach((c) => c.classList.toggle('target', c.dataset.step !== drag.id && c.contains(document.elementFromPoint(e.clientX, e.clientY))));
+      return;
+    }
+    if (drag.kind === 'state') {
+      layer.querySelectorAll('.spill').forEach((p) => p.classList.toggle('target', p.dataset.col === drag.col && p.dataset.v !== drag.v && p === document.elementFromPoint(e.clientX, e.clientY)?.closest('.spill')));
+    }
+  });
+  stage.addEventListener('pointerup', async (e) => {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    stage.classList.remove('panning');
+    if (d.kind === 'pan') { if (!d.moved) { sel = null; render(); } return; }
+    if (d.kind === 'card' && !d.moved) { sel = d.id; render(); return; }
+    if (d.kind === 'new') toolAddedAt = performance.now(); // the button's own click event comes next: ignore it
+    if (d.kind === 'new' && !d.started) { d.el.remove(); addFromTool(d.wait); return; } // a plain click on + Step / + Wait step
+    if ((d.kind === 'card' || d.kind === 'new') && d.started) {
+      const [x, y] = toLayer(e);
+      const t = dropTarget(x, y);
+      if (d.kind === 'new') { const step = { id: uid(), actor: t.lane, text: d.wait ? 'Wait…' : 'New step', wait: d.wait, group: null, branches: [] }; edit({ t: 'add', index: t.index, step }); sel = step.id; render(); }
+      else edit({ t: 'move', id: d.id, index: t.index, actor: t.lane });
+      return;
+    }
+    if (d.kind === 'branch') {
+      const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.fstep');
+      render();
+      if (!over || over.dataset.step === d.id) return;
+      const label = await branchLabel(over.dataset.step);
+      if (label) edit({ t: 'branch', id: d.id, label, to: over.dataset.step });
+      return;
+    }
+    if (d.kind === 'state') {
+      const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.spill');
+      if (over && over.dataset.col === d.col && over.dataset.v !== d.v) edit({ t: 'transition', column: d.col, from: d.v, to: over.dataset.v });
+      else render();
+    }
+  });
+  stage.addEventListener('pointercancel', () => { if (drag) { drag = null; stage.classList.remove('panning'); render(); } });
+  // The condition box sits next to the target step; Enter connects, Esc cancels.
+  function branchLabel(targetId) {
+    return new Promise((resolve) => {
+      const p = pos.get(targetId);
+      layer.insertAdjacentHTML('beforeend', `<div class="branch-input" style="left:${p.x}px;top:${p.y + p.h + 10}px"><small>Branch condition</small><input id="branch-text" placeholder="e.g. paid, timed out after 15 min"><em>Enter to connect · Esc to cancel</em></div>`);
+      const input = $('branch-text');
+      input.focus();
+      const done = (v) => { input.closest('.branch-input')?.remove(); resolve(v); };
+      input.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') done(input.value.trim() || 'branch'); if (e.key === 'Escape') done(null); });
+      input.addEventListener('blur', () => setTimeout(() => done(null), 150));
+      input.addEventListener('pointerdown', (e) => e.stopPropagation());
+    });
+  }
+  // + Step / + Wait step: a click adds after the selected step (or at the end); a drag drops it where you want.
+  function addFromTool(wait) {
+    if (!open) return;
+    layer.querySelectorAll('.fstep:not([data-step])').forEach((n) => n.remove());
+    const i = sel ? model.steps.findIndex((s) => s.id === sel) + 1 : model.steps.length;
+    const actor = sel ? model.steps[i - 1].actor : lanes().includes('server') ? 'server' : lanes()[0];
+    const step = { id: uid(), actor, text: wait ? 'Wait…' : 'New step', wait, group: null, branches: [] };
+    edit({ t: 'add', index: i, step });
+    sel = step.id;
+    render();
+  }
+  document.querySelectorAll('[data-tool]').forEach((b) => {
+    b.addEventListener('pointerdown', (e) => {
+      if (!open || e.button !== 0) return;
+      const wait = b.dataset.tool === 'wait';
+      const el = document.createElement('div');
+      el.className = `fstep${wait ? ' wait' : ''}`;
+      el.innerHTML = `${wait ? `<span class="clock">${CLOCK}</span>` : ''}<div class="t">${wait ? 'Wait…' : 'New step'}</div>`;
+      el.style.left = '-999px';
+      layer.appendChild(el);
+      drag = { kind: 'new', wait, el, sx: e.clientX, sy: e.clientY, ox: CARD_W / 2, oy: 20, moved: false };
+      stage.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    // keyboard (Enter / Space): the pointer path above already handled mouse clicks
+    b.addEventListener('click', () => { if (drag || performance.now() - toolAddedAt < 600) return; addFromTool(b.dataset.tool === 'wait'); });
+  });
+  stage.addEventListener('wheel', (e) => {
+    if (!open) return;
+    e.preventDefault();
+    const r = stage.getBoundingClientRect();
+    zoomBy(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  function zoomBy(f, cx = stage.clientWidth / 2, cy = stage.clientHeight / 2) {
+    const k = Math.min(2, Math.max(0.3, view.k * f));
+    view.x = cx - ((cx - view.x) / view.k) * k; view.y = cy - ((cy - view.y) / view.k) * k; view.k = k;
+    applyView();
+  }
+  // Fit the lanes into the canvas, under the flow name and above the check banner.
+  function fit() {
+    if (!stage.clientWidth) return;
+    const h = laneTop(lanes().length) - LANE_GAP + 24;
+    const k = Math.min(1, Math.max(0.4, Math.min((stage.clientWidth - PAD * 2) / contentW, (stage.clientHeight - HEAD_H - 76) / h)));
+    view = { k, x: PAD, y: HEAD_H };
+    applyView();
+  }
+  stage.addEventListener('dblclick', async (e) => {
+    const card = e.target.closest('.fstep[data-step]');
+    if (card) { sel = card.dataset.step; render(); $('pop-text')?.focus(); return; }
+    const lbl = e.target.closest('[data-rename]');
+    if (lbl) {
+      const to = await ask({ title: 'Rename actor', label: 'Name', placeholder: lbl.dataset.rename, value: lbl.dataset.rename, confirm: 'Rename' });
+      if (to && to !== lbl.dataset.rename) { open.lanes = open.lanes.map((l) => (l === lbl.dataset.rename ? to : l)); edit({ t: 'renameLane', from: lbl.dataset.rename, to }); }
+    }
+  });
+  layer.addEventListener('click', async (e) => {
+    const un = e.target.closest('[data-untr]');
+    if (un) { const [si, i] = un.dataset.untr.split(':').map(Number); return edit({ t: 'untransition', column: model.states[si].column, i }); }
+    const addv = e.target.closest('[data-addv]');
+    if (addv) { const v = await ask({ title: 'Add a state value', label: 'Value', placeholder: 'e.g. cancelled', confirm: 'Add' }); if (v) edit({ t: 'stateValue', column: addv.dataset.addv, v: v.trim() }); return; }
+    if (e.target.id === 'add-state') {
+      const c = await ask({ title: 'Add a state', label: 'table.column', placeholder: 'orders.status', confirm: 'Add' });
+      if (c) edit({ t: 'stateColumn', column: c.trim() });
+    }
+  });
+  $('add-lane').onclick = async () => {
+    if (!open) return;
+    const name = await ask({ title: 'Add an actor', body: 'A new lane for whoever or whatever does a step — a person, a service, a job.', label: 'Name', placeholder: 'e.g. Payment, Admin, cron', confirm: 'Add actor' });
+    if (name && !lanes().includes(name.trim())) { open.lanes.push(name.trim()); render(); }
+  };
+  $('zoom-in').onclick = () => zoomBy(1.2);
+  $('zoom-out').onclick = () => zoomBy(1 / 1.2);
+  $('zoom-fit').onclick = fit;
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && !e.target.closest?.('dialog')) { e.preventDefault(); $('search').focus(); $('search').select(); return; }
+    if (e.key === 'Escape' && e.target === $('search')) { $('search').blur(); return; }
+    if (!open || e.target.closest?.('input, textarea, dialog')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !open.draft) { edit({ t: 'delete', id: sel }); sel = null; render(); }
+    else if (e.key === 'Escape') { sel = null; render(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  });
+  $('fhead').addEventListener('click', async (e) => {
+    if (!e.target.closest('#flow-title')) return;
+    const v = await ask({ title: 'Rename flow', label: 'Name', placeholder: model.title, value: model.title, confirm: 'Rename' });
+    if (v && v !== model.title) edit({ t: 'title', v: v.trim() });
+  });
+  $('check').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset.issue) { e.preventDefault(); focusStep(e.target.dataset.issue); } });
+  $('check').addEventListener('click', (e) => {
+    const t = e.target.closest('button, [data-issue]');
+    if (!t) return;
+    if (t.dataset.issue) return focusStep(t.dataset.issue);
+    if (t.dataset.inav) { const n = issuesOf().length; issueAt = (issueAt + Number(t.dataset.inav) + n) % n; return renderCheck(); }
+    if (t.id === 'undo') return undo();
+    if (t.id === 'save') return save();
+    if (t.id === 'confirm-draft') return confirmDraft();
+    if (t.id === 'drop-draft') return dropDraft();
+  });
+  window.addEventListener('beforeunload', (e) => { if (open?.ops.length) { e.preventDefault(); e.returnValue = ''; } });
+  // Lanes keep filling the canvas when the window is resized.
+  new ResizeObserver(() => { if (open) fillWidth(); }).observe(stage);
+
+  // ======================= open / save =======================
+  function checksOf(f) {
+    const m = new Map();
+    for (const s of f.check?.steps ?? []) for (const r of s.refs) m.set(r.ref, r.ok || r.kind === 'text');
+    return m;
+  }
+  function openFlow(f) {
+    if (open?.ops.length && !confirm('You have unsaved edits. Discard them and open another flow?')) return false;
+    open = { key: f.file ?? f.id, file: f.file, hash: f.hash ?? null, draft: Boolean(f.draft), id: f.id, base: fromParsed(f), ops: [], lanes: [], checks: checksOf(f) };
+    sel = null; issueAt = 0; popFor = null;
+    replay();
+    const q = new URLSearchParams(location.search);
+    q.set('dir', current);
+    history.replaceState(null, '', `?${q}#${encodeURIComponent(open.key)}`);
+    clearState();
+    enterNext = true;
+    render();
+    fit();
+    // keep its row in sight (scrolls the list only, never the window around this frame)
+    const list = $('flow-list'), row = list.querySelector('[aria-current="true"]');
+    if (row) { const r = row.getBoundingClientRect(), l = list.getBoundingClientRect(); if (r.top < l.top + 40 || r.bottom > l.bottom) list.scrollTop += r.top - l.top - l.height / 3; }
+    return true;
+  }
+  async function save() {
+    if (!open || open.draft || (!open.ops.length && !open.isNew)) return;
+    const flow = { ...model, steps: model.steps.map((s) => ({ ...s })) };
+    const body = { dir: current, file: open.file ?? undefined, flow, baseHash: open.hash };
+    let res, out;
+    try {
+      res = await fetch('/api/flows', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      out = await res.json();
+    } catch {
+      return toast('Couldn’t save — the server isn’t answering', { kind: 'error' });
+    }
+    if (res.status === 409) return conflict(out);
+    if (!res.ok) return toast(`Couldn’t save — ${out.error ?? res.status}`, { kind: 'error' });
+    open.file = out.file; open.hash = out.hash; open.key = out.file; open.isNew = false;
+    open.base = fromParsed(out); open.ops = []; open.checks = checksOf(out);
+    sel = null;
+    replay();
+    toast(`Saved ${out.file}`);
+    ui.celebrate();
+    await refreshList();
+    render();
+  }
+  // Someone changed the file: load theirs, put the user's edits back on top, let them review before saving.
+  async function conflict(out) {
+    const ok = await sure({ title: 'This flow file changed', body: `${open.file ?? 'The file'} was changed after you opened it (maybe by an AI or VS Code), so nothing was overwritten. Your ${plural(open.ops.length, 'edit')} will be put back on top of the new version — check them before you save again.`, confirm: 'Load theirs + my edits' });
+    if (!ok || out.current == null) return;
+    const parsed = await (await fetch(`/api/flows?dir=${encodeURIComponent(current)}`, { cache: 'no-store' })).json();
+    const latest = parsed.flows.find((f) => f.file === open.file);
+    if (!latest) return toast('That file isn’t there anymore', { kind: 'error' });
+    // Old step ids no longer exist in the new base: re-key ops by step text where possible.
+    const keep = open.ops;
+    const oldBase = open.base;
+    open.base = fromParsed(latest); open.hash = latest.hash; open.checks = checksOf(latest);
+    const byText = new Map(open.base.steps.map((s) => [s.text, s.id]));
+    const remap = new Map(oldBase.steps.map((s) => [s.id, byText.get(s.text) ?? s.id]));
+    open.ops = keep.map((op) => ({ ...op, ...(op.id ? { id: remap.get(op.id) ?? op.id } : {}), ...(op.to && op.to !== 'end' ? { to: remap.get(op.to) ?? op.to } : {}) }));
+    replay();
+    data = parsed;
+    render();
+    toast('Loaded the new version with your edits on top — check it, then save', { kind: 'info' });
+  }
+  async function confirmDraft() {
+    const name = await ask({ title: 'Confirm as flow', body: 'Give it a name people understand. The file goes in docs/flows/.', label: 'Flow name', placeholder: 'e.g. Checkout', confirm: 'Next' });
+    if (!name) return;
+    const guess = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const file = await ask({ title: 'File name', label: 'docs/flows/', placeholder: guess ? `${guess}.md` : 'checkout.md', value: guess ? `${guess}.md` : '', confirm: 'Save as file' });
+    if (!file) return;
+    model.title = name.trim();
+    open.draft = false;
+    open.file = /\.md$/i.test(file) ? file.trim() : `${file.trim()}.md`;
+    open.hash = null;
+    open.isNew = true;
+    open.ops.push({ t: 'title', v: model.title });
+    await save();
+  }
+  async function dropDraft() {
+    const ok = await sure({ title: 'Discard this draft?', body: 'It won’t show in the list again (remembered in .wara/flows-ignored.json). Your code isn’t touched.', confirm: 'Discard draft', danger: true });
+    if (!ok) return;
+    await fetch('/api/flows/ignore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current, id: open.id }) });
+    open = null;
+    await refreshList();
+    pickDefault();
+  }
+  $('new-flow').onclick = async () => {
+    if (!current) return;
+    const name = await ask({ title: 'New flow', body: 'One flow = one journey through the app, step by step, one lane per actor.', label: 'Flow name', placeholder: 'e.g. Sign up', confirm: 'Next' });
+    if (!name) return;
+    const guess = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const fileIn = await ask({ title: 'File name', label: 'docs/flows/', placeholder: guess ? `${guess}.md` : 'signup.md', value: guess ? `${guess}.md` : '', confirm: 'Create' });
+    if (!fileIn) return;
+    const file = /\.md$/i.test(fileIn.trim()) ? fileIn.trim() : `${fileIn.trim()}.md`;
+    const f = { file: null, title: name.trim(), steps: [{ id: '1', actor: 'user', text: 'Starts at…', refs: [], branches: [] }], states: [], notes: '' };
+    if (!openFlow(f)) return;
+    open.file = file;
+    open.isNew = true;
+    open.ops.push({ t: 'title', v: name.trim() });
+    render();
+  };
+
+  // ======================= list, states, loading =======================
+  function toolsEnabled(on) {
+    document.querySelectorAll('[data-tool], #add-lane').forEach((b) => (b.disabled = !on));
+  }
+  const itemHtml = (f, draft, attr = 'data-key') => {
+    const key = f.file ?? f.id;
+    const st = statusOf(f, draft);
+    const tip = draft ? 'Draft traced from the code' : st === 'warn' ? `${f.check?.stale?.length ? `${plural(f.check.stale.length, 'code name')} not found` : 'A branch has no path'}` : `${plural(f.steps.length, 'step')} · checked`;
+    // a draft is named after its route: the method becomes the row's mark, the path may take two lines
+    const m = draft && /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+(.+)$/i.exec(f.title ?? '');
+    const lead = m ? `<span class="mth">${esc(m[1].toUpperCase())}</span>` : wicon('flows');
+    return `<button class="w-row fl-item${draft ? ' draft' : ''}" ${attr}="${esc(key)}" aria-current="${open?.key === key}" title="${esc(f.title)} — ${esc(tip)}">${lead}<span class="nm">${m ? wbr(m[2]) : esc(f.title)}</span><i class="sdot ${st}"></i></button>`;
+  };
+  function renderList() {
+    if (!data) return;
+    const q = $('search').value.trim().toLowerCase();
+    const match = (f) => !q || (f.title ?? '').toLowerCase().includes(q) || (f.file ?? f.id ?? '').toLowerCase().includes(q);
+    const flows = data.flows.filter(match), drafts = data.drafts.filter(match);
+    const more = drafts.length > 200 ? `<p class="fl-more">+ ${drafts.length - 200} more — search to find them</p>` : '';
+    // a new flow lives only here until it is saved
+    const fresh = open?.isNew && !data.flows.some((f) => f.file === open.key) ? `<button class="w-row fl-item" aria-current="true" title="Not saved yet">${wicon('flows')}<span class="nm">${esc(model.title || 'Untitled')}</span><i class="sdot info"></i></button>` : '';
+    $('flow-list').innerHTML = `<p class="w-label fl-group">Flows · ${q ? `${flows.length}/` : ''}${data.flows.length}</p>${fresh}
+      ${flows.length ? flows.map((f) => itemHtml(f, false)).join('') : fresh ? '' : `<p class="fl-none">${q ? 'No flow matches.' : data.drafts.length ? 'None saved yet — confirm a draft or start a new one.' : 'Nothing here yet.'}</p>`}
+      ${data.drafts.length ? `<p class="w-label fl-group">Drafts from code · ${q ? `${drafts.length}/` : ''}${data.drafts.length}</p>${drafts.length ? drafts.slice(0, 200).map((f) => itemHtml(f, true)).join('') : '<p class="fl-none">No draft matches.</p>'}${more}` : ''}`;
+  }
+  $('flow-list').addEventListener('click', (e) => {
+    const b = e.target.closest('.fl-item');
+    if (!b) return;
+    const f = data.flows.find((x) => x.file === b.dataset.key) ?? data.drafts.find((x) => x.id === b.dataset.key);
+    if (f) openFlow(f);
+  });
+  $('search').addEventListener('input', renderList);
+  $('search').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const first = $('flow-list').querySelector('.fl-item');
+    if (first) { first.click(); first.focus(); }
+  });
+
+  const clearState = () => { $('state').innerHTML = ''; };
+  function blank() {
+    open = null; sel = null;
+    layer.innerHTML = '';
+    $('fhead').innerHTML = '';
+    $('check').hidden = true;
+    main.classList.remove('has-flow');
+    document.body.classList.remove('has-flow');
+    toolsEnabled(false);
+  }
+  function showCenter({ icon = 'inbox', kind = '', mood, title, body, button, onClick, extra = '' }) {
+    blank();
+    const html = `<div class="w-empty w-fade-in">${ui.emptyIcon(icon, kind, mood)}<h2>${esc(title)}</h2><p>${esc(body)}</p>${button ? `<button class="btn btn-primary" data-act>${esc(button)}</button>` : ''}${extra}</div>`;
+    $('state').innerHTML = `<div class="center">${html}</div>`;
+    $('mlist').innerHTML = html;
+    document.querySelectorAll('[data-act]').forEach((b) => (b.onclick = onClick));
+  }
+  function showLoading() {
+    blank();
+    $('state').innerHTML = '<div class="center"><span class="loading-pill w-fade-in"><span class="spinner"></span>Reading flows and tracing the code…</span></div>';
+    $('flow-list').innerHTML = `<p class="w-label fl-group">Flows</p>${Array.from({ length: 5 }, (_, i) => `<div class="skel" style="height:12px;margin:12px 10px;width:${[78, 62, 70, 54, 66][i]}%"></div>`).join('')}`;
+    $('mlist').innerHTML = '<span class="loading-pill"><span class="spinner"></span>Reading flows…</span>';
+    $('refresh').classList.add('busy');
+  }
+  async function refreshList() {
+    data = await (await fetch(`/api/flows?dir=${encodeURIComponent(current)}`, { cache: 'no-store' })).json();
+    renderList();
+  }
+  function pickDefault() {
+    const key = decodeURIComponent(location.hash.slice(1));
+    const f = data.flows.find((x) => x.file === key) ?? data.drafts.find((x) => x.id === key) ?? data.flows[0] ?? data.drafts[0];
+    if (f) { openFlow(f); renderMobile(); }
+    else {
+      showCenter({ icon: 'inbox', mood: 'thinking', title: 'No flows yet', body: 'wridge found no entry points to draft from — no screens, APIs, webhooks or cron jobs in the code graph. Start one yourself: a flow is a short markdown file, one lane per actor.', button: 'New flow', onClick: () => $('new-flow').click(), extra: '<span class="fl-path">docs/flows/&lt;name&gt;.md</span>' });
+      renderList();
+      renderMobileList();
+    }
+  }
+  async function load() {
+    $('crumb').textContent = `Code · ${baseName(current)}`;
+    showLoading();
+    $('refresh').disabled = true;
+    store.set('code-project', current);
+    try {
+      const res = await fetch(`/api/flows?dir=${encodeURIComponent(current)}`, { cache: 'no-store' });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+      data = body;
+    } catch (err) {
+      $('refresh').disabled = false;
+      $('refresh').classList.remove('busy');
+      data = null;
+      $('flow-list').innerHTML = '<p class="w-label fl-group">Flows</p><p class="fl-none">Couldn’t load the list.</p>';
+      return showCenter({ icon: 'alert', kind: 'bad', title: 'Couldn’t read flows', body: `Reading docs/flows/ or the code graph failed (${err.message}). Check that the server is running, then try again.`, button: 'Try again', onClick: load });
+    }
+    $('refresh').disabled = false;
+    $('refresh').classList.remove('busy');
+    if (data.update?.gitignore?.added) toast(`Added ${data.update.gitignore.pattern} to .gitignore`, { kind: 'info' });
+    renderList();
+    pickDefault();
+  }
+  // Project picker shared with the other pages (outside the wridge window; inside it the window picks).
+  const picker = ui.projectPicker($('picker'), {
+    projects: () => projects,
+    current: () => current,
+    canLeave: () => !(open?.ops.length) || confirm('You have unsaved edits. Discard them and switch project?'),
+    onChoose: (dir) => { current = dir; history.replaceState(null, '', `?dir=${encodeURIComponent(dir)}`); load(); },
+    onChanged: async (dir) => {
+      history.replaceState(null, '', dir ? `?dir=${encodeURIComponent(dir)}` : location.pathname);
+      store.set('code-project', dir ?? '');
+      current = null;
+      await loadProjects();
+    },
+  });
+  async function loadProjects() {
+    try {
+      projects = await (await fetch('/api/code/projects', { cache: 'no-store' })).json();
+    } catch {
+      return showCenter({ icon: 'unplug', kind: 'bad', title: 'Can’t reach the server', body: 'The wridge server isn’t answering. Give it a moment to start, then try again.', button: 'Try again', onClick: loadProjects });
+    }
+    picker.label();
+    if (!projects.length) {
+      $('flow-list').innerHTML = '<p class="w-label fl-group">Flows</p><p class="fl-none">No project yet.</p>';
+      return showCenter({ icon: 'inbox', title: 'No projects yet', body: 'Add a code project and wridge drafts its flows from the code graph.', button: 'Add project', onClick: () => picker.add() });
+    }
+    const wanted = new URLSearchParams(location.search).get('dir') ?? store.get('code-project');
+    current = projects.find((p) => p.dir === wanted)?.dir ?? projects[0].dir;
+    picker.label();
+    load();
+  }
+
+  // ======================= phones =======================
+  function renderMobileList() {
+    if (!data || !mobile.matches) return;
+    $('mlist').innerHTML = `<p class="msub">${plural(data.flows.length, 'flow')} · ${plural(data.drafts.length, 'draft')}</p>
+      ${data.flows.length ? `<p class="w-label">Flows</p><div class="mgroup">${data.flows.map((f) => itemHtml(f, false, 'data-mkey')).join('')}</div>` : ''}
+      ${data.drafts.length ? `<p class="w-label">Drafts from code</p><div class="mgroup">${data.drafts.slice(0, 60).map((f) => itemHtml(f, true, 'data-mkey')).join('')}</div>` : ''}
+      ${!data.flows.length && !data.drafts.length ? `<div class="w-empty">${ui.emptyIcon('inbox', '', 'thinking')}<h2>No flows yet</h2><p>Open wridge on a bigger screen to draw the first one.</p></div>` : '<p class="hint-sm">Drag-and-drop editing works on a big screen. Here you can read flows and edit step text.</p>'}`;
+  }
+  function renderMobile() {
+    if (!data || !mobile.matches) return;
+    renderMobileList();
+    if (!open) return;
+    const { col } = columns();
+    let lastCol = -1;
+    $('mbody').innerHTML = `<div><p class="w-label">${open.draft ? 'Draft' : 'Flow'}</p><h2>${esc(model.title)}</h2></div><p class="msub">${esc(open.draft ? 'traced from code · not saved' : open.file ?? 'not saved yet')}</p>
+      ${model.steps.map((s) => {
+        const branchOf = model.steps.find((x) => x.branches.some((b) => b.to === s.id));
+        const label = branchOf?.branches.find((b) => b.to === s.id)?.label;
+        const par = col.get(s.id) === lastCol;
+        lastCol = col.get(s.id);
+        const refs = refsIn(s.text);
+        const name = plain(s.text.replace(/`[^`]+`/g, '').trim());
+        return `<div class="mstep${label || par ? ' branch' : ''}"><div class="who">${label ? `<i>↳ ${esc(label)}</i>` : par ? '<i>∥ in parallel</i>' : ''}${esc(actorName(s.actor))}</div>
+          <div class="fstep${s.wait ? ' wait' : ''}${refs.some((r) => !refOk(r)) ? ' stale issue' : ''}" data-medit="${s.id}">${s.wait ? `<span class="clock">${CLOCK}</span>` : ''}${name ? `<div class="t">${esc(name)}</div>${refs.length ? `<div class="c">${wbr(refs.join(', '))}</div>` : ''}` : `<div class="t code">${wbr(refs.join(', ') || s.text)}</div>`}</div></div>`;
+      }).join('')}
+      ${open.ops.length ? '<button class="btn btn-primary" id="m-save">Save</button>' : ''}`;
+    if ($('m-save')) $('m-save').onclick = save;
+  }
+  $('mlist').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mkey]');
+    if (!b) return;
+    const f = data.flows.find((x) => x.file === b.dataset.mkey) ?? data.drafts.find((x) => x.id === b.dataset.mkey);
+    if (f && openFlow(f)) { history.pushState({ fromList: true }, '', location.href); document.body.classList.add('show-detail'); }
+  });
+  $('mbody').addEventListener('click', async (e) => {
+    const c = e.target.closest('[data-medit]');
+    if (!c || open.draft) return;
+    const s = model.steps.find((x) => x.id === c.dataset.medit);
+    const v = await ask({ title: `Step ${model.steps.indexOf(s) + 1}`, label: 'Text', placeholder: s.text, value: s.text, confirm: 'Save text' });
+    if (v && v !== s.text) edit({ t: 'text', id: s.id, v });
+  });
+  $('back').onclick = () => { if (history.state?.fromList) history.back(); else document.body.classList.remove('show-detail'); };
+  window.addEventListener('popstate', () => document.body.classList.remove('show-detail'));
+  mobile.addEventListener('change', () => { if (open) { render(); fit(); } else renderMobileList(); });
+
+  $('refresh').onclick = () => {
+    if (open?.ops.length && !confirm('You have unsaved edits. Discard them and reload?')) return;
+    current ? load() : loadProjects();
+  };
+
+  document.querySelectorAll('[data-wicon]').forEach((el) => (el.innerHTML = ui.icon(el.dataset.wicon)));
+  ui.icons();
+  applyView();
+  loadProjects();
+})();
+</script>
+</body>
+</html>

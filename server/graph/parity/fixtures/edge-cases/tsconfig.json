@@ -1,0 +1,1 @@
+{ "extends": "./tsconfig.base", /* block */ "compilerOptions": { "jsx": "preserve" } }

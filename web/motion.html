@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; background: var(--surface); }
+  .mo-page { flex: 1; min-height: 0; overflow-y: auto; }
+  .w-head { flex-wrap: wrap; }
+  .w-actions .seg button { padding: 5px 14px; transition: color .15s, background .15s; }
+  .w-actions .seg button:hover { color: var(--text); }
+  .w-body { gap: 34px; }
+  .mono { font-family: var(--mono); }
+
+  /* sections: the project's Lottie files, then frames from Figma */
+  .mo-sec { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 16px; }
+  .mo-sec-head { display: flex; align-items: center; gap: 10px; min-height: 32px; flex-wrap: wrap; }
+  .mo-sec-head .sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 11px var(--mono); color: var(--text-faint); }
+  .mo-sec-head .tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .mo-sec-head .w-search { width: 200px; height: 32px; }
+  .seg.sm button { padding: 3px 10px; font-size: 12px; }
+  .seg .n { margin-left: 4px; font: 10.5px var(--mono); color: var(--text-faint); }
+  .icon-btn { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: var(--r-md); background: none; color: var(--text-muted); cursor: pointer; transition: background .15s, color .15s; }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .icon-btn .w-icon { width: 14px; height: 14px; color: inherit; transition: transform .3s var(--ease); }
+  .icon-btn:hover .w-icon { transform: rotate(-60deg); }
+
+  .mo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(208px, 1fr)); gap: 16px; }
+  .mo-card { display: flex; flex-direction: column; min-width: 0; background: var(--background); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease); animation: w-in .24s var(--ease) backwards; }
+  .mo-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+  .mo-stage { width: 100%; height: 196px; display: grid; place-items: center; padding: 0; border: 0; border-bottom: 1px solid var(--border); background: var(--surface-1); cursor: pointer; }
+  .mo-anim { width: 66%; height: 72%; }
+  .mo-stage .err { font: 11px var(--mono); color: var(--text-faint); }
+  .mo-info { display: flex; flex-direction: column; gap: 6px; padding: 13px 13px 14px; min-width: 0; }
+  .mo-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+  .mo-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 12.5px/1.4 var(--mono); color: var(--text); }
+  .mo-play { flex: none; width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--ink); color: var(--on-ink); cursor: pointer;
+    transition: transform .15s var(--ease), background .15s var(--ease); }
+  .mo-play:hover { background: var(--ink-hover); transform: scale(1.08); }
+  .mo-play:active { transform: scale(.94); }
+  .mo-play svg { width: 10px; height: 10px; }
+  .mo-meta { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 10.5px/1.5 var(--mono); color: var(--text-muted); }
+  .mo-src { margin: 0; display: flex; align-items: center; gap: 6px; min-width: 0; font: 10.5px/1.5 var(--mono); color: var(--text-faint); }
+  .mo-src > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mo-src .w-icon { width: 11px; height: 11px; }
+  .mo-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+  .mo-card:focus-visible, .mo-stage:focus-visible, .mo-play:focus-visible, .icon-btn:focus-visible, .tok-row:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  .skel-card { height: 292px; border-radius: 12px; }
+
+  .mo-note { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+  .mo-note .w-tile { background: var(--background); border: 1px solid var(--border); }
+  .mo-note p { margin: 0; flex: 1; min-width: 0; font-size: 13px; line-height: 1.55; color: var(--text-muted); }
+  .mo-note p b { display: block; color: var(--text); font-weight: 500; }
+  .mo-empty { padding: 36px 24px 40px; }
+  .mo-empty code, .mo-note code { font: 12px var(--mono); padding: 2px 6px; border-radius: var(--r-sm); background: var(--surface-2); color: var(--text-2); }
+  .mo-empty .foot { font: 11px var(--mono); color: var(--text-faint); }
+  .mo-foot { margin: -14px 0 0; font-size: 12px; color: var(--text-faint); }
+
+  /* tokens */
+  .mo-tokens { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.95fr); gap: 16px; }
+  .tok-panel { padding: 14px 18px 8px; }
+  .tok-head { display: flex; align-items: center; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .tok-head .tools { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .tok-head .btn { padding: 3px 9px; font-size: 12px; }
+  .tok-row { display: grid; align-items: center; gap: 14px; min-height: 44px; padding: 8px 2px; border-bottom: 1px solid var(--surface-2); cursor: pointer; border-radius: var(--r-sm); transition: background .15s var(--ease); }
+  .tok-row:last-child { border-bottom: 0; }
+  .tok-row:hover { background: var(--surface-1); }
+  .tok-row b { font: 500 13px var(--mono); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tok-row .val { font: 12px var(--mono); color: var(--text-muted); white-space: nowrap; }
+  .tok-row .use { min-width: 0; font-size: 13px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tok-row .use.path { font: 11.5px var(--mono); color: var(--text-faint); }
+  .dur .tok-row { grid-template-columns: minmax(0, 1fr) 72px 50px; gap: 12px; }
+  .bar { position: relative; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; background: var(--primary); width: 0; }
+  .ease .tok-row { grid-template-columns: 48px minmax(110px, auto) minmax(150px, auto) minmax(0, 1fr); }
+  .curve { position: relative; width: 48px; height: 32px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-1); }
+  .curve svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+  .curve .axis { stroke: var(--border); stroke-width: 1; fill: none; }
+  .curve .line { stroke: var(--primary); stroke-width: 1.6; fill: none; stroke-linecap: round; }
+  .curve .ball { position: absolute; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 2px var(--background); left: 42px; top: 4px; }
+  .tok-src { font: 11px var(--mono); color: var(--text-faint); }
+
+  /* detail: the player, and the side panel */
+  .mo-detail { flex: 1; min-height: 0; display: flex; }
+  .mo-dmain { flex: 1; min-width: 0; overflow-y: auto; padding: 22px 32px 28px; display: flex; flex-direction: column; gap: 14px; }
+  .crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
+  .crumbs .btn { padding: 5px 10px 5px 8px; }
+  .crumbs .path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px var(--mono); color: var(--text-muted); }
+  .player { flex: 1; min-height: 320px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow: hidden; transition: background .2s var(--ease); }
+  .player.dark { background: #0b1124; }
+  .player.checker { background: repeating-conic-gradient(#e2e8f0 0 25%, #fff 0 50%) 0 0 / 20px 20px; }
+  .player > div { width: min(70%, 420px); aspect-ratio: 1; }
+  .controls { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; }
+  .timeline { display: flex; align-items: center; gap: 12px; }
+  .play { flex: none; width: 36px; height: 36px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: var(--ink); color: var(--on-ink); cursor: pointer; transition: transform .15s var(--ease), background .15s; }
+  .play:hover { background: var(--ink-hover); transform: scale(1.06); }
+  .play svg { width: 13px; height: 13px; }
+  .timeline input { flex: 1; accent-color: var(--primary); }
+  .clock { min-width: 140px; text-align: right; white-space: nowrap; font: 12px var(--mono); color: var(--text-muted); }
+  .opts { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .opt { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); color: var(--text-muted);
+    font-size: 12px; font-weight: 500; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+  .toggle:hover { border-color: var(--border-strong); color: var(--text); }
+  .toggle[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .toggle:focus-visible, .play:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  .side { width: 360px; flex: none; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; padding: 22px 22px 28px; background: var(--surface-1); border-left: 1px solid var(--border); }
+  .side > * { flex-shrink: 0; }
+  .side h2 { margin: 6px 0 0; font: 600 18px/1.3 var(--mono); letter-spacing: -.01em; word-break: break-all; }
+  .facts { display: flex; flex-direction: column; gap: 8px; margin: 0; font-size: 13px; }
+  .facts div { display: flex; justify-content: space-between; gap: 12px; }
+  .facts dt { color: var(--text-muted); }
+  .facts dd { margin: 0; text-align: right; word-break: break-all; font: 12px var(--mono); color: var(--text); }
+  .side hr { width: 100%; margin: 0; border: 0; border-top: 1px solid var(--border); }
+  .sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sec-head .sm { font: 11px var(--mono); color: var(--text-faint); }
+  .track { display: flex; flex-direction: column; gap: 4px; }
+  .track .lbl { font-size: 11.5px; color: var(--text-muted); }
+  .track .lbl b { margin-right: 6px; font: 500 12px var(--mono); color: var(--text); }
+  .tbar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); }
+  .tbar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; }
+  .note { margin: 0; font-size: 12px; line-height: 1.55; color: var(--text-muted); }
+  .note b { color: var(--text-2); font-weight: 500; }
+  details.note summary { cursor: pointer; }
+  pre.snippet { margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); color: var(--text-2); font: 12px/1.6 var(--mono); overflow-x: auto; }
+  pre.snippet.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .side .btn { width: 100%; }
+  table.verdict { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.verdict td { padding: 7px 4px; border-top: 1px solid var(--border); vertical-align: top; }
+  table.verdict td b { display: block; font: 500 12px var(--mono); color: var(--text); }
+  table.verdict small { color: var(--text-muted); }
+  ul.lint { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.5; color: var(--warning-text); }
+  .dest { display: flex; flex-direction: column; gap: 6px; }
+  .dest-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-muted); }
+  .dest-head .btn { width: auto; padding: 3px 10px; font-size: 12px; }
+  .dest-path { padding: 8px 10px; border-radius: var(--r-md); background: var(--surface-2); color: var(--text-muted); font: 12px/1.6 var(--mono); }
+  .dest-path span { white-space: nowrap; }
+  .dest-path b { color: var(--text); font-weight: 600; white-space: nowrap; }
+
+  .center { flex: 1; display: grid; place-items: center; padding: 32px; }
+  .w-empty .row { display: flex; gap: 8px; padding-top: 4px; }
+
+  @media (max-width: 900px) { .mo-tokens { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    .w-head { padding: 24px 20px 0; }
+    .w-body { padding: 22px 20px 32px; }
+    .mo-detail { flex-direction: column; overflow-y: auto; }
+    .mo-dmain { overflow: visible; padding: 16px; }
+    .player { min-height: 280px; flex: none; }
+    .side { width: auto; border-left: 0; border-top: 1px solid var(--border); overflow: visible; }
+    .ease .tok-row { grid-template-columns: 48px minmax(0, 1fr); }
+    .ease .tok-row .val, .ease .tok-row .use { grid-column: 2; }
+  }
+  @media (prefers-reduced-motion: reduce) { .mo-card { animation: none; } .mo-card:hover { transform: none; } }
+</style>
+</head>
+<body>
+<div id="picker" hidden></div>
+<div class="mo-page" id="page">
+  <header class="w-head w-fade-in" id="head">
+    <div class="w-titles">
+      <p class="w-label">Design · Motion</p>
+      <h1>Motion</h1>
+      <p class="w-sub">Lottie files and motion tokens for this project, made from Figma Motion timelines.</p>
+    </div>
+    <div class="w-actions">
+      <div class="seg" role="group" aria-label="View"><button data-tab="lottie" aria-pressed="true">Lottie</button><button data-tab="tokens" aria-pressed="false">Tokens</button></div>
+      <button class="btn btn-secondary" id="export">Export from Figma</button>
+    </div>
+  </header>
+  <main class="w-body" id="view"></main>
+</div>
+<div class="mo-detail" id="detail-view" hidden></div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script src="/vendor/lottie.min.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const { esc, toast, setLoading } = ui;
+  const view = $('view'), page = $('page'), dview = $('detail-view');
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } } };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const icon = (n) => ui.icon(n);
+  const kb = (n) => `${(n / 1024).toFixed(1)} KB`;
+  const sec = (n) => `${(n / 1000).toFixed(1)} s`;
+  const msTxt = (n) => `${n} ms`;
+  const base = (p) => p.split('/').pop();
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  const PLAY = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 1.8v10.4l8.6-5.2z" fill="currentColor"/></svg>';
+  const PAUSE = '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="2.5" y="1.5" width="3.2" height="11" rx="1" fill="currentColor"/><rect x="8.3" y="1.5" width="3.2" height="11" rx="1" fill="currentColor"/></svg>';
+
+  // Defaults from the motion skill, shown while the code has no motion tokens yet.
+  const DEFAULT_DURATIONS = [['duration.instant', 100, 'button press · toggle'], ['duration.fast', 150, 'chips · icons · tooltips'], ['duration.base', 250, 'dialogs · sheets · most UI'], ['duration.slow', 400, 'page change · large areas']];
+  const DEFAULT_EASES = [['ease.standard', [0.2, 0, 0, 1], 'moving on screen'], ['ease.enter', [0, 0, 0, 1], 'things that appear'], ['ease.exit', [0.3, 0, 1, 1], 'things that leave'], ['ease.bounce', [0.34, 1.56, 0.64, 1], 'if the project likes bounce']];
+
+  let projects = [], current = null, D = null, tab = 'lottie', filter = 'all', query = '';
+  const cache = new Map(); // path → lottie json
+  let players = []; // cards' lottie instances, destroyed on re-render
+
+  async function fetchJson(url, opts) {
+    const res = await fetch(url, { cache: 'no-store', ...opts });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { const e = new Error(body.error || `HTTP ${res.status}`); e.status = res.status; e.body = body; throw e; }
+    return body;
+  }
+  const fileOf = async (path) => cache.get(path) ?? cache.set(path, await fetchJson(`/api/motion/file?dir=${encodeURIComponent(current)}&path=${encodeURIComponent(path)}`)).get(path);
+  // Players get a copy: lottie-web mutates the data it is given.
+  const play = (el, data, o = {}) => lottie.loadAnimation({ container: el, renderer: 'svg', loop: o.loop ?? false, autoplay: false, animationData: JSON.parse(JSON.stringify(data)), rendererSettings: { preserveAspectRatio: 'xMidYMid meet' } });
+  const destroyPlayers = () => { players.forEach((p) => p.destroy()); players = []; };
+  // The frame shown when not playing: the recipe's poster (loops that fade out), else the last frame.
+  const posterFrame = (data) => { const ms = data.meta?.wara?.spec?.poster; const last = data.op - (data.ip ?? 0) - 1; return ms == null ? last : Math.min(last, Math.round((ms / 1000) * data.fr)); };
+  // once or loop: the recipe says so, else a poster frame means a loop (it rests on the poster between runs)
+  const loopWord = (data) => { const s = data?.meta?.wara?.spec; return s?.loop === true || (s?.loop == null && s?.poster != null) ? 'loop' : 'once'; };
+
+  // ======================= views =======================
+  function showList() {
+    dview.hidden = true;
+    dview.innerHTML = '';
+    page.hidden = false;
+  }
+  function centerState(icon, mood, title, body, button, onClick, second) {
+    destroyPlayers();
+    showList();
+    view.innerHTML = `<div class="center"><div class="w-empty w-fade-in">${ui.emptyIcon(icon, '', mood)}<h2>${esc(title)}</h2><p>${esc(body)}</p>
+      <div class="row">${button ? `<button class="btn btn-primary" id="state-btn">${esc(button)}</button>` : ''}${second ? `<button class="btn btn-ghost" id="state-btn2">${esc(second[0])}</button>` : ''}</div></div></div>`;
+    if (button) $('state-btn').onclick = onClick;
+    if (second) $('state-btn2').onclick = second[1];
+  }
+  function loadingState() {
+    destroyPlayers();
+    showList();
+    view.innerHTML = `<section class="mo-sec"><div class="mo-sec-head"><span class="skel" style="width:140px;height:10px"></span></div>
+      <div class="mo-grid">${'<span class="skel skel-card"></span>'.repeat(4)}</div></section>`;
+  }
+  function setTab(t) {
+    tab = t;
+    document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
+  }
+
+  // ======================= Lottie: the project's files =======================
+  const visible = () => D.files.filter((f) => (filter === 'all' || (filter === 'wara') === f.wara) && (!query || f.path.toLowerCase().includes(query)));
+  function renderList() {
+    destroyPlayers();
+    showList();
+    const n = D.files.length;
+    const w = D.files.filter((f) => f.wara).length;
+    const filters = w && w < n; // only worth it when both kinds are here
+    view.innerHTML = `<section class="mo-sec w-fade-in" aria-label="Lottie files in this project">
+        <div class="mo-sec-head"><span class="w-label">In this project · ${n}</span><span class="sub">${esc(D.name)}</span>
+          <span class="tools">${n > 8 ? `<label class="w-search"><span class="w-icon">${icon('search')}</span><input id="q" type="search" placeholder="Find a file…" value="${esc(query)}" aria-label="Find a Lottie file" autocomplete="off"></label>` : ''}
+          ${filters ? `<span class="seg sm" role="group" aria-label="Filter">${[['all', 'All', n], ['wara', 'Made with wridge', w], ['other', 'From elsewhere', n - w]].map(([k, l, c]) => `<button data-f="${k}" aria-pressed="${filter === k}">${l}<span class="n">${c}</span></button>`).join('')}</span>` : ''}
+          <button class="icon-btn" id="rescan" aria-label="Look for Lottie files again" title="Look for Lottie files again"><span class="w-icon">${icon('restart')}</span></button></span></div>
+        ${n ? '<div class="mo-grid" id="grid"></div>' : `<div class="w-panel mo-empty"><div class="w-empty" style="padding:0">${ui.emptyIcon('inbox', '', 'thinking')}
+          <h2>No Lottie files yet</h2>
+          <p>Draw it in Figma with every moving part on its own layer, then ask your AI, for example “animate a check mark from the Success frame”. Frames with a Figma Motion timeline below turn into Lottie in one click.</p>
+          <code>motion_to_lottie { nodeId, out: "assets/lottie/success.json" }</code>
+          <span class="foot">Lottie .json files from anywhere else show up here too</span></div></div>`}
+      </section>
+      <section class="mo-sec w-fade-in" id="figma-sec" aria-label="Frames from Figma"></section>
+      ${n ? '<p class="mo-foot">Hover a card to play it · click for details · the files live in the project (and git), found by what they contain — nothing to register.</p>' : ''}`;
+    view.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => { filter = b.dataset.f; renderList(); }));
+    if ($('q')) $('q').oninput = (e) => { query = e.target.value.trim().toLowerCase(); renderGrid(); };
+    $('rescan').onclick = load;
+    renderGrid();
+    renderFigma();
+  }
+
+  // one card: the preview (hover to loop), a play button, and what the file is
+  function cardHtml({ i, attr, name, meta, src, title, extra = '' }) {
+    return `<article class="mo-card" ${attr}="${i}" title="${esc(title)}" style="animation-delay:${Math.min(i, 12) * 30}ms">
+      <button class="mo-stage" aria-label="Open ${esc(name)}"><div class="mo-anim"></div></button>
+      <div class="mo-info"><div class="mo-row"><span class="mo-name">${esc(name)}</span><button class="mo-play" aria-label="Play ${esc(name)}">${PLAY}</button></div>
+        <p class="mo-meta">${meta}</p><p class="mo-src">${src}</p>${extra}</div></article>`;
+  }
+  // hover loops; the button plays once from the start (again: pause)
+  function wireCard(card, data, onOpen) {
+    const p = play(card.querySelector('.mo-anim'), data);
+    players.push(p);
+    const btn = card.querySelector('.mo-play');
+    let byButton = false;
+    const paint = () => { const on = !p.isPaused; btn.innerHTML = on ? PAUSE : PLAY; btn.setAttribute('aria-label', `${on ? 'Pause' : 'Play'} ${card.querySelector('.mo-name').textContent}`); };
+    const rest = () => { byButton = false; p.loop = false; p.goToAndStop(posterFrame(data), true); paint(); };
+    p.addEventListener('DOMLoaded', rest);
+    p.addEventListener('complete', () => { if (byButton) rest(); });
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      if (!p.isPaused && byButton) { p.pause(); byButton = false; paint(); return; }
+      byButton = true; p.loop = false; p.goToAndPlay(0, true); paint();
+    };
+    card.onclick = onOpen;
+    if (reduced) return;
+    card.onmouseenter = () => { if (byButton) return; p.loop = true; p.goToAndPlay(0, true); paint(); };
+    card.onmouseleave = () => { if (!byButton) rest(); };
+  }
+
+  function renderGrid() {
+    destroyPlayers();
+    const grid = $('grid');
+    if (!grid) return;
+    const files = visible();
+    grid.innerHTML = files.length ? files.map((f, i) => cardHtml({
+      i, attr: 'data-i', name: base(f.path), title: f.path,
+      meta: `${sec(f.durationMs)} · ${f.fps} fps · ${kb(f.bytes)}<span class="lw"></span>`,
+      src: f.wara ? `<span class="w-icon">${icon('logo-wridge')}</span><span class="from">made with wridge</span>` : '<span class="from">from another tool</span>',
+    })).join('') : `<p class="note">No file matches “${esc(query)}”.</p>`;
+    grid.querySelectorAll('.mo-card').forEach((card) => {
+      const f = files[Number(card.dataset.i)];
+      card.onclick = () => openDetail(f.path);
+      fileOf(f.path).then((data) => {
+        if (!card.isConnected) return;
+        card.querySelector('.lw').textContent = ` · ${loopWord(data)}`;
+        const node = data.meta?.wara?.spec?.nodeId;
+        if (node) { card.querySelector('.from').textContent = `from Figma ${node}`; card.querySelector('.mo-src .w-icon').innerHTML = icon('logo-figma'); }
+        wireCard(card, data, () => openDetail(f.path));
+      }).catch(() => { card.querySelector('.mo-stage').innerHTML = '<span class="err">Couldn’t read this file</span>'; });
+    });
+  }
+
+  // ======================= from Figma (Figma Motion timelines) =======================
+  // Frames on the open Figma page that animate; each plays as a Lottie built in memory (nothing written).
+  let FG = null; // { file, page, frames } | { error } | null while loading
+  const fgCache = new Map(); // frame id → { lottie, warnings }
+  const previewOf = async (id) => fgCache.get(id) ?? fgCache.set(id, await fetchJson(`/api/motion/figma-preview?id=${encodeURIComponent(id)}`)).get(id);
+  async function loadFigma() {
+    FG = null; fgCache.clear();
+    renderFigma();
+    try { FG = await fetchJson('/api/motion/figma-frames'); }
+    catch (err) { FG = { error: err.status === 503 ? 'plugin' : err.message }; }
+    if (!detail && location.hash.startsWith('#figma:')) return render(); // a shared link to a Figma frame
+    renderFigma();
+  }
+  const verdict = (rows) => {
+    const c = rows.filter((r) => r.to === 'code').length, l = rows.length - c;
+    return `${c ? `<span class="w-pill accent">code ${c}</span>` : ''}${l ? `<span class="w-pill ok">Lottie ${l}</span>` : ''}`;
+  };
+  function renderFigma() {
+    const box = $('figma-sec');
+    if (!box) return;
+    const head = (sub) => `<div class="mo-sec-head"><span class="w-label">From Figma</span><span class="sub">${sub}</span>
+      <span class="tools"><button class="icon-btn" id="fg-reload" aria-label="Read Figma again" title="Read Figma again"><span class="w-icon">${icon('restart')}</span></button></span></div>`;
+    if (!FG) box.innerHTML = head('reading the Motion timelines in Figma…') + `<div class="mo-grid">${'<span class="skel skel-card"></span>'.repeat(2)}</div>`;
+    else if (FG.error === 'plugin') {
+      box.innerHTML = head('not connected') + `<div class="w-panel mo-note"><span class="w-tile"><span class="w-icon">${icon('plug')}</span></span>
+        <p><b>Figma isn’t connected</b>Open the design file and run Plugins → Development → wridge. Frames with a Figma Motion timeline show here, ready to turn into Lottie.</p>
+        <button class="btn btn-secondary" id="fg-settings">Open Settings</button></div>`;
+      $('fg-settings').onclick = () => ui.go('settings');
+    } else if (FG.error) box.innerHTML = head('couldn’t read Figma') + `<div class="w-panel mo-note"><span class="w-tile"><span class="w-icon">${icon('brokenlink')}</span></span><p><b>Couldn’t read the Motion timelines</b>${esc(FG.error)}</p></div>`;
+    else if (!FG.frames.length) {
+      box.innerHTML = head(`${esc(FG.file)} › ${esc(FG.page ?? '')}`) + `<div class="w-panel mo-note"><span class="w-tile"><span class="w-icon">${icon('motion')}</span></span>
+        <p><b>No animated frames on this page</b>Ask your AI, for example “animate the Home screen’s entrance in Figma Motion” (<code>motion_animate</code>), then read Figma again.</p></div>`;
+    } else {
+      box.innerHTML = head(`${esc(FG.file)} › ${esc(FG.page ?? '')} · ${plural(FG.frames.length, 'frame')}`) + `<div class="mo-grid">${FG.frames.map((f, i) => cardHtml({
+        i, attr: 'data-fg', name: f.name, title: f.name,
+        meta: `${sec(f.durationMs)} · ${plural(f.rows.length, 'layer')} ${f.rows.length === 1 ? 'moves' : 'move'}${f.lint.length ? ` · <span style="color:var(--warning-text)">${f.lint.length} to fix</span>` : ''}`,
+        src: `<span class="w-icon">${icon('logo-figma')}</span><span>${esc(f.id)}${f.section ? ` · ${esc(f.section)}` : ''}</span>`,
+        extra: `<p class="mo-pills">${verdict(f.rows)}</p>`,
+      })).join('')}</div>`;
+      box.querySelectorAll('[data-fg]').forEach((card) => {
+        const f = FG.frames[Number(card.dataset.fg)];
+        card.onclick = () => openFigma(f.id);
+        previewOf(f.id).then(({ lottie: data }) => {
+          if (!card.isConnected) return;
+          wireCard(card, data, () => openFigma(f.id));
+        }).catch((err) => { card.querySelector('.mo-stage').innerHTML = `<span class="err">${esc(err.message)}</span>`; });
+      });
+    }
+    $('fg-reload').onclick = loadFigma;
+  }
+  async function openFigma(id, { push = true } = {}) {
+    if (push) history.pushState(null, '', `#figma:${encodeURIComponent(id)}`);
+    const fr = FG?.frames?.find((x) => x.id === id);
+    if (!fr) { history.replaceState(null, '', location.pathname + location.search); return render(); }
+    destroyPlayers();
+    detailLoading();
+    let p;
+    try { p = await previewOf(id); } catch (err) { return centerState('alert', 'dizzy', 'Couldn’t play this frame', err.message, 'Back', () => closeDetail()); }
+    const data = p.lottie;
+    const frames = Math.round(data.op - (data.ip ?? 0));
+    detail = { path: fr.name, f: { path: fr.name, frame: fr, warnings: p.warnings, w: data.w, h: data.h, durationMs: fr.durationMs, fps: data.fr, frames, layers: data.layers.length }, data, speed: 1, bg: defaultBg(), loop: true, reduced };
+    renderDetail();
+  }
+  // Side panel for a Figma frame: what goes to code and what to Lottie (motion_check), and what to tell the AI.
+  function figmaSideHtml(f) {
+    const fr = f.frame;
+    const rows = fr.rows.map((r) => `<tr><td><b>${esc(r.name)}${r.nth > 1 ? ` #${r.nth}` : ''}</b><small>${esc(r.props.join(', '))} · ${r.span[0]}–${r.span[1]} ms</small></td><td><span class="w-pill ${r.to === 'code' ? 'accent' : 'ok'}">${r.to === 'code' ? 'code + token' : 'Lottie'}</span></td><td><small>${esc(r.why)}</small></td></tr>`).join('');
+    const text = fr.rows.some((r) => r.to === 'code');
+    return `<div class="sec-head"><span class="w-label">Code or Lottie</span><span class="sm">motion_check</span></div>
+      <table class="verdict"><tbody>${rows}</tbody></table>
+      ${fr.lint.length ? `<div class="sec-head"><span class="w-label">Worth fixing</span></div><ul class="lint">${fr.lint.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}
+      ${text ? '<p class="note">This preview is a temporary Lottie, so text is drawn as outlines. In the real app the “code” parts become CSS or Framer Motion with live text.</p>' : ''}
+      ${f.warnings?.length ? `<details class="note"><summary>Conversion notes (${f.warnings.length})</summary><ul>${f.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></details>` : ''}
+      <hr><div class="sec-head"><span class="w-label">Turn into Lottie</span></div>
+      <div class="dest">
+        <div class="dest-head"><span>Saved to</span><button class="btn btn-secondary" id="dest-pick">Change folder…</button></div>
+        <div class="dest-path" id="dest-path">${destHtml()}</div>
+      </div>
+      ${text ? '<p class="note" style="color:var(--warning-text)">Some layers should be code: in a Lottie, text becomes drawn outlines (no translation, no live data).</p>' : ''}
+      <button class="btn btn-primary" id="to-lottie">Convert to Lottie</button>
+      <hr><div class="sec-head"><span class="w-label">Tell your AI</span></div>
+      <pre class="snippet wrap" id="code">${esc([`Approve the motion table for “${fr.name}”`, text && `→ motion_tokens + motion_to_code (${fr.id})`, fr.rows.some((r) => r.to === 'lottie') && `→ motion_to_lottie (${fr.id}) into the project`].filter(Boolean).join('\n'))}</pre>
+      <button class="btn btn-secondary" id="copy">Copy</button>
+      <p class="note">To change the timing, drag on the timeline in Figma and read Figma again here, or tell your AI, for example “make the cards a little faster”.</p>`;
+  }
+
+  // ======================= detail =======================
+  let detail = null; // { path, anim, data, speed, bg, loop, reduced }
+  const defaultBg = () => (document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
+  function detailLoading() {
+    page.hidden = true;
+    dview.hidden = false;
+    dview.innerHTML = '<div class="center"><span class="spinner"></span></div>';
+  }
+  async function openDetail(path, { push = true } = {}) {
+    if (push) history.pushState(null, '', `#${encodeURIComponent(path)}`);
+    destroyPlayers();
+    const f = D.files.find((x) => x.path === path);
+    if (!f) { history.replaceState(null, '', location.pathname + location.search); return render(); }
+    detailLoading();
+    let data;
+    try { data = await fileOf(path); } catch (err) { return centerState('alert', 'dizzy', 'Couldn’t read this file', err.message, 'Back', () => closeDetail()); }
+    detail = { path, f, data, speed: 1, bg: defaultBg(), loop: true, reduced };
+    renderDetail();
+  }
+  function closeDetail() {
+    history.pushState(null, '', location.pathname + location.search);
+    detail = null;
+    render();
+  }
+  const COLORS = ['#2F6BFF', '#1F9D55', '#7C3AED', '#C27C0E', '#DB2777', '#0891B2']; // track colours (categories)
+  function tracksHtml(data) {
+    const spec = data.meta?.wara?.spec;
+    if (!spec?.tracks?.length) return `<p class="note">This file wasn’t made with wridge, so there’s no recipe saying how each layer moves (${plural(data.layers.length, 'layer')}).</p>`;
+    const total = spec.duration ?? Math.round(((data.op - data.ip) / data.fr) * 1000);
+    const layers = data.layers.map((l) => l.nm).reverse();
+    const match = (pat, name) => { const n = (s) => String(s).toLowerCase().replace(/[^a-z0-9ก-๙*]/g, ''); const p = n(pat); return p === 'all' || p === '*' || (p.includes('*') ? new RegExp(`^${p.split('*').map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`).test(n(name)) : p === n(name)); };
+    const rows = [];
+    layers.forEach((name) => {
+      const mine = spec.tracks.map((t) => [t, layers.filter((x) => match(t.layer ?? 'all', x)).indexOf(name)]).filter(([, k]) => k >= 0);
+      if (!mine.length) return;
+      const spans = mine.map(([t, k]) => {
+        const off = (t.stagger ?? 0) * k;
+        const a = t.keys ? t.keys[0][0] + off : (t.start ?? 0) + off;
+        const b = t.keys ? t.keys.at(-1)[0] + off : (t.end ?? (t.duration != null ? (t.start ?? 0) + t.duration : total)) + off;
+        return [Math.max(0, a), Math.min(total, b)];
+      });
+      rows.push({ name, props: [...new Set(mine.map(([t]) => `${t.prop}${t.ease ? ` · ${t.ease}` : ''}`))].join(', '), spans });
+    });
+    return `<div class="sec-head"><span class="w-label">How it moves</span><span class="sm">0 — ${total} ms</span></div>
+      ${rows.map((r, i) => `<div class="track"><span class="lbl"><b>${esc(r.name)}</b>${esc(r.props)}</span><div class="tbar">${r.spans.map(([a, b]) => `<i style="left:${(a / total) * 100}%;width:${Math.max(1.5, ((b - a) / total) * 100)}%;background:${COLORS[i % COLORS.length]}"></i>`).join('')}</div></div>`).join('')}
+      <p class="note">The recipe is kept inside the file (meta), so your AI can change it, for example “slow the tick down a little”.</p>`;
+  }
+  function snippet(kind, path) {
+    if (kind === 'flutter') return `Lottie.asset(\n  '${path}',\n  repeat: false,\n)`;
+    const name = base(path).replace(/\.json$/i, '').replace(/[^a-zA-Z0-9]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ''));
+    return `import Lottie from "lottie-react";\nimport ${name} from "@/${path}";\n\n<Lottie animationData={${name}} loop={false} />`;
+  }
+  function figmaHtml(f) {
+    const st = !f.figma ? ['', 'not sent yet'] : f.figma.stale ? ['warn', 'GIF older than the file'] : ['ok', 'matches the file'];
+    return `<div class="sec-head"><span class="w-label">In Figma</span><span class="w-pill dot ${st[0]}">${st[1]}</span></div>
+      <p class="note">${f.figma ? `Component <b>Lottie/${esc(base(f.path).replace(/\.json$/i, ''))}</b> in “${esc(f.figma.file)}”. ` : ''}A GIF moves when you press Present (free Figma files can’t hold video); the app itself uses the .json. The GIF takes the background chosen on the left (checker = transparent, soft edges turn hard).</p>
+      <button class="btn btn-primary" id="send-figma">${f.figma ? 'Send the GIF to Figma again' : 'Send a GIF to Figma'}</button>`;
+  }
+  function renderDetail() {
+    destroyPlayers();
+    page.hidden = true;
+    dview.hidden = false;
+    const { f, data } = detail;
+    const flutter = !/^public\//.test(f.path);
+    dview.innerHTML = `<div class="mo-dmain w-fade-in">
+        <div class="crumbs"><button class="btn btn-ghost" id="back">← Motion</button><span class="path">${esc(f.path)}</span></div>
+        <div class="player ${detail.bg}" id="stage"><div id="anim"></div></div>
+        <div class="controls w-card">
+          <div class="timeline"><button class="play" id="play" aria-label="Play"></button><input type="range" id="scrub" min="0" max="${Math.max(1, f.frames - 1)}" value="0" aria-label="Frame"><span class="clock" id="clock"></span></div>
+          <div class="opts">
+            <span class="opt">Speed<span class="seg sm" id="speed">${[0.25, 0.5, 1, 2].map((s) => `<button data-v="${s}" aria-pressed="${detail.speed === s}">${s}×</button>`).join('')}</span></span>
+            <span class="opt">Background<span class="seg sm" id="bg">${[['light', 'Light'], ['dark', 'Dark'], ['checker', 'Checker']].map(([v, l]) => `<button data-v="${v}" aria-pressed="${detail.bg === v}">${l}</button>`).join('')}</span></span>
+            <button class="toggle" id="loop" aria-pressed="${detail.loop}">↻ Loop</button>
+            <button class="toggle" id="reduce" aria-pressed="${detail.reduced}">Reduced motion</button>
+          </div>
+        </div>
+      </div>
+      <aside class="side w-fade-in" aria-label="Details">
+        <div><span class="w-label">${f.frame ? `Figma Motion · ${esc(FG?.file ?? '')}` : `Lottie · ${f.wara ? 'made with wridge' : 'from another tool'}`}</span><h2>${esc(base(f.path))}</h2></div>
+        <dl class="facts"><div><dt>Size</dt><dd>${f.w} × ${f.h}</dd></div><div><dt>Length</dt><dd>${f.durationMs} ms · ${f.fps} fps · ${f.frames} frames</dd></div>${f.frame ? '' : `<div><dt>File</dt><dd>${kb(f.bytes)}</dd></div>`}<div><dt>Layers</dt><dd>${f.layers}</dd></div>${f.frame ? `<div><dt>Figma</dt><dd>${esc(f.frame.id)}</dd></div>` : data.meta?.wara?.spec?.nodeId ? `<div><dt>From Figma</dt><dd>${esc(data.meta.wara.spec.nodeId)}</dd></div>` : ''}</dl>
+        <hr>${tracksHtml(data)}
+        <hr>${f.frame ? figmaSideHtml(f) : `<div class="sec-head"><span class="w-label">Use it in code</span><span class="seg sm" id="lang"><button data-v="flutter" aria-pressed="${flutter}">Flutter</button><button data-v="react" aria-pressed="${!flutter}">React</button></span></div>
+        <pre class="snippet" id="code">${esc(snippet(flutter ? 'flutter' : 'react', f.path))}</pre>
+        <button class="btn btn-secondary" id="copy">Copy code</button>
+        <hr>${figmaHtml(f)}`}
+      </aside>`;
+
+    const anim = play($('anim'), data, { loop: detail.loop });
+    players.push(anim);
+    detail.anim = anim;
+    const total = Math.max(1, f.frames - 1);
+    const paint = () => {
+      const fr = Math.round(anim.currentFrame);
+      $('scrub').value = fr;
+      $('clock').textContent = `f ${fr + 1} / ${f.frames} · ${Math.round((fr / f.fps) * 1000)} ms`;
+      $('play').innerHTML = anim.isPaused ? PLAY : PAUSE;
+      $('play').setAttribute('aria-label', anim.isPaused ? 'Play' : 'Pause');
+    };
+    anim.addEventListener('enterFrame', paint);
+    anim.addEventListener('complete', paint);
+    anim.addEventListener('DOMLoaded', () => {
+      anim.setSpeed(detail.speed);
+      if (detail.reduced) anim.goToAndStop(posterFrame(data), true); else anim.play();
+      paint();
+    });
+    $('play').onclick = () => {
+      if (detail.reduced) { detail.reduced = false; $('reduce').setAttribute('aria-pressed', 'false'); }
+      if (anim.isPaused) { if (Math.round(anim.currentFrame) >= total) anim.goToAndPlay(0, true); else anim.play(); } else anim.pause();
+      paint();
+    };
+    $('scrub').oninput = (e) => { anim.goToAndStop(Number(e.target.value), true); paint(); };
+    $('speed').querySelectorAll('button').forEach((b) => (b.onclick = () => { detail.speed = Number(b.dataset.v); anim.setSpeed(detail.speed); $('speed').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+    $('bg').querySelectorAll('button').forEach((b) => (b.onclick = () => { detail.bg = b.dataset.v; $('stage').className = `player ${detail.bg}`; $('bg').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+    $('loop').onclick = () => { detail.loop = !detail.loop; anim.loop = detail.loop; $('loop').setAttribute('aria-pressed', String(detail.loop)); };
+    // Reduced motion: what users with that setting see — the finished frame, no movement.
+    $('reduce').onclick = () => {
+      detail.reduced = !detail.reduced;
+      $('reduce').setAttribute('aria-pressed', String(detail.reduced));
+      if (detail.reduced) anim.goToAndStop(posterFrame(data), true); else anim.goToAndPlay(0, true);
+      paint();
+    };
+    $('lang')?.querySelectorAll('button').forEach((b) => (b.onclick = () => { $('code').textContent = snippet(b.dataset.v, f.path); $('lang').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); }));
+    $('copy').onclick = async () => { try { await navigator.clipboard.writeText($('code').textContent); toast('Copied'); } catch { toast('Couldn’t copy — select the text and press Ctrl+C', { kind: 'error' }); } };
+    $('back').onclick = closeDetail;
+    if ($('send-figma')) $('send-figma').onclick = (e) => sendToFigma(e.currentTarget);
+    if ($('to-lottie')) $('to-lottie').onclick = (e) => figmaToLottie(e.currentTarget);
+    if ($('dest-pick')) $('dest-pick').onclick = (e) => pickDest(e.currentTarget);
+  }
+
+  // ======================= Figma frame → Lottie file (no AI) =======================
+  // Where it goes: a folder inside the open project (picked in the OS folder dialog) + a name from the frame.
+  let dest = null; // { folder: 'public/lottie' (relative, '' = project root) }
+  const norm = (p) => String(p).replaceAll('\\', '/').replace(/\/+$/, '');
+  function destFolder() {
+    // where the project keeps Lottie already, else public/lottie (web)
+    dest ??= { folder: D?.files.find((f) => /lottie/i.test(f.path))?.path.replace(/\/?[^/]+$/, '') ?? 'public/lottie' };
+    return dest.folder;
+  }
+  const destName = () => (detail.f.frame.name.replace(/\(.*?\)/g, '').trim().toLowerCase().replace(/[^a-z0-9ก-๙]+/g, '-').replace(/^-|-$/g, '') || 'animation') + '.json';
+  const destOut = () => (destFolder() ? `${destFolder()}/${destName()}` : destName());
+  // project / folder / folder / file — lines break only after a "/", the file name stands out
+  const destHtml = () => [D?.name ?? '', ...(destFolder() ? destFolder().split('/') : [])].map((s) => `<span>${esc(s)}/</span><wbr>`).join('') + `<b>${esc(destName())}</b>`;
+  async function pickDest(btn) {
+    setLoading(btn, true, 'Opening…');
+    try {
+      const { path } = await fetchJson('/api/pick-folder', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: `${norm(current)}/${destFolder()}`, title: `Choose a folder in ${D.name} for the Lottie file` }) });
+      if (!path) return; // cancelled
+      const root = norm(current).toLowerCase(), picked = norm(path);
+      if (picked.toLowerCase() !== root && !picked.toLowerCase().startsWith(root + '/')) return toast(`Pick a folder inside ${D.name}`, { kind: 'error' });
+      dest = { folder: picked.slice(root.length + 1) };
+      $('dest-path').innerHTML = destHtml();
+    } catch (err) {
+      toast(`Couldn’t open the folder dialog — ${err.message}`, { kind: 'error' });
+    } finally {
+      setLoading(btn, false);
+    }
+  }
+  async function figmaToLottie(btn) {
+    if (!current) return toast('Choose a project first', { kind: 'error' });
+    const fr = detail.f.frame;
+    const out = destOut();
+    const post = (overwrite) => fetchJson('/api/motion/figma-to-lottie', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current, id: fr.id, out, overwrite }) });
+    setLoading(btn, true, 'Converting…');
+    try {
+      let res;
+      try { res = await post(false); } catch (err) {
+        if (err.status !== 409) throw err;
+        setLoading(btn, false);
+        const ok = await ui.confirmDialog({ title: `${out} already exists`, body: 'The file will be replaced with the animation from Figma. If you sent its GIF to Figma before, the two stay linked.', confirm: 'Replace', danger: true });
+        if (!ok) return;
+        setLoading(btn, true, 'Converting…');
+        res = await post(true);
+      }
+      toast(`Wrote ${res.path}`);
+      ui.celebrate();
+      D = await fetchJson(`/api/motion?dir=${encodeURIComponent(current)}`);
+      cache.delete(res.path);
+      openDetail(res.path);
+    } catch (err) {
+      setLoading(btn, false);
+      toast(`Couldn’t convert — ${err.status === 503 ? 'the Figma plugin isn’t connected' : err.message}`, { kind: 'error' });
+    }
+  }
+
+  // ======================= GIF → Figma =======================
+  // The animation drawn frame by frame on a canvas, encoded as a GIF (Figma's free plan has no video).
+  // bg: a colour to flatten onto (GIF transparency is on/off, so soft glows only stay smooth on a solid
+  // background), or null to keep the transparent pixels.
+  async function makeGif(data, onProgress, bg = '#ffffff') {
+    const { GIFEncoder, quantize, applyPalette } = await import('/vendor/gifenc.esm.js');
+    const scale = Math.min(1, 480 / Math.max(data.w, data.h));
+    const w = Math.max(1, Math.round(data.w * scale)), h = Math.max(1, Math.round(data.h * scale));
+    // lottie-web draws nothing into a canvas handed to it: let it make its own, in an invisible box of the GIF's size.
+    const holder = document.createElement('div');
+    holder.style.cssText = `position:fixed;left:0;top:0;width:${w}px;height:${h}px;opacity:0;pointer-events:none`;
+    document.body.append(holder);
+    const anim = lottie.loadAnimation({ container: holder, renderer: 'canvas', loop: false, autoplay: false, animationData: JSON.parse(JSON.stringify(data)), rendererSettings: { clearCanvas: true, dpr: 1, preserveAspectRatio: 'xMidYMid meet' } });
+    await new Promise((r) => (anim.isLoaded ? r() : anim.addEventListener('DOMLoaded', r)));
+    const src = holder.querySelector('canvas');
+    const flat = document.createElement('canvas');
+    flat.width = w; flat.height = h;
+    const ctx = flat.getContext('2d', { willReadFrequently: true });
+    try {
+      const frames = data.op - (data.ip ?? 0);
+      const step = Math.max(1, Math.round(data.fr / 30)); // ≤ 30 fps is plenty for a preview
+      const delay = Math.round((1000 / data.fr) * step);
+      const gif = GIFEncoder();
+      const frame = (fr, ms) => {
+        anim.goToAndStop(fr, true);
+        ctx.clearRect(0, 0, w, h);
+        if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); }
+        ctx.drawImage(src, 0, 0, w, h);
+        const { data: rgba } = ctx.getImageData(0, 0, w, h);
+        // On a solid background no alpha is needed: rgb565 keeps gradients smooth (rgba4444 bands them).
+        const format = bg ? 'rgb565' : 'rgba4444';
+        const palette = quantize(rgba, 256, bg ? { format } : { format, oneBitAlpha: true });
+        const index = applyPalette(rgba, palette, format);
+        const transparentIndex = bg ? -1 : palette.findIndex((c) => c[3] === 0);
+        gif.writeFrame(index, w, h, { palette, delay: ms, transparent: transparentIndex >= 0, transparentIndex: Math.max(0, transparentIndex), dispose: 2 });
+      };
+      // Figma's canvas shows a GIF's first frame: start on the finished look (held a moment), then play.
+      frame(posterFrame(data), 800);
+      for (let fr = 0; fr < frames; fr += step) {
+        frame(fr, delay);
+        onProgress?.(fr / frames);
+        if (fr % 12 === 0) await new Promise((r) => setTimeout(r)); // keep the page responsive
+      }
+      gif.finish();
+      const bytes = gif.bytes();
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+      return { base64: btoa(bin), size: bytes.length, w, h };
+    } finally {
+      anim.destroy();
+      holder.remove();
+    }
+  }
+  async function sendToFigma(btn) {
+    const { f, data } = detail;
+    const post = (body) => fetchJson('/api/motion/figma', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current, path: f.path, ...body }) });
+    setLoading(btn, true, 'Checking the Figma file…');
+    let file;
+    try { await post({}); } catch (err) {
+      if (err.status === 409 && err.body.file) file = err.body.file;
+      else { setLoading(btn, false); return toast(`Couldn’t send — ${err.status === 503 ? 'the Figma plugin isn’t connected' : err.message}`, { kind: 'error' }); }
+    }
+    setLoading(btn, false);
+    const comp = `Lottie/${base(f.path).replace(/\.json$/i, '')}`;
+    const ok = await ui.confirmDialog({ title: `Send the GIF to “${file}”?`, body: f.figma && f.figma.file === file ? `This updates the image in the ${comp} component — every screen that uses it moves with the new one.` : `This makes a ${comp} component next to the original drawing and puts the GIF in it. Nothing else in the file changes.`, confirm: 'Send to Figma' });
+    if (!ok) return;
+    setLoading(btn, true, 'Making the GIF…');
+    try {
+      const bg = { light: '#ffffff', dark: '#0b1124', checker: null }[detail.bg];
+      const gif = await makeGif(data, (p) => { btn.lastChild && (btn.lastChild.textContent = ` Making the GIF… ${Math.round(p * 100)}%`); }, bg);
+      setLoading(btn, true, `Sending (${kb(gif.size)})…`);
+      const out = await post({ gif: gif.base64, confirmFile: file });
+      toast(out.created ? `Made the component${out.figmaFile ? ` in “${out.figmaFile}”` : ''} with the GIF` : 'Updated the GIF in Figma');
+      ui.celebrate();
+      Object.assign(f, out.file);
+      cache.delete(f.path);
+      detail.data = await fileOf(f.path);
+      renderDetail();
+    } catch (err) {
+      setLoading(btn, false);
+      toast(`Couldn’t send — ${err.status === 503 ? 'the Figma plugin isn’t connected' : err.message}`, { kind: 'error' });
+    }
+  }
+
+  // ======================= tokens =======================
+  const parseMs = (v) => { const m = /([\d.]+)\s*(ms|s)?/i.exec(String(v)); if (!m) return null; const n = Number(m[1]); return m[2]?.toLowerCase() === 's' || (!m[2] && n < 10) ? Math.round(n * 1000) : Math.round(n); };
+  const parseCurve = (v) => { const m = /\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/.exec(String(v)); return m ? m.slice(1).map(Number) : null; };
+  function tokenSets() {
+    const durations = [], eases = [];
+    const where = (t) => (t.defined ? `${t.defined}${t.count ? ` · ${plural(t.count, 'use')}` : ''}` : '');
+    for (const t of D.tokens) {
+      const curve = parseCurve(t.value);
+      if (curve) eases.push([t.name, curve, where(t)]);
+      else if (/duration|motion|transition/i.test(t.name) && parseMs(t.value) != null) durations.push([t.name, parseMs(t.value), where(t)]);
+    }
+    return { durations: durations.length ? durations : DEFAULT_DURATIONS, eases: eases.length ? eases : DEFAULT_EASES, fromCode: { d: durations.length > 0, e: eases.length > 0 } };
+  }
+  // the curve in a 46 × 30 box: time runs left to right, progress bottom to top
+  const X = (t) => 4 + t * 38, Y = (v) => 26 - v * 22;
+  const curveSvg = (c) => `<svg viewBox="0 0 46 30" aria-hidden="true"><path class="axis" d="M4 26H42"/><path class="line" d="M${X(0)} ${Y(0)}C${X(c[0])} ${Y(c[1])} ${X(c[2])} ${Y(c[3])} ${X(1)} ${Y(1)}"/></svg><i class="ball"></i>`;
+  const srcPill = (fromCode) => (fromCode ? '<span class="w-pill ok">from code</span>' : '<span class="w-pill warn" title="No motion tokens in this project’s code yet: wridge’s defaults from the motion skill">defaults</span>');
+  function renderTokens() {
+    destroyPlayers();
+    showList();
+    const { durations, eases, fromCode } = tokenSets();
+    const maxMs = Math.max(...durations.map((d) => d[1]), 1);
+    view.innerHTML = `<div class="mo-tokens w-fade-in">
+      <section class="w-card tok-panel dur" aria-label="Durations"><div class="tok-head"><span class="w-label">Duration</span><span class="tools">${srcPill(fromCode.d)}<button class="btn btn-ghost" id="run-dur" title="Each bar fills in its own time">▶ Play</button></span></div>
+        ${durations.map(([n, v, use]) => `<div class="tok-row" tabindex="0" data-ms="${v}" title="${esc(use)}"><b>${esc(n)}</b><div class="bar"><i style="--w:${Math.max(4, (v / maxMs) * 100)}%"></i></div><span class="val">${msTxt(v)}</span></div>`).join('')}
+      </section>
+      <section class="w-card tok-panel ease" aria-label="Easing"><div class="tok-head"><span class="w-label">Easing</span><span class="tools">${srcPill(fromCode.e)}<button class="btn btn-ghost" id="run-ease" title="The dot follows each curve">▶ Play</button></span></div>
+        ${eases.map(([n, c, use]) => `<div class="tok-row" tabindex="0" data-c="${c.join(',')}"><span class="curve">${curveSvg(c)}</span><b>${esc(n)}</b><span class="val">cubic(${c.join(', ')})</span><span class="use${fromCode.e ? ' path' : ''}" title="${esc(use)}">${esc(use)}</span></div>`).join('')}
+      </section></div>
+      <p class="mo-foot" style="margin:0">${fromCode.d || fromCode.e ? 'Read from the project’s code (code graph): use only these values in code, never a number typed by hand.' : 'No motion tokens in this project’s code yet. These are the motion skill’s defaults: tune them to the project’s taste, then put them in Foundations and in code.'} Click a row to see it move.</p>`;
+    // bars fill in their own duration; the dot rides the curve (linear time across, eased progress up)
+    const fill = (row, delay = 0) => {
+      const i = row.querySelector('.bar i');
+      i.style.transition = 'none'; i.style.width = '0';
+      void i.offsetWidth;
+      i.style.transition = reduced ? 'none' : `width ${row.dataset.ms}ms cubic-bezier(.2, 0, 0, 1) ${delay}ms`;
+      i.style.width = 'var(--w)';
+    };
+    const ride = (row, delay = 0) => {
+      const b = row.querySelector('.ball');
+      const c = row.dataset.c;
+      b.style.transition = 'none'; b.style.left = `${X(0)}px`; b.style.top = `${Y(0)}px`;
+      void b.offsetWidth;
+      b.style.transition = reduced ? 'none' : `left 900ms linear ${delay}ms, top 900ms cubic-bezier(${c}) ${delay}ms`;
+      b.style.left = `${X(1)}px`; b.style.top = `${Y(1)}px`;
+    };
+    const durRows = [...view.querySelectorAll('.dur .tok-row')], easeRows = [...view.querySelectorAll('.ease .tok-row')];
+    durRows.forEach((r, k) => { fill(r, 120 + k * 60); r.onclick = () => fill(r); r.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fill(r); } }; });
+    easeRows.forEach((r, k) => { ride(r, 200 + k * 90); r.onclick = () => ride(r); r.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ride(r); } }; });
+    $('run-dur').onclick = () => durRows.forEach((r) => fill(r));
+    $('run-ease').onclick = () => easeRows.forEach((r) => ride(r));
+  }
+
+  // ======================= load =======================
+  function render() {
+    if (!D) return;
+    const hash = decodeURIComponent(location.hash.slice(1));
+    if (hash.startsWith('figma:') && FG?.frames) { setTab('lottie'); return openFigma(hash.slice(6), { push: false }); }
+    if (hash && D.files.some((f) => f.path === hash)) { setTab('lottie'); return openDetail(hash, { push: false }); }
+    detail = null;
+    if (tab === 'tokens') renderTokens(); else renderList();
+  }
+  async function load() {
+    loadingState();
+    store.set('code-project', current);
+    dest = null; // the save folder follows the project
+    try { D = await fetchJson(`/api/motion?dir=${encodeURIComponent(current)}`); }
+    catch (err) {
+      D = null;
+      return err.status ? centerState('alert', 'dizzy', 'Couldn’t read this project', err.message, 'Try again', load) : centerState('alert', 'stressed', 'The server isn’t answering', 'Check that the server is running in Overview, then try again.', 'Try again', load, ['Go to Overview', () => ui.go('overview')]);
+    }
+    cache.clear();
+    render();
+    loadFigma();
+  }
+  // Project picker shared with the other pages (outside the wridge window; inside it the window picks the project).
+  const picker = ui.projectPicker($('picker'), {
+    projects: () => projects,
+    current: () => current,
+    onChoose: (dir) => { current = dir; detail = null; history.replaceState(null, '', `?dir=${encodeURIComponent(dir)}`); load(); },
+    onChanged: async (dir) => {
+      history.replaceState(null, '', dir ? `?dir=${encodeURIComponent(dir)}` : location.pathname);
+      store.set('code-project', dir ?? '');
+      current = null;
+      await loadProjects();
+    },
+  });
+  async function loadProjects() {
+    try { projects = await fetchJson('/api/code/projects'); }
+    catch { return centerState('alert', 'stressed', 'The server isn’t answering', 'Check that the server is running in Overview, then try again.', 'Try again', loadProjects, ['Go to Overview', () => ui.go('overview')]); }
+    picker.label();
+    if (!projects.length) return centerState('inbox', 'thinking', 'No projects yet', 'Add a code project and its Lottie files and motion tokens show up here.', '+ Add a project', () => picker.add());
+    const wanted = new URLSearchParams(location.search).get('dir') ?? store.get('code-project');
+    current = projects.find((p) => p.dir === wanted)?.dir ?? projects[0].dir;
+    picker.label();
+    load();
+  }
+
+  document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => {
+    if (b.dataset.tab === tab && !detail) return;
+    setTab(b.dataset.tab);
+    if (detail) { history.pushState(null, '', location.pathname + location.search); detail = null; }
+    render();
+  }));
+  // Export from Figma: the frames with a Motion timeline on the open Figma page, read again
+  $('export').onclick = () => {
+    if (!D) return;
+    if (tab !== 'lottie' || detail) { setTab('lottie'); if (detail) history.pushState(null, '', location.pathname + location.search); detail = null; render(); }
+    loadFigma();
+    setTimeout(() => $('figma-sec')?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }));
+  };
+  window.addEventListener('popstate', render);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && detail && !document.querySelector('dialog[open]')) closeDetail(); });
+  loadProjects();
+</script>
+</body>
+</html>

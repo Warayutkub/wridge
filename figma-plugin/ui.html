@@ -1,0 +1,217 @@
+<style>
+  /* The wridge plugin window — Figma section "wridge Plugin · Prototype" (Editorial Pro, light).
+     States: connecting, not running, ready, working, last command, failed, paused, standing by (another file). */
+  :root {
+    --bg: #FFFFFF; --surface: #FBFAF8; --sunken: #EBE8E2; --line: #E2DED6; --line-strong: #CFCAC0;
+    --ink: #111111; --text-2: #3A3833; --muted: #77736B; --faint: #A8A49B;
+    --accent: #2F6BFF; --accent-soft: #E8EEFF; --ok: #1F9D55; --ok-soft: #E6F4EC; --ok-text: #17794A;
+    --warn: #C27C0E; --warn-soft: #FBF0DC; --warn-text: #8A5A0B; --danger: #D23B2F; --danger-soft: #FBE7E4; --danger-line: #F0C8C2;
+    --ease: cubic-bezier(.2, 0, 0, 1);
+    --sans: "IBM Plex Sans Thai", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  [hidden] { display: none !important; }
+  header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .mark { width: 30px; flex: none; display: block; }
+  .name { flex: 1; font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap;
+    background: var(--sunken); color: var(--muted); transition: background .2s, color .2s; }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .pill[data-k="ok"] { background: var(--ok-soft); color: var(--ok-text); }
+  .pill[data-k="wait"] { background: var(--warn-soft); color: var(--warn-text); }
+  .pill[data-k="busy"] { background: var(--accent-soft); color: var(--accent); }
+  .pill[data-k="busy"]::before { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  main { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+  .facts { display: flex; flex-direction: column; gap: 6px; }
+  .fact { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .fact .k { flex: 1; color: var(--muted); }
+  .fact .v { font-size: 12.5px; font-weight: 500; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fact .v.none { color: var(--faint); font-weight: 400; }
+  .fact .mono { font: 11.5px var(--mono); color: var(--text-2); }
+  .act { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 8px; background: var(--surface); border: 1px solid transparent; transition: background .2s, border-color .2s; }
+  .act[data-k="busy"] { background: var(--accent-soft); }
+  .act[data-k="paused"] { background: var(--warn-soft); }
+  .act[data-k="fail"] { background: var(--danger-soft); border-color: var(--danger-line); }
+  .label { margin: 0; font: 500 10px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .label::before { content: "◇ "; }
+  .act[data-k="fail"] .label { color: var(--danger); }
+  .line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .line .dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--faint); }
+  .act[data-k="ok"] .dot { background: var(--ok); }
+  .act[data-k="paused"] .dot { background: var(--warn); }
+  .act[data-k="fail"] .dot { background: var(--danger); }
+  .spin { width: 12px; height: 12px; flex: none; animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .what { flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+  .what.code { font: 11.5px/1.45 var(--mono); color: var(--ink); }
+  .act[data-k="fail"] .what { color: var(--danger); white-space: normal; overflow-wrap: anywhere; }
+  .act:not([data-k="fail"]) .what { white-space: nowrap; }
+  .act[data-k="wait"] .what, .act[data-k="paused"] .what { white-space: normal; }
+  .when { font: 10.5px var(--mono); color: var(--faint); white-space: nowrap; }
+  .fresh { animation: rise .24s var(--ease); }
+  @keyframes rise { from { opacity: 0; transform: translateY(3px); } }
+  .hint { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.45; color: var(--muted); }
+  .hint svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+  .actions { display: flex; gap: 8px; }
+  button { font: inherit; font-size: 13px; font-weight: 500; padding: 8px 14px; border-radius: 6px; cursor: pointer; border: 1px solid transparent; background: none; color: var(--ink);
+    transition: background .15s, border-color .15s, opacity .15s; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .secondary { flex: 1; background: var(--bg); border-color: var(--line); }
+  .secondary:hover { background: var(--surface); border-color: var(--line-strong); }
+  .secondary:disabled { opacity: .5; cursor: default; }
+  .ghost:hover { background: var(--sunken); }
+  @media (prefers-reduced-motion: reduce) { .spin, .pill::before, .fresh { animation: none; } }
+</style>
+
+<header>
+  <svg class="mark" viewBox="0 0 40 27" aria-hidden="true"><path d="M0.96 10.4L2.56 0.64L10.4 6.72L0.96 10.4Z" fill="#111111"/><path d="M39.04 10.4L37.44 0.64L29.6 6.72L39.04 10.4Z" fill="#2F6BFF"/><path d="M12 6.4H5.6C2.95 6.4 0.8 8.55 0.8 11.2V20.8C0.8 23.45 2.95 25.6 5.6 25.6H12C14.65 25.6 16.8 23.45 16.8 20.8V11.2C16.8 8.55 14.65 6.4 12 6.4Z" fill="#111111"/><path d="M34.4 6.4H28C25.35 6.4 23.2 8.55 23.2 11.2V20.8C23.2 23.45 25.35 25.6 28 25.6H34.4C37.05 25.6 39.2 23.45 39.2 20.8V11.2C39.2 8.55 37.05 6.4 34.4 6.4Z" fill="#2F6BFF"/><path d="M24 13.6H16C14.67 13.6 13.6 14.67 13.6 16C13.6 17.33 14.67 18.4 16 18.4H24C25.33 18.4 26.4 17.33 26.4 16C26.4 14.67 25.33 13.6 24 13.6Z" fill="#111111"/><circle cx="9.12" cy="15.36" r="2.88" fill="#FBFAF8"/><circle cx="30.88" cy="15.36" r="2.88" fill="#FBFAF8"/></svg>
+  <span class="name">wridge</span>
+  <span class="pill" id="pill" data-k="busy">Connecting…</span>
+</header>
+<main>
+  <div class="facts">
+    <div class="fact"><span class="k">File</span><span class="v none" id="file">—</span></div>
+    <div class="fact"><span class="k">Server</span><span class="mono">ws://localhost:3155</span></div>
+  </div>
+  <div class="act" id="act" data-k="busy">
+    <p class="label" id="label">Looking</p>
+    <div class="line"><svg class="spin" id="spin" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6" fill="none" stroke="#E2DED6" stroke-width="1.6"/><path d="M6 1.4a4.6 4.6 0 0 1 4.6 4.6" fill="none" stroke="#2F6BFF" stroke-width="1.6" stroke-linecap="round"/></svg><span class="dot" id="dot" hidden></span><span class="what" id="what">Looking for wridge on localhost:3155</span><span class="when" id="when"></span></div>
+  </div>
+  <div class="hint" id="hint" hidden><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 2.5v7.5M14.6 5.4a6.6 6.6 0 1 1-9.2 0" stroke="#77736B" stroke-width="1.4" stroke-linecap="round"/></svg><span>Open the wridge app (the cat in the tray) and press Start server. This window connects by itself.</span></div>
+  <div class="actions">
+    <button class="secondary" id="primary" disabled>Try again</button>
+    <button class="ghost" id="close">Close</button>
+  </div>
+</main>
+
+<script>
+  const WS_URL = 'ws://localhost:3155';
+  const $ = (id) => document.getElementById(id);
+  let socket = null, retryMs = 1000, retryTimer = null, failures = 0;
+  let connected = false, paused = false;
+  let hello = null; // { fileName, editorType, fileKey, version } from code.ts, sent to the server on every connect
+  let active = true, files = 1; // with several windows open, the server uses one at a time
+  let last = null; // { text, kind: 'ok' | 'fail', at }
+  const running = new Map(); // command id → command name
+  let shownKey = '';
+
+  const toPlugin = (pluginMessage) => parent.postMessage({ pluginMessage }, '*');
+  const ago = (t) => {
+    const s = Math.max(0, Math.round((Date.now() - t) / 1000));
+    return s < 2 ? 'now' : s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)} h ago`;
+  };
+
+  // what the window shows now: [pill kind, pill text, activity kind, label, text, code?, when]
+  function state() {
+    if (!connected) {
+      return failures < 2
+        ? ['busy', 'Connecting…', 'busy', 'Looking', 'Looking for wridge on localhost:3155', false, '']
+        : ['off', 'Not running', 'wait', 'Not connected', 'wridge isn’t answering on localhost:3155', false, ''];
+    }
+    if (paused) return ['wait', 'Paused', 'paused', 'Paused', 'Paused from wridge — AI commands wait until you resume', false, ''];
+    if (files > 1 && !active) return ['wait', 'Standing by', 'wait', 'Standing by', 'Your AI is working in another file. It can switch here with use_file.', false, ''];
+    if (running.size) return ['ok', 'Connected', 'busy', 'Working', [...running.values()].pop(), true, 'now'];
+    if (last) return ['ok', 'Connected', last.kind, last.kind === 'fail' ? 'Last command failed' : 'Last command', last.text, true, ago(last.at)];
+    return ['ok', 'Connected', 'wait', 'Ready', 'Waiting for your AI', false, ''];
+  }
+
+  function render() {
+    const [pk, pt, ak, label, text, code, when] = state();
+    $('pill').dataset.k = pk;
+    $('pill').textContent = pt;
+    $('act').dataset.k = ak;
+    $('label').textContent = label;
+    $('spin').style.display = ak === 'busy' ? '' : 'none'; // an <svg> has no .hidden property
+    $('dot').hidden = ak === 'busy';
+    const what = $('what');
+    what.className = `what${code ? ' code' : ''}`;
+    what.textContent = text;
+    what.title = text;
+    $('when').textContent = when;
+    const key = `${ak}|${label}|${text}`;
+    if (key !== shownKey) { shownKey = key; $('act').classList.remove('fresh'); void $('act').offsetWidth; $('act').classList.add('fresh'); }
+    $('hint').hidden = connected || failures < 2;
+    const btn = $('primary');
+    if (!btn.dataset.flash) btn.textContent = connected ? 'Open wridge' : 'Try again';
+    btn.disabled = !connected && failures < 2;
+    toPlugin({ type: 'resize', height: document.body.scrollHeight });
+  }
+
+  function connect() {
+    clearTimeout(retryTimer);
+    socket = new WebSocket(WS_URL);
+    socket.onopen = () => {
+      retryMs = 1000;
+      failures = 0;
+      connected = true;
+      if (hello) socket.send(JSON.stringify({ type: 'hello', ...hello }));
+      render();
+    };
+    socket.onclose = () => {
+      connected = false;
+      paused = false;
+      failures++;
+      running.clear();
+      render();
+      retryTimer = setTimeout(connect, retryMs);
+      retryMs = Math.min(retryMs * 2, 10000);
+    };
+    socket.onmessage = (event) => {
+      const msg = JSON.parse(event.data);
+      if (msg.type === 'status') {
+        paused = Boolean(msg.paused);
+        if ('active' in msg) { active = msg.active !== false; files = msg.files ?? 1; }
+        return render();
+      }
+      running.set(msg.id, msg.command);
+      render();
+      toPlugin(msg);
+    };
+  }
+
+  // Replies from code.ts go back to the server; the window shows the latest command's outcome.
+  window.onmessage = (event) => {
+    const reply = event.data.pluginMessage;
+    if (!reply) return;
+    if (reply.type === 'hello') {
+      hello = { fileName: reply.fileName, editorType: reply.editorType ?? 'figma', fileKey: reply.fileKey ?? null, version: reply.version ?? null };
+      $('file').textContent = `${reply.fileName}${hello.editorType === 'figjam' ? ' · FigJam' : ''}`;
+      $('file').title = reply.fileName;
+      $('file').classList.remove('none');
+      if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'hello', ...hello }));
+      return;
+    }
+    const name = running.get(reply.id);
+    running.delete(reply.id);
+    if (name) {
+      last = reply.error ? { kind: 'fail', text: `${name}: ${reply.error}`, at: Date.now() } : { kind: 'ok', text: name, at: Date.now() };
+      render();
+    }
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(reply));
+  };
+
+  $('primary').onclick = () => {
+    const btn = $('primary');
+    if (connected) {
+      // brings the wridge app window forward (the app watches its server for this)
+      socket.send(JSON.stringify({ type: 'show-app' }));
+      btn.dataset.flash = '1';
+      btn.textContent = 'Opening…';
+      setTimeout(() => { delete btn.dataset.flash; render(); }, 1200);
+    } else {
+      // drop the pending attempt without its own retry, then try again now
+      if (socket) { socket.onclose = null; socket.close(); }
+      retryMs = 1000;
+      failures = 0;
+      render();
+      connect();
+    }
+  };
+  $('close').onclick = () => toPlugin({ type: 'close' });
+  setInterval(() => { if (connected && last && !running.size && !paused) $('when').textContent = ago(last.at); }, 1000);
+
+  render();
+  connect();
+</script>

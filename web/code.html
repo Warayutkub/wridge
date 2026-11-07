@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code graph · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+
+  /* ---- toolbar (page kit .w-toolbar) ---- */
+  .w-toolbar { flex: none; gap: 20px; }
+  .w-toolbar .w-titles { min-width: 0; max-width: 240px; }
+  .w-toolbar .w-label { overflow: hidden; text-overflow: ellipsis; }
+  .w-controls { gap: 12px; }
+  .w-search { width: 260px; }
+  .w-search input::-webkit-search-cancel-button { cursor: pointer; }
+  .w-search .w-kbd { transition: opacity .15s; }
+  .w-search:focus-within .w-kbd { opacity: 0; }
+  .seg button { transition: background .15s, color .15s; }
+  .seg button:not([aria-pressed="true"]):hover { color: var(--text); }
+  .w-actions .btn { height: 36px; }
+  .btn .w-icon { width: 15px; height: 15px; color: currentColor; }
+  #count-pill { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+  .embed #add-project { display: none; }
+
+  /* ---- canvas ---- */
+  .layout { flex: 1; min-height: 0; }
+  .canvas { touch-action: none; }
+  #graph, #mindmap { position: absolute; inset: 0; }
+  #graph { display: none; }
+  #mindmap { width: 100%; height: 100%; cursor: grab; }
+  #mindmap.dragging { cursor: grabbing; }
+  body.searching #mindmap, body.searching #graph { opacity: .2; transition: opacity .2s; }
+  body.mode-3d .only-2d, body:not(.mode-3d) .only-3d { display: none !important; }
+  body.no-data .ctrls, body.no-data .hint { display: none; }
+  /* 3D sits on the page's dot grid; the "space" theme keeps its own backdrop (ui.css) on a light page */
+  body.mode-3d #graph { background: transparent; }
+  :root[data-theme="dark"] body.mode-3d #graph { background: transparent; }
+  .g3d-label { padding: 2px 7px; border-radius: var(--r-sm); border: 1px solid var(--border); background: color-mix(in srgb, var(--background) 90%, transparent); color: var(--text); font: 500 11px/1.5 var(--mono); box-shadow: var(--shadow-sm); }
+  :root[data-theme="dark"] body.graph3d-dark .g3d-label { background: color-mix(in srgb, var(--background) 90%, transparent); color: var(--text); }
+  .g3d-label.gs-current, :root[data-theme="dark"] body.graph3d-dark .g3d-label.gs-current { background: var(--primary); border-color: var(--primary); color: var(--background); }
+  .scene-tooltip { font: 12px/1.45 var(--sans) !important; color: var(--text) !important; background: var(--background) !important;
+    border: 1px solid var(--border) !important; border-radius: var(--r-md) !important; padding: 8px 10px !important; box-shadow: var(--shadow-md); }
+  .scene-tooltip b { font: 600 12px var(--mono); }
+
+  /* mind map nodes: raised boxes with hairline borders; colours from the tokens (CSS beats the SVG attributes) */
+  .mm-node { cursor: pointer; transition: opacity .15s; }
+  .mm-node text { dominant-baseline: central; pointer-events: none; }
+  .mm-node text.label { fill: var(--text); font-family: var(--sans); }
+  .mm-node text.label.mono { font-family: var(--mono); }
+  .mm-node text.badge { fill: var(--text-faint); font-family: var(--mono); }
+  .mm-node text.toggle { fill: var(--text-muted); font-family: var(--mono); }
+  .mm-node .mm-icon { color: var(--text-2); }
+  .mm-node rect.body { fill: var(--background); stroke: var(--border); stroke-width: 1; transition: stroke .15s, fill .15s; }
+  .mm-node rect.shadow { fill: var(--border); }
+  .mm-node rect.halo { display: none; }
+  .mm-node circle.dot { fill: var(--danger); stroke: var(--background); }
+  .mm-node:hover rect.body { stroke: var(--border-strong); }
+  .mm-node:hover text.toggle { fill: var(--text); }
+  .mm-node.k-sym rect.body, .mm-node.k-token rect.body { fill: var(--surface-1); }
+  .mm-node.k-sym rect.shadow, .mm-node.k-token rect.shadow { fill: none; }
+  .mm-node.k-sym text.label { fill: var(--text-2); }
+  .mm-node.k-more text.label { fill: var(--text-faint); }
+  .mm-node.k-token.warn text.badge { fill: var(--danger); }
+  .mm-node.k-route text.label { fill: var(--text); }
+  .mm-node.selected rect.body { fill: var(--primary-soft); stroke: var(--primary); stroke-width: 1.5; }
+  .mm-node.selected rect.shadow { fill: none; }
+  .mm-node.selected text.label { fill: var(--primary); }
+  .mm-node.selected .mm-icon { color: var(--primary); }
+  .mm-node.selected text.badge { fill: var(--primary); opacity: .7; }
+  .mm-node.dim { opacity: .28; }
+  .mm-node.hl-0 rect.body { stroke: var(--text); stroke-width: 2; }
+  .mm-node.hl-1 rect.body { stroke: var(--primary); stroke-width: 2; }
+  .mm-node.hl-2 rect.body { stroke: var(--blue-400); stroke-width: 1.75; }
+  .mm-node.hl-3 rect.body { stroke: var(--blue-300); stroke-width: 1.5; }
+  .mm-node.gs-hit rect.body { fill: var(--primary-soft); stroke: var(--primary); stroke-width: 1.5; }
+  .mm-node.gs-current rect.body { fill: var(--primary); stroke: var(--primary); stroke-width: 1.5; }
+  .mm-node.gs-current text.label, .mm-node.gs-current text.badge, .mm-node.gs-current text.toggle { fill: var(--background); }
+  .mm-node.gs-current .mm-icon { color: var(--background); }
+  .mm-edge { fill: none; stroke: var(--border-strong); stroke-width: 1; stroke-linecap: round; transition: stroke .15s; }
+  .mm-edge.on-path { stroke: var(--primary); stroke-width: 1.5; }
+  .mm-new > .mm-in { animation: mm-rise .24s var(--ease) both; }
+  .mm-edge.mm-new { animation: mm-fade .32s var(--ease) both; }
+  @keyframes mm-rise { from { opacity: 0; transform: translateY(6px); } }
+  @keyframes mm-fade { from { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .mm-new > .mm-in, .mm-edge.mm-new, #search-bar, .bn .go { animation: none; transition: none; } }
+
+  /* search results bar (over the canvas, under the toolbar's search box) */
+  .gs-float { position: absolute; z-index: 6; top: 14px; left: 20px; right: 20px; display: flex; pointer-events: none; }
+  #search-bar { pointer-events: auto; display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 8px 6px 12px; background: var(--background);
+    border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-md); font-size: 12.5px; animation: w-in .2s var(--ease); }
+  #search-bar[hidden], #gs-dummy { display: none !important; }
+  #search-bar b { font-weight: 600; }
+  #search-bar.warn { background: var(--warning-soft); border-color: var(--warning-line); color: var(--warning-text); padding: 8px 12px; }
+  #search-bar.none { color: var(--text-muted); padding: 8px 12px; }
+
+  /* bottom: hint (left) and floating controls (right) */
+  .foot { position: absolute; z-index: 5; left: 20px; right: 20px; bottom: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; pointer-events: none; }
+  .foot > * { pointer-events: auto; }
+  .hint { flex: 1 1 auto; min-width: 0; margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font: 11px/1.5 var(--mono); color: var(--text-faint); }
+  .hint span { display: inline-flex; align-items: center; gap: 6px; padding: 1px 5px; margin-left: -5px; border-radius: var(--r-sm); background: color-mix(in srgb, var(--surface) 82%, transparent); }
+  .ctrls { flex: none; }
+  .sw { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+  body.graph3d-dark.mode-3d:not(.page-dark) .hint { color: #cbd5e1; }
+  .ctrls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .ctl { display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--background); border: 1px solid var(--border); border-radius: var(--r-md); box-shadow: var(--shadow-sm); }
+  .ctl button { border: 0; background: none; min-width: 28px; padding: 4px 9px; border-radius: var(--r-sm); font-size: 12.5px; font-weight: 500; color: var(--text-2); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+  .ctl button:hover { background: var(--surface-2); color: var(--text); }
+  .ctl button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+  .ctl .zoom-level { min-width: 46px; text-align: center; font: 11px var(--mono); color: var(--text-muted); }
+
+  /* states over the canvas */
+  .center { position: absolute; z-index: 4; inset: 0; display: grid; place-items: center; padding: 24px; pointer-events: none; }
+  .center > * { pointer-events: auto; }
+  .loading-pill { position: absolute; z-index: 6; top: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px;
+    padding: 7px 14px; border-radius: 999px; background: var(--background); border: 1px solid var(--border); box-shadow: var(--shadow-md); font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .loading-pill .spinner { width: 14px; height: 14px; border-width: 2px; }
+  .state-card { width: min(420px, 100%); }
+  .result-card { background: var(--background); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--shadow-md); }
+
+  /* ---- right rail ---- */
+  .panel { padding: 0; gap: 0; }
+  .panel .handle { display: none; }
+  .r-body { display: flex; flex-direction: column; gap: 18px; padding: 22px 20px 28px; }
+  .r-head { display: flex; flex-direction: column; gap: 6px; }
+  .r-name { margin: 0; font: 600 18px/1.3 var(--mono); letter-spacing: -.01em; color: var(--text); word-break: break-word; }
+  .r-sub { margin: 0; font: 11px/1.5 var(--mono); color: var(--text-muted); overflow-wrap: anywhere; }
+  .r-group { display: flex; flex-direction: column; gap: 4px; }
+  .r-list { display: flex; flex-direction: column; }
+  .r-row { display: flex; align-items: center; gap: 10px; width: calc(100% + 12px); margin: 0 -6px; padding: 5px 6px; border: 0; border-radius: var(--r-md); background: none;
+    color: var(--text); text-align: left; cursor: pointer; font: 13px/1.45 var(--mono); transition: background .15s; }
+  .r-row:hover { background: var(--surface-2); }
+  .r-row[disabled] { cursor: default; color: var(--text-2); }
+  .r-row[disabled]:hover { background: none; }
+  .r-row .w-icon { width: 14px; height: 14px; color: var(--text-2); }
+  .r-row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r-row em { flex: none; max-width: 48%; font: normal 11px var(--mono); color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r-more { padding: 4px 0; font: 11px var(--mono); color: var(--text-faint); }
+  .r-kv { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-size: 12.5px; }
+  .r-kv dt { color: var(--text-muted); }
+  .r-kv dd { margin: 0; font: 12px/1.5 var(--mono); color: var(--text-2); text-align: right; overflow-wrap: anywhere; }
+  .r-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .r-actions .btn { padding: 6px 11px; font-size: 12.5px; }
+  .r-hint { margin: 0; font-size: 12.5px; line-height: 1.55; color: var(--text-muted); }
+  .r-box { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--background); font-size: 12.5px; line-height: 1.5; }
+  .r-box .row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .r-box .tag { flex: none; font: 11px var(--mono); color: var(--text-muted); }
+  .r-box code { font: 11.5px var(--mono); }
+  .r-note { padding: 10px 12px; border: 1px solid var(--border); border-left: 2px solid var(--primary); border-radius: var(--r-md); background: var(--background); font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: var(--text-2); }
+  .r-note .who { display: block; margin-bottom: 4px; font: 10.5px var(--mono); letter-spacing: .03em; color: var(--text-muted); white-space: normal; }
+  .r-note.stale { border-left-color: var(--warning); }
+  .r-note.stale .who { color: var(--warning-text); }
+  .r-warn { padding: 10px 12px; border: 1px solid var(--warning-line); border-radius: var(--r-md); background: var(--warning-soft); color: var(--warning-text); font-size: 12.5px; line-height: 1.5; }
+  .r-issue { padding: 10px 12px; border: 1px solid var(--danger-line); border-radius: var(--r-md); background: var(--danger-soft); color: var(--danger-text); font-size: 12.5px; line-height: 1.5; }
+  .r-soft { padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); color: var(--text-2); font-size: 12.5px; line-height: 1.5; }
+  .levels { display: flex; gap: 6px; flex-wrap: wrap; }
+  .swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--border-strong); vertical-align: -1px; margin-right: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips .w-pill { border: 1px solid var(--border); background: var(--background); color: var(--text-muted); padding: 3px 9px; transition: background .15s, color .15s, border-color .15s; }
+  .chips .w-pill:hover { border-color: var(--border-strong); color: var(--text); }
+  .chips .w-pill[aria-pressed="true"] { background: var(--primary-soft); border-color: transparent; color: var(--primary); }
+  .linkbtn { border: 0; background: none; padding: 0; font: 500 12.5px var(--sans); color: var(--primary); cursor: pointer; }
+  .linkbtn:hover { text-decoration: underline; }
+  /* brain notes that link to this file or symbol */
+  .brain-box { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: var(--r-lg); background: var(--primary-soft); }
+  .brain-box .w-label { color: var(--primary); }
+  .bn { display: flex; flex-direction: column; gap: 3px; margin: 0 -6px; padding: 5px 6px; border-radius: var(--r-md); color: var(--text); text-decoration: none; transition: background .15s; }
+  .bn:hover { background: color-mix(in srgb, var(--primary) 9%, transparent); }
+  .bn-top { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; }
+  .bn-top b { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bn-top .w-icon { width: 15px; height: 15px; color: var(--text); }
+  .bn-top .go { transition: transform .15s var(--ease); }
+  .bn:hover .go { transform: translate(2px, -2px); }
+  .bn-sub { font: 11px/1.5 var(--mono); color: var(--primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* search results in the rail */
+  .gs-row .w-icon { display: none; }
+  #gs-back { align-self: flex-start; margin: -4px 0 -6px -10px; font-size: 12.5px; color: var(--text-muted); }
+
+  /* project picker (outside the window only: the window has its own) */
+  .picker { position: relative; }
+  .picker-btn { max-width: 240px; gap: 8px; }
+  .picker-btn span { overflow: hidden; text-overflow: ellipsis; }
+  .picker-btn svg { width: 14px; height: 14px; flex: none; color: var(--text-faint); }
+  .picker-pop { position: absolute; z-index: 40; top: calc(100% + 6px); right: 0; width: 340px; max-width: calc(100vw - 32px); padding: 8px;
+    background: var(--background); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; gap: 6px; }
+  .picker-pop[hidden] { display: none; }
+  .picker-pop .input { width: 100%; }
+  .picker-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .picker-row { display: flex; align-items: center; gap: 4px; border-radius: var(--r-md); }
+  .picker-row.active, .picker-row:hover { background: var(--surface); }
+  .picker-row.current .picker-name::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--primary); vertical-align: middle; }
+  .picker-item { flex: 1; min-width: 0; border: 0; background: none; text-align: left; padding: 8px 10px; cursor: pointer; display: flex; flex-direction: column; gap: 1px; color: inherit; }
+  .picker-name { font-size: 13px; font-weight: 500; }
+  .picker-path { font: 11px var(--mono); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .picker-missing { color: var(--danger); }
+  .picker-del { flex: none; width: 32px; height: 32px; margin-right: 4px; border: 0; border-radius: var(--r-sm); background: none; color: var(--text-faint); cursor: pointer; display: grid; place-items: center; }
+  .picker-del:hover { background: var(--danger-soft); color: var(--danger); }
+  .picker-del svg { width: 16px; height: 16px; }
+  .picker-empty { padding: 16px 10px; text-align: center; font-size: 13px; color: var(--text-muted); }
+  .picker-add { border: 0; border-top: 1px solid var(--border); background: none; padding: 10px; text-align: left; font-size: 13px; font-weight: 500; color: var(--primary); cursor: pointer; }
+  .picker-add:hover { background: var(--primary-soft); }
+  .embed .only-web { display: none !important; }
+
+  @media (max-width: 960px) { .w-search { width: 200px; } }
+  @media (max-width: 860px) { #count-pill { display: none; } }
+  @media (max-width: 760px) {
+    .w-toolbar { flex-wrap: wrap; padding: 10px 16px; gap: 10px; }
+    .w-controls { flex-basis: 100%; order: 3; }
+    .w-search { flex: 1; width: auto; }
+    .w-kbd, .hint { display: none !important; }
+    #add-project .label, #refresh .label { display: none; }
+    .panel { position: fixed; z-index: 30; left: 0; right: 0; bottom: 0; width: auto; max-height: 58vh; border-left: 0; border-top: 1px solid var(--border); border-radius: var(--r-xl) var(--r-xl) 0 0;
+      box-shadow: var(--shadow-lg); transform: translateY(105%); visibility: hidden; transition: transform .22s var(--ease), visibility 0s .22s; }
+    .panel.open { transform: none; visibility: visible; transition: transform .22s var(--ease); }
+    .panel .handle { display: block; width: 36px; height: 4px; margin: 10px auto 0; border-radius: 999px; background: var(--border-strong); border: 0; padding: 0; cursor: pointer; }
+    .r-body { padding: 14px 20px 28px; }
+  }
+</style>
+</head>
+<body class="no-data">
+<header class="w-toolbar">
+  <div class="w-titles"><p class="w-label" id="crumb">Code</p><h1>Code graph</h1></div>
+  <div class="w-controls">
+    <label class="w-search"><span class="w-icon" data-wi="search"></span><input id="search" type="search" placeholder="Find a file or symbol…" aria-label="Find a file or symbol" autocomplete="off" spellcheck="false"><span class="w-kbd">Ctrl K</span></label>
+    <div class="seg" id="mode" role="group" aria-label="View"><button data-mode="2d" aria-pressed="true">Mindmap</button><button data-mode="3d" aria-pressed="false">3D</button></div>
+  </div>
+  <div class="w-actions">
+    <span class="w-pill" id="count-pill" hidden></span>
+    <div class="picker" id="picker" hidden>
+      <button class="btn btn-secondary picker-btn" id="picker-btn" aria-haspopup="listbox" aria-expanded="false">
+        <span id="picker-label">Choose a project</span>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+      <div class="picker-pop" id="picker-pop" hidden>
+        <label class="input"><span data-icon="search"></span><input id="picker-search" type="search" placeholder="Find a project…" aria-label="Find a project" autocomplete="off"></label>
+        <div class="picker-list" id="picker-list" role="listbox" aria-label="Projects"></div>
+        <button class="picker-add" id="picker-add">+ Add project</button>
+      </div>
+    </div>
+    <button class="btn btn-secondary" id="add-project" aria-label="Add project">+<span class="label"> Add project</span></button>
+    <button class="btn btn-secondary" id="refresh" aria-label="Rescan"><span class="w-icon" data-wi="restart"></span><span class="label">Rescan</span></button>
+  </div>
+</header>
+
+<div class="w-split layout">
+  <main class="w-canvas canvas" id="canvas">
+    <div id="graph"></div>
+    <svg id="mindmap" role="img" aria-label="Code mind map"></svg>
+
+    <div class="gs-float"><div id="search-bar" role="status" hidden></div></div>
+    <div id="gs-dummy" hidden></div>
+
+    <div id="state"></div>
+
+    <div class="foot">
+      <p class="hint" id="hint"></p>
+      <div class="ctrls">
+        <div class="ctl only-3d"><button id="rotate3d" aria-pressed="false">Orbit</button><button id="theme3d" aria-pressed="false">Dark space</button></div>
+        <div class="ctl" aria-label="Zoom">
+          <button id="zoom-out" aria-label="Zoom out">−</button><span class="zoom-level" id="zoom-level">100%</span><button id="zoom-in" aria-label="Zoom in">+</button><button id="zoom-fit">Fit</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="w-rail panel" id="panel" aria-label="Details"></aside>
+</div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script src="/mindmap.js"></script>
+<script src="/vendor/3d-force-graph.min.js"></script>
+<script src="/graph3d.js"></script>
+<script src="/search.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const { esc, toast, setLoading, ICONS } = ui;
+  const canvas = $('canvas'), panel = $('panel'), state = $('state');
+  const W = () => canvas.clientWidth, H = () => canvas.clientHeight;
+  const mobile = () => matchMedia('(max-width: 760px)').matches;
+  const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } } };
+  const EMBED = document.documentElement.classList.contains('embed');
+  // Figma icon set: <span class="w-icon">svg</span>; sized copies for the mind map's SVG
+  const wi = (name) => `<span class="w-icon" aria-hidden="true">${ui.icon(name)}</span>`;
+  const svgIcon = (name, w = 14, h = 14) => (ui.icon(name) || '').replace('<svg ', `<svg width="${w}" height="${h}" `);
+  document.querySelectorAll('[data-wi]').forEach((el) => { el.innerHTML = ui.icon(el.dataset.wi); });
+
+  const KIND_LABEL = { component: 'component', hook: 'hook', function: 'function', class: 'class', const: 'const', type: 'type', interface: 'type', enum: 'enum', widget: 'widget', state: 'state' };
+  const KIND_SHORT = { component: 'comp', hook: 'hook', function: 'fn', class: 'class', const: 'const', type: 'type', interface: 'type', enum: 'enum', widget: 'widget', state: 'state' };
+  const FILTERS = [['component', 'component / widget', true], ['hook', 'hook', true], ['function', 'function', true], ['const', 'const', false], ['type', 'type', false]];
+  const show = Object.fromEntries(FILTERS.map(([k, , on]) => [k, on]));
+  // Flutter State classes carry their widget's build(); they are listed with types to keep the tree short.
+  const kindGroup = (k) => (k === 'interface' || k === 'enum' || k === 'state' ? 'type' : k === 'class' ? 'function' : k === 'widget' ? 'component' : k);
+  const LANGS = { ts: 'TypeScript', tsx: 'TypeScript', js: 'JavaScript', jsx: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', dart: 'Dart', lua: 'Lua', luau: 'Luau', php: 'PHP', py: 'Python', css: 'CSS', scss: 'SCSS', sql: 'SQL', html: 'HTML', ps1: 'PowerShell', vue: 'Vue', svelte: 'Svelte', go: 'Go', rs: 'Rust', java: 'Java', kt: 'Kotlin', swift: 'Swift', rb: 'Ruby', cs: 'C#' };
+  const extOf = (p) => (/\.([a-z0-9]+)$/i.exec(p)?.[1] ?? '').toLowerCase();
+  const langName = (p, fallback) => LANGS[extOf(p)] ?? (extOf(p) || fallback || '').toUpperCase();
+
+  // Colours of the 3D view and the impact levels, read from the tokens (they change with the theme).
+  const tok = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  let PAL = {};
+  const readPalette = () => { PAL = { accent: tok('--primary'), accent2: tok('--blue-400'), accent3: tok('--blue-300'), accent4: tok('--blue-200'), ink: tok('--text'), muted: tok('--text-muted'), faint: tok('--text-faint') }; };
+  readPalette();
+  const rgba = (hex, a) => { const h = String(hex).replace('#', ''); const n = parseInt(h.length === 3 ? [...h].map((c) => c + c).join('') : h.slice(0, 6), 16); return Number.isNaN(n) ? hex : `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`; };
+  const levelColor = (l) => [PAL.ink, PAL.accent, PAL.accent2, PAL.accent3][Math.min(l, 3)];
+
+  let projects = [], current = null, D = null, is3D = false;
+  let selection = null; // { type: 'file'|'symbol'|'route'|'dir'|'pkg'|'token', ... }
+  let impactOn = false, impact = null; // impact: Map nodeId → level (symbol id, or -fileId for module code)
+
+  // ======================= data indexes =======================
+  function index(data) {
+    const d = { ...data, fileById: new Map(), symById: new Map(), symbolsOf: new Map(), usesOut: new Map(), usedIn: new Map(), importsOut: new Map(), importedBy: new Map(), routesOf: new Map() };
+    for (const f of data.files) { d.fileById.set(f.id, f); d.symbolsOf.set(f.id, []); }
+    for (const s of data.symbols) { d.symById.set(s.id, s); d.symbolsOf.get(s.file)?.push(s); }
+    const push = (m, k, v) => (m.get(k) ?? m.set(k, []).get(k)).push(v);
+    for (const [from, to, kind, line, count] of data.symbolEdges) { push(d.usesOut, from, { to, kind, line, count }); push(d.usedIn, to, { from, kind, line, count }); }
+    for (const [from, to, n] of data.fileEdges) { push(d.importsOut, from, { to, n }); push(d.importedBy, to, { from, n }); }
+    for (const r of data.routes) push(d.routesOf, r.file, r);
+    d.linkOf = new Map((data.design?.links ?? []).map((l) => [l.symbol, l]));
+    d.noteOf = new Map((data.notes ?? []).map((n) => [n.target, n]));
+    d.nameCount = new Map();
+    for (const f of data.files) { const b = f.path.split('/').pop(); d.nameCount.set(b, (d.nameCount.get(b) ?? 0) + 1); }
+    // Anything rendered as <Name /> is a component even without JSX in its own body.
+    for (const [, to, kind] of data.symbolEdges) { const s = d.symById.get(to); if (kind === 'jsx' && s && (s.kind === 'function' || s.kind === 'const')) s.kind = 'component'; }
+    return d;
+  }
+  const fileOf = (s) => D.fileById.get(s.file);
+  const ownerFile = (id) => (id < 0 ? D.fileById.get(-id) : fileOf(D.symById.get(id)));
+  const base = (p) => String(p).replaceAll('\\', '/').split('/').pop();
+  // page.tsx / index.ts say nothing on their own: show their folder too
+  const shortPath = (p) => {
+    const parts = p.split('/');
+    const file = parts.pop();
+    return /^(index|page|route|layout|loading|error|main|types?|utils?|init|mod)\.[a-z]+$/i.test(file) && parts.length ? `${parts.pop()}/${file}` : file;
+  };
+  const visibleFiles = () => D.files.filter((f) => f.lang !== 'config');
+  function mainLanguage() {
+    const counts = {};
+    for (const f of visibleFiles()) { const l = langName(f.path, f.lang); if (l) counts[l] = (counts[l] ?? 0) + 1; }
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+  }
+  // Opened by the server (code -g file:line) — a vscode:// link would make the browser ask for permission each time.
+  async function openInEditor(path, line, btn) {
+    setLoading(btn, true, 'Opening…');
+    try {
+      const res = await fetch('/api/code/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current, path, line }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      toast(`Opened ${base(path)}${line ? ` at line ${line}` : ''} in VS Code`);
+    } catch (err) {
+      toast(`Couldn't open VS Code — ${err.message}`, { kind: 'error' });
+    }
+    setLoading(btn, false);
+  }
+  const editorBtn = (path, line, label = 'Open in VS Code') => `<button class="btn btn-secondary" data-open="${esc(path)}" data-line="${line ?? ''}">${esc(label)}</button>`;
+
+  // Reverse dependencies level by level. Start from a symbol, or every symbol of a file.
+  function computeImpact(sel) {
+    const level = new Map();
+    let frontier = sel.type === 'symbol' ? [sel.id] : (D.symbolsOf.get(sel.id) ?? []).map((s) => s.id).concat(-sel.id);
+    frontier.forEach((id) => level.set(id, 0));
+    for (let l = 1; frontier.length && l < 12; l++) {
+      const next = [];
+      for (const id of frontier) for (const u of D.usedIn.get(id) ?? []) if (!level.has(u.from)) { level.set(u.from, l); next.push(u.from); }
+      frontier = next;
+    }
+    return level;
+  }
+  // Level of a file = best level of anything in it.
+  function fileLevel(fileId) {
+    if (!impact) return undefined;
+    let best;
+    const consider = (lvl) => { if (lvl !== undefined && (best === undefined || lvl < best)) best = lvl; };
+    consider(impact.get(-fileId));
+    for (const s of D.symbolsOf.get(fileId) ?? []) consider(impact.get(s.id));
+    return best;
+  }
+
+  // ======================= mind map =======================
+  const FREE = () => {
+    const box = canvas.getBoundingClientRect();
+    const bar = $('search-bar');
+    const barBottom = bar.hidden ? 0 : bar.getBoundingClientRect().bottom - box.top;
+    const foot = document.querySelector('.foot').getBoundingClientRect();
+    const sheet = mobile() && panel.classList.contains('open') ? panel.getBoundingClientRect().top : Infinity;
+    return { top: Math.max(28, barBottom + 16), bottom: Math.min(foot.top, sheet) - box.top - 12, right: W() - 24 };
+  };
+  let zoomK = 1;
+  const ICON_SVG = {};
+  const nodeIcon = (name, w, h) => (ICON_SVG[`${name}${w}`] ??= svgIcon(name, w, h));
+  const GROUP_ICON = { routes: 'link', tokens: 'designmap', pkgs: 'plug' };
+  const mindmap = createMindMap($('mindmap'), {
+    freeArea: FREE,
+    oneSide: true,
+    minFit: 0.7, // a big tree starts readable at the root instead of shrunk to fit
+    maxFit: 1,
+    onZoom: (k) => { zoomK = k; if (!is3D) $('zoom-level').textContent = `${Math.round(k * 100)}%`; },
+    onSelect: (n) => selectNode(n),
+    edge: () => ({ color: '#CFCAC0', width: 1 }),
+    look: (n) => {
+      if (n.depth === 0) return { cls: 'k-root', icon: nodeIcon('logo-wridge', 21, 14), iconW: 21, font: 13, weight: 600, h: 34, pad: 12, radius: 6, fill: '#fff', text: '#111' };
+      if (n.kind === 'group') return { cls: 'k-group', icon: nodeIcon(GROUP_ICON[n.key] ?? 'folder'), font: 13, weight: 600, h: 32, radius: 6, minW: 140, fill: '#fff', text: '#111' };
+      if (n.kind === 'dir') return { cls: 'k-dir', icon: nodeIcon('folder'), font: 13, weight: 500, h: 32, radius: 6, minW: 150, fill: '#fff', text: '#111' };
+      if (n.kind === 'route') return { cls: 'k-route', icon: nodeIcon('link'), mono: true, font: 12, weight: 400, h: 30, radius: 6, minW: 150, fill: '#fff', text: '#111' };
+      if (n.kind === 'token') return { cls: `k-token${n.data.token.mismatch ? ' warn' : ''}`, mono: true, font: 11.5, weight: 400, h: 26, pad: 10, radius: 5, fill: '#fff', text: '#111' };
+      if (n.kind === 'symbol' || n.kind === 'pkg' || n.kind === 'more') return { cls: `k-sym${n.kind === 'more' ? ' k-more' : ''}`, mono: true, font: 11.5, weight: 400, h: 26, pad: 10, radius: 5, fill: '#fff', text: '#111' };
+      return { cls: 'k-file', icon: nodeIcon('code'), mono: true, font: 12.5, weight: 400, h: 32, radius: 6, minW: 180, fill: '#fff', text: '#111', dot: n.data?.file?.error ? '#D23B2F' : undefined };
+    },
+  });
+
+  function symbolNodes(fileId, prefix) {
+    return (D.symbolsOf.get(fileId) ?? [])
+      .filter((s) => show[kindGroup(s.kind)])
+      .sort((a, b) => b.exported - a.exported || a.line - b.line)
+      .map((s) => ({ key: `${prefix}s:${s.id}`, label: s.name === 'default' ? 'default export' : s.name, kind: 'symbol', badge: KIND_SHORT[s.kind] ?? s.kind, data: { sym: s } }));
+  }
+  function fileNode(f, prefix = '') {
+    const syms = symbolNodes(f.id, prefix);
+    const tag = [f.routes.length ? f.routes[0].split(' ')[0] : '', f.directive === 'use client' ? 'client' : f.directive === 'use server' ? 'server' : ''].filter(Boolean).join(' · ');
+    return { key: `${prefix}f:${f.id}`, label: base(f.path), kind: 'file', badge: tag || (syms.length ? String(syms.length) : ''), data: { file: f }, children: syms.length ? syms : undefined };
+  }
+  // The component tree a symbol renders (<JSX/> edges), built when a branch is opened.
+  function renderTree(symId, prefix, depth) {
+    // In Flutter most of a build() is SDK widgets/classes; the tree keeps project widgets only.
+    const shown = (u) => { const t = D.symById.get(u.to); return u.kind === 'jsx' && t && (fileOf(t).lang !== 'dart' || t.kind === 'widget'); };
+    return (D.usesOut.get(symId) ?? []).filter(shown).map((u) => {
+      const t = D.symById.get(u.to);
+      const key = `${prefix}/${t.id}`;
+      const hasKids = depth < 8 && (D.usesOut.get(t.id) ?? []).some(shown);
+      return { key, label: t.name, kind: 'symbol', badge: base(fileOf(t).path), data: { sym: t }, lazy: hasKids ? () => renderTree(t.id, key, depth + 1) : undefined };
+    });
+  }
+
+  const BIG = 30; // a first-level branch with more children than this starts closed (one click opens it)
+  function buildTree() {
+    const visible = visibleFiles();
+    const root = { key: 'root', label: D.name, kind: 'root', children: [] };
+    const routes = D.routes.filter((r) => r.kind !== 'layout' || r.path === '/');
+    if (routes.length) {
+      root.children.push({ key: 'routes', label: 'Routes', kind: 'group', badge: String(routes.length), collapsed: routes.length > BIG, lazy: () => routes.map((r, i) => {
+        const f = D.fileById.get(r.file);
+        const syms = D.symbolsOf.get(r.file) ?? [];
+        const entry = r.framework === 'flutter' ? syms.find((s) => s.name === r.root) ?? null : syms.find((s) => s.isDefault) ?? null;
+        const kids = r.kind === 'route'
+          ? () => (D.symbolsOf.get(r.file) ?? []).filter((s) => s.exported).map((s) => ({ key: `r${i}s:${s.id}`, label: s.name, kind: 'symbol', badge: 'handler', data: { sym: s } }))
+          : entry && renderTree(entry.id, `r${i}`, 1).length ? () => renderTree(entry.id, `r${i}`, 1) : undefined;
+        // Selecting a route shows its page component / screen widget (who opens it, what it affects).
+        return { key: `r:${i}`, label: r.path, kind: 'route', badge: r.kind, data: entry ? { route: r, sym: entry } : { route: r, file: f }, lazy: kids };
+      }) });
+    }
+    const toks = (D.tokens ?? []).filter((t) => t.value || t.figma).sort((a, b) => b.mismatch - a.mismatch || b.count - a.count);
+    if (toks.length) {
+      root.children.push({ key: 'tokens', label: 'Tokens', kind: 'group', badge: String(toks.length), collapsed: true,
+        lazy: () => toks.map((t) => ({ key: `t:${t.name}`, label: t.name, kind: 'token', badge: `${t.count}×${t.mismatch ? ' ≠ Figma' : !t.value ? ' Figma only' : ''}`, data: { token: t } })) });
+    }
+    // Folder tree
+    const dirs = new Map();
+    const dirNode = (path) => {
+      if (dirs.has(path)) return dirs.get(path);
+      const n = { key: `d:${path}`, label: base(path), kind: 'dir', children: [], data: { dir: path } };
+      dirs.set(path, n);
+      const parent = path.includes('/') ? dirNode(path.slice(0, path.lastIndexOf('/'))) : null;
+      (parent ? parent.children : root.children).push(n);
+      return n;
+    };
+    const rootFiles = [];
+    for (const f of visible.sort((a, b) => (a.path < b.path ? -1 : 1))) {
+      const dir = f.path.includes('/') ? f.path.slice(0, f.path.lastIndexOf('/')) : null;
+      if (dir) dirNode(dir).children.push(fileNode(f));
+      else rootFiles.push(f);
+    }
+    const hasCode = (n) => (n.kind === 'file' ? ['ts', 'dart'].includes(n.data.file.lang) : (n.children ?? []).some(hasCode));
+    for (const n of dirs.values()) {
+      if (!hasCode(n) || n.children.length > BIG) n.collapsed = true; // e.g. android/, ios/ in a Flutter app; long lists open on a click
+      n.children.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'dir' ? -1 : 1));
+      const count = (x) => (x.kind === 'file' ? 1 : (x.children ?? []).reduce((s, c) => s + count(c), 0));
+      n.badge = String(count(n));
+    }
+    if (rootFiles.length) root.children.push({ key: 'd:', label: '(root)', kind: 'dir', badge: String(rootFiles.length), children: rootFiles.map((f) => fileNode(f)), data: { dir: '' } });
+    const pkgs = Object.entries(Object.values(D.externals).reduce((acc, e) => { for (const [k, v] of Object.entries(e)) acc[k] = (acc[k] ?? 0) + v; return acc; }, {})).sort((a, b) => b[1] - a[1]);
+    if (pkgs.length) root.children.push({ key: 'pkgs', label: 'Packages', kind: 'group', badge: String(pkgs.length), collapsed: true, lazy: () => pkgs.map(([p, n]) => ({ key: `p:${p}`, label: p, kind: 'pkg', badge: String(n), data: { pkg: p } })) });
+    return root;
+  }
+  // highlight callback for the mind map
+  function levelOfNode(n) {
+    if (!n) return undefined;
+    if (n.data?.sym) return impact.get(n.data.sym.id);
+    if (n.data?.file) return fileLevel(n.data.file.id);
+    if (n.data?.dir !== undefined) {
+      let best;
+      for (const f of D.files) if (f.path.startsWith(n.data.dir ? `${n.data.dir}/` : '') && (n.data.dir || !f.path.includes('/'))) { const l = fileLevel(f.id); if (l !== undefined && (best === undefined || l < best)) best = l; }
+      return best;
+    }
+    if (n.kind === 'group' || n.depth === 0) return null; // headers stay as they are
+    return undefined;
+  }
+
+  // ======================= 3D =======================
+  const graph3d = (() => {
+    let g = null;
+    const linkColor = (l) => {
+      if (search && !(impactOn && impact)) {
+        const s = l.source.id ?? l.source, d = l.target.id ?? l.target;
+        const hs = search.files.has(s), hd = search.files.has(d);
+        if (hs && hd) return rgba(PAL.accent, 0.75);
+        if ((hs && search.near.has(d)) || (hd && search.near.has(s))) return rgba(PAL.accent2, 0.45);
+        return g.palette().linkDim;
+      }
+      const id = selectedFile();
+      if (id == null) return g.palette().link;
+      return (l.source.id ?? l.source) === id || (l.target.id ?? l.target) === id ? rgba(PAL.accent, 0.8) : g.palette().linkDim;
+    };
+    // Files linked to the selected one; everything else fades so the eye stays on that neighbourhood.
+    let neighbours = new Set();
+    const computeNeighbours = () => {
+      neighbours = new Set();
+      const id = selectedFile();
+      if (id == null || !g) return;
+      for (const l of g.graphData().links) {
+        const s = l.source.id ?? l.source, d = l.target.id ?? l.target;
+        if (s === id) neighbours.add(d);
+        if (d === id) neighbours.add(s);
+      }
+    };
+    const color = (n) => {
+      if (impactOn && impact) { const l = fileLevel(n.id); return l === undefined ? g.palette().nodeDim : levelColor(l); }
+      if (search) {
+        if (search.current?.file === n.id) return PAL.ink;
+        if (search.files.has(n.id)) return PAL.accent;
+        if (search.near.has(n.id)) return rgba(PAL.accent3, 0.7);
+        return g.palette().nodeFaint;
+      }
+      const sel = selectedFile();
+      if (sel === n.id) return PAL.ink;
+      if (sel != null && !neighbours.has(n.id)) return g.palette().nodeFaint;
+      // Neighbours of a selection get stronger colours than the faded rest.
+      if (sel != null) return n.route ? PAL.accent : n.component ? PAL.accent2 : PAL.accent3;
+      return n.route ? PAL.accent : n.component ? PAL.accent2 : PAL.faint;
+    };
+    // The file behind the current selection (a file, or the file of a selected symbol).
+    const selectedFile = () => (selection?.type === 'file' ? selection.id : selection?.type === 'symbol' ? D.symById.get(selection.id)?.file : null);
+    const selectedLinks = () => { const id = selectedFile(); return id == null ? [] : g.graphData().links.filter((l) => l.source.id === id || l.target.id === id || l.source === id || l.target === id); };
+    // Labels: with a selection, the selected file and its neighbours; otherwise routes and the most imported files.
+    const important = (n) => {
+      if (search) return search.current?.file === n.id ? 1e7 : search.files.has(n.id) ? 1e5 + n.val : search.near.has(n.id) ? 1e3 + n.val : 0;
+      const sel = selectedFile();
+      if (sel != null) return n.id === sel ? 1e6 : neighbours.has(n.id) ? 1e3 + n.val : 0;
+      return n.route ? 1000 + n.val : n.val;
+    };
+    // page.tsx / route.ts say nothing: show the route path, or folder/file for other generic names.
+    const label = (n) => n.routePath || shortPath(n.path);
+    // More labels while searching, so every hit can carry its name.
+    const opts3d = { important, label, labels: 12, labelClass: (n) => (search?.current?.file === n.id ? 'gs-current' : ''), onTheme: () => g && g.nodeColor(color).linkColor(linkColor) };
+    const labelCount = () => (search ? Math.min(40, search.files.size + 12) : 12);
+    const paintButtons = () => {
+      if (!g) return;
+      const dark = g.theme() === 'dark';
+      $('theme3d').textContent = dark ? 'Light space' : 'Dark space';
+      $('theme3d').setAttribute('aria-pressed', String(dark));
+      $('rotate3d').textContent = g.rotating() ? 'Stop orbit' : 'Orbit';
+      $('rotate3d').setAttribute('aria-pressed', String(g.rotating()));
+    };
+    return {
+      show() {
+        $('graph').style.display = 'block';
+        const nodes = visibleFiles().map((f) => ({
+          id: f.id, path: f.path, route: f.routes.length > 0, routePath: f.routes[0]?.split(' ').slice(1).join(' ') || null,
+          component: (D.symbolsOf.get(f.id) ?? []).some((s) => s.kind === 'component'),
+          val: 2 + Math.sqrt((D.importedBy.get(f.id) ?? []).length) * 2,
+        }));
+        const ids = new Set(nodes.map((n) => n.id));
+        const links = D.fileEdges.filter(([a, b]) => ids.has(a) && ids.has(b)).map(([source, target]) => ({ source, target }));
+        let fitted = false;
+        if (!g) {
+          g = Graph3D.create($('graph'), opts3d)
+            .nodeId('id').nodeVal('val').nodeOpacity(0.95)
+            .nodeLabel((n) => `<b>${esc(base(n.path))}</b><div style="color:var(--text-muted)">${esc(n.path)}</div>`)
+            .linkOpacity(0.7)
+            .onNodeClick((n) => { selectFile(n.id); graph3d.focus(n.id); }).onBackgroundClick(() => selectNode(null));
+          g.d3Force('charge').strength(-60).distanceMax(240);
+          g.setTheme(pageDark() ? 'dark' : 'light'); // follows the window's theme; the button can still flip it
+          $('theme3d').onclick = () => { g.setTheme(g.theme() === 'dark' ? 'light' : 'dark'); paintButtons(); };
+          $('rotate3d').onclick = () => { g.setRotating(!g.rotating()); paintButtons(); };
+          paintButtons();
+        }
+        g.onEngineStop(() => { if (!fitted) { fitted = true; if (search) graph3d.fitFiles(search.files); else g.zoomToFit(700, 70); } });
+        g.width(W()).height(H()).nodeColor(color).linkColor(linkColor).graphData({ nodes, links });
+        computeNeighbours();
+        opts3d.labels = labelCount();
+        g.nodeColor(color).show().setActive(search ? [] : selectedLinks()).refreshLabels();
+        $('zoom-level').textContent = '3D';
+      },
+      hide() { g?.hide(); $('graph').style.display = 'none'; },
+      restyle() {
+        if (!g) return;
+        computeNeighbours();
+        opts3d.labels = labelCount();
+        g.nodeColor(color).linkColor(linkColor).setActive(search ? [] : selectedLinks()).refreshLabels();
+      },
+      // the window switched light/dark: the 3D theme follows
+      syncTheme() { if (!g) return; g.setTheme(pageDark() ? 'dark' : 'light'); paintButtons(); graph3d.restyle(); },
+      // Frame every search hit (and nothing else).
+      fitFiles(files) { if (g && files.size) g.zoomToFit(900, 80, (n) => files.has(n.id)); },
+      focus(fileId) {
+        const n = g?.graphData().nodes.find((x) => x.id === fileId);
+        if (!n) return;
+        const r = 1 + 260 / Math.hypot(n.x || 1, n.y || 1, n.z || 1);
+        g.cameraPosition({ x: (n.x || 0) * r, y: (n.y || 0) * r, z: (n.z || 0) * r }, n, 900);
+      },
+      zoomBy(f) { if (!g) return; const p = g.cameraPosition(); g.cameraPosition({ x: p.x / f, y: p.y / f, z: p.z / f }, undefined, 300); },
+      fit() { g?.zoomToFit(600, 70); },
+      instance: () => g, // for debugging in the browser console
+      resize() { g?.width(W()).height(H()); },
+    };
+  })();
+  const pageDark = () => document.documentElement.dataset.theme === 'dark';
+
+  // ======================= rail: selection details =======================
+  const handle = '<button class="handle" aria-label="Close details"></button>';
+  const label = (t) => `<p class="w-label">${esc(t)}</p>`;
+  const wrapPath = (p) => esc(p).replaceAll('/', '/<wbr>'); // long paths break after a slash
+  const head = (kind, name, sub) => `<div class="r-head">${label(kind)}<h2 class="r-name">${esc(name)}</h2>${sub ? `<p class="r-sub">${sub}</p>` : ''}</div>`;
+  const kvs = (rows) => { const r = rows.filter(Boolean); return r.length ? `<dl class="r-kv">${r.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>` : ''; };
+  const section = (title, rows, max = 40) => (rows.length ? `<section class="r-group">${label(`${title} · ${rows.length}`)}<div class="r-list">${rows.slice(0, max).join('')}${rows.length > max ? `<div class="r-more">… ${rows.length - max} more</div>` : ''}</div></section>` : '');
+  const symName = (s) => (s.name === 'default' ? `${base(fileOf(s).path)} (default)` : s.name);
+  const symItem = (id, extra = '') => {
+    if (id < 0) { const f = D.fileById.get(-id); return `<button class="r-row" data-file="${f.id}" title="${esc(f.path)}">${wi('code')}<span class="nm">${esc(shortPath(f.path))} (module)</span><em>${esc(extra)}</em></button>`; }
+    const s = D.symById.get(id);
+    return `<button class="r-row" data-sym="${s.id}" title="${esc(fileOf(s).path)}:${s.line}">${wi('code')}<span class="nm">${esc(symName(s))}</span><em>${esc(extra || KIND_SHORT[s.kind] || s.kind)}</em></button>`;
+  };
+  // the folder is shown only when another file has the same name
+  const fileItem = (id, extra = '') => {
+    const f = D.fileById.get(id), name = shortPath(f.path);
+    const folder = !name.includes('/') && (D.nameCount.get(base(f.path)) ?? 0) > 1 ? f.path.split('/').slice(-3, -1).join('/') : '';
+    return `<button class="r-row" data-file="${id}" title="${esc(f.path)}">${wi('code')}<span class="nm">${esc(name)}</span><em>${esc(extra || folder)}</em></button>`;
+  };
+  const plainItem = (icon, name, extra = '') => `<button class="r-row" disabled>${wi(icon)}<span class="nm">${esc(name)}</span><em>${esc(extra)}</em></button>`;
+  const actions = (path, line) => `<div class="r-actions">${editorBtn(path, line)}<button class="btn btn-secondary" id="impact-btn" aria-pressed="${impactOn}">${impactOn ? 'Hide impact' : 'Show impact'}</button></div>`;
+  const levelSummary = () => {
+    if (!impact) return '';
+    const counts = [];
+    for (const l of impact.values()) counts[l] = (counts[l] ?? 0) + 1;
+    const files = new Set([...impact.keys()].map((id) => ownerFile(id)?.id));
+    return `<section class="r-group">${label(`Impact of a change · ${files.size} files`)}<div class="levels">${counts.slice(1).map((n, i) => `<span class="w-pill sans"><i class="sw" style="background:${levelColor(i + 1)}"></i>Level ${i + 1}: ${n ?? 0}</span>`).join('') || '<span class="w-pill sans">Nothing uses it</span>'}</div></section>`;
+  };
+
+  const isColor = (v) => /^#[0-9a-f]{3,8}$/i.test(String(v ?? '').trim()) || /^Color\(0x/i.test(String(v ?? ''));
+  const cssColor = (v) => { const m = /0x([0-9a-f]{2})([0-9a-f]{6})/i.exec(v); return m ? `#${m[2]}${m[1]}` : v; };
+  const swatch = (v) => (isColor(v) ? `<span class="swatch" style="background:${esc(cssColor(String(v).trim()))}"></span>` : '');
+  async function pickFigma(id, btn) {
+    setLoading(btn, true, 'Selecting…');
+    try {
+      const res = await fetch('/api/tool', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'select_nodes', args: { nodeIds: [id] } }) });
+      if ((await res.json()).isError) throw new Error();
+      toast('Selected in Figma');
+    } catch { toast("Couldn't select it in Figma — open the design file and the wridge plugin first", { kind: 'error' }); }
+    setLoading(btn, false);
+  }
+  async function syncDesign(btn) {
+    setLoading(btn, true, 'Pulling from Figma…');
+    try {
+      const res = await fetch('/api/code/design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      toast(`Pulled from Figma "${body.file}" · ${body.components} components · ${body.tokens} tokens`);
+      load();
+    } catch (err) { toast(`Couldn't pull from Figma — ${err.message}`, { kind: 'error' }); setLoading(btn, false); }
+  }
+  async function confirmPair(symbolId, figmaName, btn) {
+    setLoading(btn, true, 'Saving…');
+    try {
+      const res = await fetch('/api/code/link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: current, figmaName, symbolId }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      toast(`Saved ${figmaName} → ${body.component} in wara.components.json`);
+      D.linkOf.get(symbolId).status = 'linked';
+      renderPanel();
+    } catch (err) { toast(`Couldn't save — ${err.message}`, { kind: 'error' }); setLoading(btn, false); }
+  }
+  // Notes written by AI (code_graph_note). Stale = the code changed after the note was written.
+  function noteBox(key, who) {
+    const n = D.noteOf.get(key);
+    if (!n) return '';
+    const when = new Date(n.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `<div class="r-note${n.status !== 'ok' ? ' stale' : ''}"><span class="who">AI NOTE · ${esc(who ?? 'this')} · ${when}${n.status === 'stale' ? ' · code changed since — may be out of date' : ''}</span>${esc(n.text)}</div>`;
+  }
+  // Brain notes ([[code:path]] / [[code:path#Name]]) about this file or symbol — open them in Notes.
+  let brainLinks = [];
+  const noteUrl = (notePath) => {
+    const q = new URLSearchParams({ note: notePath });
+    if (current) q.set('dir', current);
+    if (EMBED && document.documentElement.dataset.theme) q.set('theme', document.documentElement.dataset.theme);
+    return `/brain?${q}`;
+  };
+  function brainBox(path, name) {
+    const hits = brainLinks.filter((l) => { const [p, n] = l.target.split('#'); return (p === path && (!name || !n || n === name)) || (name && !p.includes('/') && !p.includes('.') && p === name); });
+    const notes = [...new Map(hits.map((h) => [h.notePath, h])).values()];
+    if (!notes.length) return '';
+    const folder = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : 'brain');
+    const target = (t) => { const [p, n] = t.split('#'); return `${p.includes('/') ? base(p) : p}${n ? `#${n}` : ''}`; };
+    return `<div class="brain-box">${label(`Brain notes linking here · ${notes.length}`)}${notes.map((h) => `<a class="bn" href="${esc(noteUrl(h.notePath))}" title="Open in Notes"><span class="bn-top">${wi('notes')}<b>${esc(h.note)}</b><span class="go">${wi('external')}</span></span><span class="bn-sub">${esc(folder(h.notePath))} · links ${esc(target(h.target))}</span></a>`).join('')}</div>`;
+  }
+  // A file's own note, then its folders' (closest first).
+  function fileNotes(path) {
+    const parts = path.split('/').slice(0, -1);
+    const out = [noteBox(`file:${path}`, 'this file')];
+    for (let i = parts.length; i >= 1; i--) out.push(noteBox(`dir:${parts.slice(0, i).join('/')}`, `folder ${parts.slice(0, i).join('/')}/`));
+    return out.join('');
+  }
+
+  // Figma link of a code component (confirmed in wara.components.json, or a name-based suggestion).
+  function designSection(symId) {
+    const l = D.linkOf.get(symId);
+    if (!l) return '';
+    return `<section class="r-group">${label('Design')}<div class="r-box">
+      <div class="row"><span>Figma · <b>${esc(l.figma)}</b></span><span class="tag">${l.status === 'linked' ? 'linked' : 'guessed from name'}</span></div>
+      <div class="r-actions">${l.figmaId ? '<button class="btn btn-secondary" id="pick-figma">Select in Figma</button>' : ''}${l.status === 'suggested' ? '<button class="btn btn-primary" id="confirm-pair">Confirm pair</button>' : ''}</div>
+    </div></section>`;
+  }
+  function wireDesign(symId) {
+    const l = D.linkOf.get(symId);
+    if (!l) return;
+    if ($('pick-figma')) $('pick-figma').onclick = (e) => pickFigma(l.figmaId, e.currentTarget);
+    if ($('confirm-pair')) $('confirm-pair').onclick = (e) => confirmPair(symId, l.figma, e.currentTarget);
+  }
+
+  // The rail's content; fresh = a new subject (plays the entrance), not a repaint of the same one.
+  let lastSubject = '';
+  function setPanel(html, subject) {
+    const fresh = subject !== lastSubject;
+    lastSubject = subject;
+    panel.innerHTML = `${handle}<div class="r-body${fresh ? ' w-fade-in' : ''}">${html}</div>`;
+  }
+
+  function summary() {
+    if (!D) { setPanel(`<p class="r-hint">Choose a project to see its code graph.</p>`, 'none'); wire(); return; }
+    const kinds = {};
+    for (const s of D.symbols) kinds[kindGroup(s.kind)] = (kinds[kindGroup(s.kind)] ?? 0) + 1;
+    const unresolved = D.update?.unresolvedImports ?? 0;
+    const stale = (D.notes ?? []).filter((n) => n.status !== 'ok').length;
+    setPanel(`${head('Project', D.name, wrapPath(D.root))}
+      ${kvs([['Files', visibleFiles().length], ['Routes', D.routes.length], ['Components', kinds.component ?? 0], ['Hooks', kinds.hook ?? 0], ['Functions', kinds.function ?? 0],
+        ['Packages', Object.keys(Object.assign({}, ...Object.values(D.externals))).length], ['Updated', D.updatedAt ? new Date(D.updatedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—'],
+        (D.notes ?? []).length && ['AI notes', `${D.notes.length}${stale ? ` · ${stale} stale` : ''}`]])}
+      ${unresolved ? `<div class="r-soft">${unresolved} import${unresolved === 1 ? '' : 's'} point at files that aren't there — usually generated files or ones in .gitignore.</div>` : ''}
+      <p class="r-hint">Click a file or symbol to see what uses it, what it uses, and what a change would affect.</p>
+      <section class="r-group only-2d">${label('Show in the map')}<div class="chips" id="filters"></div>
+        <div class="r-actions" style="margin-top:6px"><button class="linkbtn" id="expand-all">Expand all</button><button class="linkbtn" id="collapse-all">Collapse all</button></div></section>
+      <section class="r-group">${label('Design · Figma')}<div class="r-box">${D.design?.file
+        ? `<div class="row"><span>File · <b>${esc(D.design.file)}</b></span><span class="tag">${new Date(D.design.fetchedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span></div>
+           <div class="row"><span>Components linked / guessed</span><span class="tag">${D.design.links.filter((l) => l.status === 'linked').length} / ${D.design.links.filter((l) => l.status === 'suggested').length}</span></div>
+           <div class="row"><span>Tokens that differ from Figma</span><span class="tag">${(D.tokens ?? []).filter((t) => t.mismatch).length}</span></div>`
+        : '<div class="row"><span>Not pulled from Figma yet — open this project\'s design file with the plugin, then pull.</span></div>'}
+        ${(D.design?.classLinks ?? []).map((c) => `<div class="row"><span>Figma · <b>${esc(c.figma)}</b> → <code>.${esc(c.className.split(/\s+/).join(' .'))}</code>${c.missing.length ? ` · <b>missing in CSS: .${esc(c.missing.join(' .'))}</b>` : ''}</span><span class="tag">CSS · ${c.files} files</span></div>`).join('')}
+        ${(D.hardcoded ?? []).length ? `<div class="row"><span>Colours written inline instead of tokens</span><span class="tag">${D.hardcoded.reduce((n, h) => n + h.count, 0)}</span></div>` : ''}
+        <div class="r-actions"><button class="btn btn-secondary" id="sync-design">${D.design?.file ? 'Pull from Figma again' : 'Pull from Figma'}</button></div>
+      </div></section>
+      <div class="r-actions only-web"><button class="btn btn-ghost" id="forget">Remove from list</button></div>`, `summary:${D.root}`);
+    wire();
+    renderFilters();
+    $('expand-all').onclick = () => D && mindmap.expandAll(true);
+    $('collapse-all').onclick = () => D && mindmap.expandAll(false);
+    $('forget').onclick = () => forgetProject();
+    $('sync-design').onclick = (e) => syncDesign(e.currentTarget);
+  }
+
+  function renderPanel() {
+    const sel = selection;
+    if (!sel && search) return searchPanel();
+    if (!sel) return summary();
+    let html = search ? `<button class="btn btn-ghost" id="gs-back">← Results for “${esc(search.q)}” · ${search.hits.length}</button>` : '';
+    let subject = '';
+    if (sel.type === 'symbol') {
+      const s = D.symById.get(sel.id), f = fileOf(s);
+      const used = D.usedIn.get(s.id) ?? [], usesList = D.usesOut.get(s.id) ?? [];
+      subject = `s:${s.id}`;
+      html += `${head(`Symbol · ${KIND_LABEL[s.kind] ?? s.kind}`, s.name === 'default' ? `${base(f.path)} (default export)` : s.name, `${wrapPath(f.path)}:${s.line}`)}
+        ${actions(f.path, s.line)}
+        ${kvs([['Lines', `${s.line}–${s.end}`], ['Export', s.isDefault ? 'default' : s.exported ? 'yes' : 'no (file only)'], s.props?.names?.length && ['Props', s.props.names.join(', ')], s.props?.type && ['Props type', s.props.type]])}
+        ${impactOn ? levelSummary() : ''}
+        ${section('Used by', used.map((u) => symItem(u.from, `${u.kind}${u.count > 1 ? ` ×${u.count}` : ''}`)))}
+        ${section('Uses', usesList.map((u) => symItem(u.to, u.kind)))}
+        ${!used.length ? `<div class="r-soft">${s.exported ? 'Exported, but nothing uses it yet.' : 'Only used inside this file.'}</div>` : ''}
+        <section class="r-group">${label('In file')}<div class="r-list">${fileItem(f.id, langName(f.path, f.lang))}</div></section>
+        ${designSection(s.id)}
+        ${brainBox(f.path, s.name)}${noteBox(`symbol:${f.path}#${s.name}`, 'this symbol')}${fileNotes(f.path)}`;
+    } else if (sel.type === 'file') {
+      const f = D.fileById.get(sel.id);
+      const syms = (D.symbolsOf.get(f.id) ?? []).sort((a, b) => b.exported - a.exported || a.line - b.line);
+      const ext = Object.entries(D.externals[f.id] ?? {});
+      subject = `f:${f.id}`;
+      html += `${head('File', base(f.path), `${wrapPath(f.path)} · ${esc(langName(f.path, f.lang))}${f.directive ? ` · "${esc(f.directive)}"` : ''}`)}
+        ${actions(f.path)}
+        ${f.error ? `<div class="r-issue">Couldn't read this file: ${esc(f.error)}</div>` : ''}
+        ${impactOn ? levelSummary() : ''}
+        ${section('Symbols', syms.map((s) => symItem(s.id, `${KIND_SHORT[s.kind] ?? s.kind}${s.exported ? '' : ' · local'}`)))}
+        ${section('Used by', (D.importedBy.get(f.id) ?? []).map((x) => fileItem(x.from)))}
+        ${section('Uses', (D.importsOut.get(f.id) ?? []).map((x) => fileItem(x.to)))}
+        ${section('Routes', f.routes.map((r) => plainItem('link', r)))}
+        ${section('Packages', ext.map(([p, n]) => plainItem('plug', p, `${n}×`)))}
+        ${brainBox(f.path)}${fileNotes(f.path)}`;
+    } else if (sel.type === 'token') {
+      const t = (D.tokens ?? []).find((x) => x.name === sel.name);
+      const files = t.files.map((p) => D.files.find((f) => f.path === p)).filter(Boolean);
+      subject = `t:${t.name}`;
+      html += `${head('Token', t.name, t.defined ? esc(t.defined) : '')}
+        ${kvs([t.value && ['Code value', t.resolved ? `${t.value} → ${t.resolved}` : t.value], ['Figma', t.figma ? `${t.figma.token} = ${t.figma.value}` : D.design?.file ? 'not in Figma' : 'not pulled yet'], ['Used', `${t.count}× · ${t.files.length} files`]])}
+        ${t.value && t.figma ? `<div class="r-box"><div class="row"><span>${swatch(t.resolved ?? t.value)}Code</span><span class="tag">${esc(t.resolved ?? t.value)}</span></div><div class="row"><span>${swatch(t.figma.value)}Figma</span><span class="tag">${esc(t.figma.value)}</span></div></div>` : ''}
+        ${t.mismatch ? '<div class="r-warn">The code value doesn\'t match Figma — fix it in code, or make a new token file with get_tokens.</div>' : ''}
+        ${!t.value ? '<div class="r-soft">In Figma, but not declared in code yet.</div>' : ''}
+        ${t.value && !t.count ? '<div class="r-soft">Declared, but nothing uses it yet.</div>' : ''}
+        ${t.defined ? `<div class="r-actions">${editorBtn(t.defined.split(':')[0], t.defined.split(':')[1], 'Open definition in VS Code')}</div>` : ''}
+        ${section('Used in', files.map((f) => fileItem(f.id)))}`;
+    } else if (sel.type === 'pkg') {
+      const users = Object.entries(D.externals).filter(([, e]) => e[sel.pkg]).map(([id]) => Number(id));
+      subject = `p:${sel.pkg}`;
+      html += `${head('Package', sel.pkg)}${section('Used in', users.map((id) => fileItem(id, `${D.externals[id][sel.pkg]}×`)))}`;
+    } else if (sel.type === 'dir') {
+      const files = D.files.filter((f) => (sel.dir ? f.path.startsWith(`${sel.dir}/`) : !f.path.includes('/')) && f.lang !== 'config');
+      subject = `d:${sel.dir}`;
+      html += `${head('Folder', `${sel.dir || '(root)'}/`, `${files.length} file${files.length === 1 ? '' : 's'}`)}${noteBox(`dir:${sel.dir}`, 'this folder')}${section('Files', files.map((f) => fileItem(f.id, langName(f.path, f.lang))))}`;
+    }
+    setPanel(html, subject);
+    panel.classList.add('open');
+    wire();
+    const btn = $('impact-btn');
+    if (btn) btn.onclick = () => setImpact(!impactOn);
+    if (sel.type === 'symbol') wireDesign(sel.id);
+  }
+
+  // Search results, grouped by kind (rows carry data-hit = index in the hit list).
+  function resultsHTML(st, max = 60) {
+    return Object.entries(SEARCH_KINDS).map(([k, v]) => {
+      const rows = st.hits.map((h, i) => [h, i]).filter(([h]) => h.kind === k);
+      if (!rows.length) return '';
+      return `<div class="gs-group"><div class="gs-group-head"><i style="background:${v.color}"></i>${esc(v.label)} · ${rows.length}</div>${rows.slice(0, max).map(([h, i]) =>
+        `<button class="gs-row${i === st.index ? ' current' : ''}" data-hit="${i}"><span>${esc(h.label)}</span>${h.sub ? `<em>${esc(h.sub)}</em>` : ''}</button>`).join('')}${rows.length > max ? `<div class="gs-more">… ${rows.length - max} more</div>` : ''}</div>`;
+    }).join('');
+  }
+  function searchPanel() {
+    setPanel(`${head('Search', `“${search.q}”`, `${search.hits.length} result${search.hits.length === 1 ? '' : 's'}`)}
+      <p class="gs-hint">Lit = matches · half-lit = one import away${search.near.size ? ` (${search.near.size} file${search.near.size === 1 ? '' : 's'})` : ''}</p>
+      ${resultsHTML(search)}
+      <p class="gs-foot">↑ ↓ or ‹ › step through · Enter zooms to it · click for details · Esc clears</p>`, `search:${search.q}`);
+    panel.classList.add('open');
+    wire();
+    panel.querySelectorAll('[data-hit]').forEach((b) => (b.onclick = () => openHit(Number(b.dataset.hit))));
+    panel.querySelector('.gs-row.current')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  function wire() {
+    panel.querySelector('.handle').onclick = () => (selection ? selectNode(null) : panel.classList.remove('open'));
+    if ($('gs-back')) $('gs-back').onclick = () => selectNode(null);
+    panel.querySelectorAll('[data-sym]').forEach((el) => (el.onclick = () => revealSymbol(Number(el.dataset.sym))));
+    panel.querySelectorAll('[data-file]').forEach((el) => (el.onclick = () => revealFile(Number(el.dataset.file))));
+    panel.querySelectorAll('[data-open]').forEach((el) => (el.onclick = () => openInEditor(el.dataset.open, Number(el.dataset.line) || undefined, el)));
+  }
+
+  function setImpact(on) {
+    impactOn = on && selection && (selection.type === 'symbol' || selection.type === 'file');
+    impact = impactOn ? computeImpact(selection) : null;
+    mindmap.setHighlight(impactOn ? levelOfNode : null);
+    graph3d.restyle();
+    renderLegend();
+    renderPanel();
+  }
+
+  function selectNode(n) {
+    if (!n) { selection = null; mindmap.setSelected(null); setImpact(false); if (!search) panel.classList.remove('open'); return; }
+    const d = n.data ?? {};
+    if (d.sym) selection = { type: 'symbol', id: d.sym.id };
+    else if (d.file) selection = { type: 'file', id: d.file.id };
+    else if (d.pkg) selection = { type: 'pkg', pkg: d.pkg };
+    else if (d.token) selection = { type: 'token', name: d.token.name };
+    else if (d.dir !== undefined) selection = { type: 'dir', dir: d.dir };
+    else return; // group headers just expand
+    mindmap.setSelected(n.key);
+    if (impactOn) setImpact(true); else renderPanel();
+  }
+  function selectFile(id) {
+    selection = { type: 'file', id };
+    if (impactOn) setImpact(true); else { renderPanel(); graph3d.restyle(); }
+  }
+
+  // Open the folder chain down to a file (and symbol) in the mind map.
+  function pathKeys(fileId) {
+    const f = D.fileById.get(fileId);
+    const parts = f.path.split('/');
+    const keys = [];
+    if (parts.length === 1) keys.push('d:');
+    else for (let i = 1; i < parts.length; i++) keys.push(`d:${parts.slice(0, i).join('/')}`);
+    keys.push(`f:${fileId}`);
+    return keys;
+  }
+  function revealFile(id) {
+    if (is3D) { selectFile(id); graph3d.focus(id); return; }
+    const n = mindmap.revealPath(pathKeys(id));
+    selectNode(n);
+  }
+  function revealSymbol(id) {
+    const s = D.symById.get(id);
+    if (is3D) { selection = { type: 'symbol', id }; impactOn ? setImpact(true) : renderPanel(); graph3d.focus(s.file); return; }
+    if (!show[kindGroup(s.kind)]) { show[kindGroup(s.kind)] = true; renderFilters(); mindmap.setTree(buildTree(), { keepOpen: true }); }
+    const n = mindmap.revealPath([...pathKeys(s.file), `s:${id}`]);
+    selectNode(n);
+  }
+
+  // ======================= chrome & states =======================
+  function renderFilters() {
+    const box = $('filters');
+    if (!box) return;
+    box.innerHTML = FILTERS.map(([k, name]) => `<button class="w-pill" data-kind="${k}" aria-pressed="${show[k]}">${name}</button>`).join('');
+    box.querySelectorAll('[data-kind]').forEach((b) => (b.onclick = () => {
+      show[b.dataset.kind] = !show[b.dataset.kind];
+      b.setAttribute('aria-pressed', String(show[b.dataset.kind]));
+      if (D) mindmap.setTree(buildTree(), { keepOpen: true });
+    }));
+  }
+  // bottom-left: what the numbers mean, or a colour key (3D, impact)
+  function renderLegend() {
+    const hint = $('hint');
+    if (!D) { hint.innerHTML = ''; return; }
+    const sw = (c) => `<i class="sw" style="background:${c}"></i>`;
+    if (impactOn) { hint.innerHTML = `<span>${sw(levelColor(0))}source</span><span>${sw(levelColor(1))}level 1</span><span>${sw(levelColor(2))}level 2</span><span>${sw(levelColor(3))}level 3+</span>`; return; }
+    hint.innerHTML = is3D
+      ? `<span>${sw(PAL.accent)}route file</span><span>${sw(PAL.accent2)}has components</span><span>${sw(PAL.faint)}other</span><span>drag to orbit · scroll to zoom</span>`
+      : '<span>click to open · numbers are files / symbols · drag to pan</span>';
+  }
+  function showLoading(text = 'Reading the code…') {
+    // "loading" art (Lottie): dots wave under the cat, its eyes follow (loops)
+    state.innerHTML = `<div class="loading-pill"><span class="spinner"></span>${esc(text)}</div><div class="center"><div class="loading-art" data-anim="loading" data-loop aria-hidden="true"></div></div>`;
+  }
+  function showCenter(icon, kind, title, body, button, onClick, mood) {
+    state.innerHTML = `<div class="center"><div class="w-empty state-card w-fade-in">${ui.emptyIcon(icon, kind, mood)}<h2>${esc(title)}</h2><p>${esc(body)}</p>${button ? `<button class="btn btn-primary" id="state-btn">${esc(button)}</button>` : ''}</div></div>`;
+    if (button) $('state-btn').onclick = onClick;
+  }
+  const clearState = () => { state.innerHTML = ''; document.body.classList.remove('searching'); };
+  function paintToolbar() {
+    const name = D?.name ?? (current ? base(current) : '');
+    $('crumb').textContent = name ? `Code · ${name}` : 'Code';
+    const pill = $('count-pill');
+    pill.hidden = !D;
+    if (D) { const n = visibleFiles().length, lang = mainLanguage(); pill.textContent = `${n} file${n === 1 ? '' : 's'}${lang ? ` · ${lang}` : ''}`; }
+  }
+
+  function render() {
+    document.body.classList.toggle('mode-3d', is3D);
+    if (is3D) { mindmap.hide(); graph3d.show(); if (search) setTimeout(() => search && graph3d.fitFiles(search.files), 60); } else { graph3d.hide(); mindmap.show(); mindmap.setTree(buildTree()); if (search) showSearchInTree(true); }
+    renderLegend();
+  }
+
+  async function loadProjects() {
+    try {
+      projects = await (await fetch('/api/code/projects', { cache: 'no-store' })).json();
+    } catch {
+      return showCenter('alert', 'bad', "Can't reach the server", 'Start the server from the Overview, then try again.', 'Try again', loadProjects);
+    }
+    $('picker').hidden = !projects.length;
+    if (!projects.length) {
+      D = null; summary(); renderLegend(); paintToolbar(); mindmap.hide();
+      return showCenter('inbox', '', 'No projects yet', "Add a code project's folder and wridge builds its graph in that project's .wara/ folder.", '+ Add project', addProject);
+    }
+    const wanted = new URLSearchParams(location.search).get('dir') ?? store.get('code-project');
+    current = projects.find((p) => p.dir === wanted)?.dir ?? projects[0].dir;
+    $('picker-label').textContent = base(current);
+    load();
+  }
+
+  // fonts measure the mind map's boxes: wait for them (briefly — offline they may never come)
+  const fontsReady = () => Promise.race([document.fonts?.ready ?? Promise.resolve(), new Promise((r) => setTimeout(r, 1500))]);
+
+  async function load() {
+    gs.clear();
+    clearState();
+    selection = null; impactOn = false; impact = null;
+    mindmap.setHighlight(null);
+    document.body.classList.add('no-data');
+    showLoading();
+    store.set('code-project', current);
+    paintToolbar();
+    $('refresh').disabled = true;
+    let res, body;
+    try {
+      res = await fetch(`/api/code/graph?dir=${encodeURIComponent(current)}`, { cache: 'no-store' });
+      body = await res.json();
+    } catch {
+      $('refresh').disabled = false;
+      return showCenter('alert', 'bad', "Can't reach the server", 'Start the server from the Overview, then try again.', 'Try again', load);
+    }
+    $('refresh').disabled = false;
+    if (!res.ok) return showCenter('alert', 'bad', "Couldn't read this project's graph", body.error || `HTTP ${res.status}`, 'Try again', load);
+    D = index(body);
+    try { brainLinks = await (await fetch(`/api/brain/code-links?dir=${encodeURIComponent(current)}`, { cache: 'no-store' })).json(); if (!Array.isArray(brainLinks)) brainLinks = []; } catch { brainLinks = []; }
+    await fontsReady();
+    clearState();
+    paintToolbar();
+    if (body.update?.gitignore?.added) toast(`Added ${body.update.gitignore.pattern} to .gitignore`, { kind: 'info' });
+    document.body.classList.toggle('no-data', !visibleFiles().length);
+    if (!visibleFiles().length) { summary(); mindmap.hide(); graph3d.hide(); renderLegend(); return showCenter('inbox', '', 'No code files here', "This folder has no TS/JS or Dart files that git tracks, so there's nothing to map yet.", 'Rescan', load, 'bored'); }
+    summary();
+    render();
+    // /code?file=path (from a brain note's code link): open that file
+    const wantFile = new URLSearchParams(location.search).get('file');
+    const hit = wantFile && D.files.find((f) => f.path === wantFile.split('#')[0]);
+    if (hit) revealFile(hit.id);
+  }
+
+  async function addProject() {
+    const dir = await ui.inputDialog({
+      title: 'Add a project',
+      body: "wridge reads the code and builds its graph in the project's .wara/ folder. Your code isn't changed.",
+      label: 'Project folder path',
+      placeholder: 'C:\\Users\\you\\Projects\\my-app',
+      note: 'In a git repo, /.wara/ is added to .gitignore before the graph is built.',
+      confirm: 'Build graph',
+    });
+    if (!dir) return;
+    showLoading('Building the graph…');
+    try {
+      const res = await fetch('/api/code/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir: dir.replace(/^"|"$/g, '') }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error);
+      toast(`Graph built · ${body.files} files${body.gitignore?.added ? ' · added .wara/ to .gitignore' : ''}`);
+      ui.celebrate();
+      history.replaceState(null, '', `?dir=${encodeURIComponent(body.root)}`);
+      store.set('code-project', body.root);
+    } catch (err) {
+      toast(`Couldn't add the project — ${err.message}`, { kind: 'error' });
+    }
+    loadProjects();
+  }
+
+  // Remove a project from this list. Its code and .wara/ folder stay, so adding it back is instant.
+  async function forgetProject(dir = current) {
+    const ok = await ui.confirmDialog({ title: `Remove ${base(dir)} from the list?`, body: "It only leaves this list — the code and its .wara/ folder stay, and you can add it back any time.", confirm: 'Remove', danger: true });
+    if (!ok) return;
+    await fetch('/api/code/projects/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dir }) });
+    toast(`Removed ${base(dir)} from the list`);
+    if (dir === current) {
+      history.replaceState(null, '', location.pathname);
+      store.set('code-project', '');
+      current = null;
+    }
+    loadProjects();
+  }
+
+  // ======================= project picker (search + delete; outside the window) =======================
+  const picker = (() => {
+    const pop = $('picker-pop'), btn = $('picker-btn'), input = $('picker-search'), list = $('picker-list');
+    let active = 0, shown = [];
+    const isOpen = () => !pop.hidden;
+    function render() {
+      const q = input.value.trim().toLowerCase();
+      shown = projects.filter((p) => !q || p.dir.toLowerCase().includes(q));
+      active = Math.min(active, Math.max(0, shown.length - 1));
+      list.innerHTML = shown.length ? shown.map((p, i) => `
+        <div class="picker-row${p.dir === current ? ' current' : ''}${i === active ? ' active' : ''}" role="option" aria-selected="${p.dir === current}">
+          <button class="picker-item" data-pick="${i}"><span class="picker-name">${esc(base(p.dir))}</span>
+            <span class="picker-path${p.exists === false ? ' picker-missing' : ''}">${p.exists === false ? 'folder not found · ' : ''}${esc(p.dir)}</span></button>
+          <button class="picker-del" data-del="${i}" aria-label="Remove ${esc(base(p.dir))} from the list" title="Remove from the list">${ICONS.trash}</button>
+        </div>`).join('') : `<div class="picker-empty">No project matches “${esc(input.value)}”</div>`;
+      list.querySelectorAll('[data-pick]').forEach((b) => (b.onclick = () => choose(shown[Number(b.dataset.pick)])));
+      list.querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => { const p = shown[Number(b.dataset.del)]; close(); forgetProject(p.dir); }));
+    }
+    function open() {
+      pop.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      input.value = '';
+      active = Math.max(0, projects.findIndex((p) => p.dir === current));
+      render();
+      input.focus();
+    }
+    function close() { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    function choose(p) {
+      close();
+      if (!p || p.dir === current) return;
+      current = p.dir;
+      $('picker-label').textContent = base(current);
+      history.replaceState(null, '', `?dir=${encodeURIComponent(current)}`);
+      load();
+    }
+    btn.onclick = () => (isOpen() ? close() : open());
+    input.oninput = () => { active = 0; render(); };
+    input.onkeydown = (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, shown.length - 1); render(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); render(); }
+      else if (e.key === 'Enter') { e.preventDefault(); choose(shown[active]); }
+      else if (e.key === 'Escape') { e.stopPropagation(); close(); btn.focus(); }
+    };
+    $('picker-add').onclick = () => { close(); addProject(); };
+    document.addEventListener('pointerdown', (e) => { if (isOpen() && !$('picker').contains(e.target)) close(); });
+    return { close };
+  })();
+
+  // ======================= search: every match lights up =======================
+  const SEARCH_KINDS = {
+    route: { label: 'route', color: '#2F6BFF' }, component: { label: 'component', color: '#5F8BFF' }, symbol: { label: 'hook / function', color: '#7C5CE0' },
+    file: { label: 'file', color: '#A8A49B' }, token: { label: 'token', color: '#C27C0E' },
+  };
+  let search = null; // { q, hits, index, current, files: Set (files with a hit), near: Set (files one import away) }
+  const treeRoutes = () => D.routes.filter((r) => r.kind !== 'layout' || r.path === '/'); // same order as the mind map's Routes branch
+  function findHits(needle) {
+    const hits = [];
+    treeRoutes().forEach((r, i) => { if (r.path.toLowerCase().includes(needle)) hits.push({ id: `r:${i}`, label: r.path, kind: 'route', sub: r.kind, file: r.file, route: i }); });
+    for (const s of D.symbols) {
+      if (s.name === 'default' || !(s.exported || s.kind === 'component') || !s.name.toLowerCase().includes(needle)) continue;
+      const k = kindGroup(s.kind);
+      if (k === 'const' || k === 'type') continue;
+      hits.push({ id: `s:${s.id}`, label: s.name, kind: k === 'component' ? 'component' : 'symbol', sub: base(fileOf(s).path), file: s.file, sym: s.id });
+    }
+    for (const f of D.files) if (f.lang !== 'config' && f.path.toLowerCase().includes(needle)) hits.push({ id: `f:${f.id}`, label: f.path, kind: 'file', sub: langName(f.path, f.lang), file: f.id });
+    for (const t of D.tokens ?? []) if (t.name.toLowerCase().includes(needle) || t.figma?.token.toLowerCase().includes(needle)) hits.push({ id: `t:${t.name}`, label: t.name, kind: 'token', sub: `${t.count}×`, token: t.name });
+    return hits;
+  }
+  // Key path from the mind map's root to a hit.
+  function hitPath(h) {
+    if (h.kind === 'route') return ['routes', `r:${h.route}`];
+    if (h.kind === 'token') return ['tokens', `t:${h.token}`];
+    const keys = pathKeys(h.file);
+    if (h.sym != null && show[kindGroup(D.symById.get(h.sym).kind)]) keys.push(`s:${h.sym}`);
+    return keys;
+  }
+  // Mind map: only the branches with hits are open; hits outlined, the rest faded.
+  function showSearchInTree(reopen) {
+    const paths = search.hits.map(hitPath);
+    const hitKeys = new Set(paths.map((p) => p.at(-1)));
+    const onPath = new Set(paths.flatMap((p) => p.slice(0, -1)));
+    const cur = paths[search.index]?.at(-1);
+    if (reopen) {
+      mindmap.revealMany(paths);
+      if (zoomK < 0.5 && cur) mindmap.centerOn(cur); // too many hits to read at once: start on the current one
+    }
+    mindmap.setHighlight((n) => {
+      if (!n || n.depth === 0) return null;
+      if (hitKeys.has(n.key)) return n.key === cur ? 'gs-hit gs-current' : 'gs-hit';
+      return onPath.has(n.key) ? null : undefined;
+    });
+  }
+  // The results bar (search.js keeps its own bar hidden: this one speaks English and sits on the canvas).
+  function paintBar() {
+    const st = gs.state(), bar = $('search-bar');
+    if (!st) { bar.hidden = true; bar.innerHTML = ''; return; }
+    bar.hidden = false;
+    bar.className = st.broad ? 'warn' : !st.hits.length ? 'none' : '';
+    if (st.broad) { bar.innerHTML = `<span>${st.hits.length.toLocaleString('en')} matches — too broad to light up. Type a little more.</span>`; return; }
+    if (!st.hits.length) { bar.innerHTML = `<span>No match for “${esc(st.q)}”</span>`; return; }
+    const counts = {};
+    for (const h of st.hits) counts[h.kind] = (counts[h.kind] ?? 0) + 1;
+    const kinds = Object.entries(SEARCH_KINDS).filter(([k]) => counts[k]).map(([k, v]) => `<span class="gs-kind"><i style="background:${v.color}"></i>${esc(v.label)} ${counts[k]}</span>`).join('');
+    bar.innerHTML = `<b>${st.hits.length} found</b>${kinds}<span class="gs-step"><button data-d="-1" aria-label="Previous">‹</button><span>${st.index + 1}/${st.hits.length}</span><button data-d="1" aria-label="Next">›</button></span>`;
+    bar.querySelectorAll('[data-d]').forEach((b) => (b.onclick = () => gs.step(Number(b.dataset.d))));
+  }
+  function applySearch(st) {
+    clearState();
+    paintBar();
+    const sameHits = st && search && st.q === search.q;
+    if (!st || !st.hits.length) {
+      if (!search) return;
+      search = null;
+      mindmap.endReveal(); // also in 3D, so the next search starts from the tree as the user left it
+      mindmap.setHighlight(impactOn ? levelOfNode : null);
+      graph3d.restyle();
+      renderPanel();
+      return;
+    }
+    const files = new Set(st.hits.map((h) => h.file).filter((id) => id != null));
+    const near = new Set();
+    for (const id of files) {
+      for (const x of D.importsOut.get(id) ?? []) near.add(x.to);
+      for (const x of D.importedBy.get(id) ?? []) near.add(x.from);
+    }
+    for (const id of files) near.delete(id);
+    search = { q: st.q, hits: st.hits, index: st.index, current: st.hits[st.index], files, near };
+    if (!is3D) showSearchInTree(!sameHits);
+    graph3d.restyle();
+    if (is3D && !sameHits) graph3d.fitFiles(files);
+    if (!selection) renderPanel();
+  }
+  // ‹ › / ↑ ↓ / Enter: bring one hit into view (the rail stays on the list).
+  function focusHit(h) {
+    if (is3D) { if (h.file != null) graph3d.focus(h.file); return; }
+    mindmap.centerOn(hitPath(h).at(-1));
+  }
+  // A click on a result opens its details (the search stays lit; "← Results" goes back to the list).
+  function openHit(i) {
+    gs.go(i);
+    const h = search.hits[i];
+    if (h.kind === 'token') {
+      if (is3D) { selection = { type: 'token', name: h.token }; return renderPanel(); }
+      return selectNode(mindmap.node(`t:${h.token}`) ?? mindmap.revealPath(['tokens', `t:${h.token}`]));
+    }
+    if (is3D) { selection = h.sym != null ? { type: 'symbol', id: h.sym } : { type: 'file', id: h.file }; return renderPanel(); }
+    const n = mindmap.node(hitPath(h).at(-1));
+    if (n) selectNode(n); else if (h.sym != null) revealSymbol(h.sym); else revealFile(h.file);
+  }
+  const gs = GraphSearch.attach({
+    input: $('search'), bar: $('gs-dummy'), kinds: SEARCH_KINDS,
+    find: (needle) => (D ? findHits(needle) : []),
+    apply: applySearch,
+    focus: (h) => focusHit(h),
+    empty: (q) => {
+      document.body.classList.add('searching');
+      const eg = D.symbols.find((s) => s.kind === 'component')?.name ?? base(visibleFiles()[0]?.path ?? 'Button');
+      state.innerHTML = `<div class="center"><div class="result-card w-empty state-card w-fade-in">${ui.emptyIcon('search', '', 'thinking')}<h2>No match for “${esc(q)}”</h2><p>Try part of a file, component or route name — for example ${esc(eg)}.</p><button class="btn btn-primary" id="clear-search">Clear search</button></div></div>`;
+      $('clear-search').onclick = () => { gs.clear(); clearState(); paintBar(); $('search').focus(); };
+    },
+  });
+  // search.js clears its own state on Esc / ✕: keep the bar in step
+  $('search').addEventListener('keydown', (e) => { if (e.key === 'Escape') setTimeout(paintBar); });
+  $('search').addEventListener('search', () => setTimeout(paintBar));
+
+  $('add-project').onclick = addProject;
+  $('refresh').onclick = () => (current ? load() : loadProjects());
+  $('mode').querySelectorAll('button').forEach((b) => (b.onclick = () => {
+    is3D = b.dataset.mode === '3d';
+    $('mode').querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    if (D) render();
+  }));
+  $('zoom-in').onclick = () => (is3D ? graph3d : mindmap).zoomBy(1.2);
+  $('zoom-out').onclick = () => (is3D ? graph3d : mindmap).zoomBy(1 / 1.2);
+  $('zoom-fit').onclick = () => (is3D ? graph3d.fit() : mindmap.fit(true));
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('search').focus(); $('search').select(); return; }
+    if (e.key === 'Escape' && document.activeElement !== $('search') && !document.querySelector('dialog[open]')) selectNode(null);
+  });
+  window.addEventListener('resize', () => graph3d.resize());
+  // the window's light/dark switch: token colours change, and the 3D view follows
+  new MutationObserver(() => { readPalette(); document.body.classList.toggle('page-dark', pageDark()); graph3d.syncTheme(); renderLegend(); if (impactOn && selection) renderPanel(); })
+    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  document.body.classList.toggle('page-dark', pageDark());
+
+  summary();
+  renderLegend();
+  loadProjects();
+</script>
+</body>
+</html>

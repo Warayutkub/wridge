@@ -1,0 +1,12 @@
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Icon/BrokenLink" clip-path="url(#clip0_79_5244)">
+<path id="Vector" d="M12.5 7.50031L15 5.00031C15.5525 4.44778 15.8629 3.69838 15.8629 2.91698C15.8629 2.13558 15.5525 1.38618 15 0.833648C14.4475 0.281114 13.6981 -0.0292969 12.9167 -0.0292969C12.1353 -0.0292969 11.3859 0.281114 10.8333 0.833648L10 1.66698" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#3A3833"/>
+<path id="Vector_2" d="M7.50015 12.5L5.00015 15C4.44762 15.5525 4.13721 16.3019 4.13721 17.0833C4.13721 17.8647 4.44762 18.6141 5.00015 19.1667C5.55269 19.7192 6.30208 20.0296 7.08349 20.0296C7.86489 20.0296 8.61428 19.7192 9.16682 19.1667" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#3A3833"/>
+<path id="Vector_3" d="M3.3335 3.33398L5.8335 5.83398M14.1668 14.1673L16.6668 16.6673M12.5002 3.33398V5.00065M3.3335 12.5007H5.00016" stroke-width="1.33333" stroke-linecap="round" stroke-linejoin="round" stroke="#3A3833"/>
+</g>
+<defs>
+<clipPath id="clip0_79_5244">
+<rect width="20" height="20" fill="white"/>
+</clipPath>
+</defs>
+</svg>

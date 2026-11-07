@@ -1,0 +1,11 @@
+{
+  "projects": [
+    "C:/path/to/a-brain-project",
+    "C:/path/to/a-large-app",
+    "C:/path/to/a-mid-web-app",
+    "C:/path/to/a-small-web-app",
+    "C:/path/to/a-node-project"
+  ],
+  "lottieProject": "C:/path/to/a-node-project",
+  "reportPdf": null
+}
