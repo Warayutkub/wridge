@@ -47,10 +47,10 @@
   .diff div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .diff .m { color: var(--danger-text); } .diff .p { color: var(--success-text); }
   .foot { display: flex; align-items: center; gap: 10px; font: 11px var(--mono); color: var(--text-muted); }
-  .foot span { display: inline-flex; align-items: center; gap: 4px; }
+  .foot > span:not(.who) { display: inline-flex; align-items: center; gap: 4px; }
   .foot .late { color: var(--danger); }
   .foot svg { width: 13px; height: 13px; }
-  .who { margin-left: auto; width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font: 600 10px/1 var(--sans); text-transform: uppercase; }
+  .who { margin-left: auto; width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font: 600 10px/1 var(--sans); text-transform: uppercase; text-align: center; letter-spacing: 0; }
   .who.ai { background: var(--ink); color: var(--on-ink); font-size: 8.5px; }
   .newcard { padding: 8px; border: 1px solid var(--primary); border-radius: 10px; background: var(--background); }
   .newcard textarea { width: 100%; border: 0; outline: 0; resize: none; font: 600 13px/1.45 var(--sans); background: none; color: var(--text); }

@@ -1,6 +1,6 @@
 {
   "name": "wridge-figma-plugin",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "description": "wridge — Figma plugin",
   "main": "code.js",
   "scripts": {
