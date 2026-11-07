@@ -160,6 +160,7 @@ pub async fn run() {
     paths.use_dart_dir();
     let app: Arc<App> = App::new(paths, ws_port, http_port);
     watch_parent(app.clone());
+    app.github.spawn_poller();
 
     let ws_listener = listen(ws_port, "Figma plugin", http_port).await;
     let http_listener = listen(http_port, "dashboard/MCP", http_port).await;

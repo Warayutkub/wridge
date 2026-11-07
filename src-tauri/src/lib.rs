@@ -18,6 +18,7 @@ use tauri::{AppHandle, Emitter, Manager, State, WindowEvent, Wry};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_notification::NotificationExt;
 
 const WS_PORT: u16 = 3155;
 const HTTP_PORT: u16 = 3156;
@@ -217,6 +218,13 @@ fn pump(app: &AppHandle, pipe: Option<impl Read + Send + 'static>) {
             // the Figma plugin's "Open wridge" (the server prints this marker)
             if line.trim() == "[wridge:show-window]" {
                 show_window(&app, None);
+                continue;
+            }
+            // a GitHub run of yours ended (server/app/src/github.rs): a Windows toast and a red dot on the tray
+            if let Some(json) = line.trim().strip_prefix("[wridge:notify] ") {
+                if let Ok(n) = serde_json::from_str::<serde_json::Value>(json) {
+                    notify(&app, &n);
+                }
                 continue;
             }
             push_log(&app, line);
@@ -664,8 +672,52 @@ fn claude_remove_at(home: &std::path::Path, ours: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Brings the window forward; `route` (overview, notes, settings…) tells it which page to show.
+/// The page the last notification points at (opened by the next tray click), while the red dot shows.
+static PENDING: Mutex<Option<String>> = Mutex::new(None);
+
+fn notify(app: &AppHandle, n: &serde_json::Value) {
+    let s = |k: &str| n.get(k).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let _ = app.notification().builder().title(s("title")).body(format!("{}
+Click the wridge tray icon to see why.", s("body"))).show();
+    let route = s("route");
+    *PENDING.lock().unwrap() = (!route.is_empty()).then_some(route);
+    set_dot(app, true);
+}
+
+/// The tray icon with (or without) a red dot in its top-right corner.
+fn set_dot(app: &AppHandle, on: bool) {
+    let (Some(tray), Some(icon)) = (app.tray_by_id("main"), app.default_window_icon()) else { return };
+    if !on {
+        let _ = tray.set_icon(Some(icon.clone()));
+        let _ = tray.set_tooltip(Some("wridge"));
+        return;
+    }
+    let (w, h) = (icon.width() as i64, icon.height() as i64);
+    let mut px = icon.rgba().to_vec();
+    let r = (w.min(h) as f64) * 0.24;
+    let (cx, cy) = (w as f64 - r - 1.0, r + 1.0);
+    for y in 0..h {
+        for x in 0..w {
+            let d = ((x as f64 + 0.5 - cx).powi(2) + (y as f64 + 0.5 - cy).powi(2)).sqrt();
+            let i = ((y * w + x) * 4) as usize;
+            if d <= r {
+                px[i..i + 4].copy_from_slice(&[0xE5, 0x3E, 0x3E, 0xFF]);
+            } else if d <= r + (w as f64 / 16.0).max(1.0) {
+                px[i..i + 4].copy_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF]); // a white ring keeps it apart from the cat
+            }
+        }
+    }
+    let _ = tray.set_icon(Some(tauri::image::Image::new_owned(px, w as u32, h as u32)));
+    let _ = tray.set_tooltip(Some("wridge · a GitHub run needs a look"));
+}
+
+/// Brings the window forward; `route` (overview, notes, settings…) tells it which page to show. A pending
+/// notification wins over no route, and the red dot goes once the window is up.
 fn show_window(app: &AppHandle, route: Option<&str>) {
+    let pending = PENDING.lock().unwrap().take();
+    set_dot(app, false);
+    let route = route.map(str::to_string).or(pending);
+    let route = route.as_deref();
     if let Some(win) = app.get_webview_window("control") {
         let _ = win.show();
         let _ = win.unminimize();
@@ -775,6 +827,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_notification::init())
         .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![server_status, server_start, server_stop, server_restart, server_logs, get_prefs, set_prefs, claude_status, claude_setup, claude_remove, save_as])
         .setup(move |app| {
@@ -801,6 +854,13 @@ pub fn run() {
         })
         // closing the window keeps the server running in the tray; "Quit" in the tray quits
         .on_window_event(move |window, event| {
+            // looking at the window clears the tray's red dot (the page itself shows what happened)
+            if let WindowEvent::Focused(true) = event {
+                if window.label() == "control" && PENDING.lock().unwrap().is_some() {
+                    let _ = PENDING.lock().unwrap().take();
+                    set_dot(window.app_handle(), false);
+                }
+            }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "control" && !test_instance {
                     api.prevent_close();

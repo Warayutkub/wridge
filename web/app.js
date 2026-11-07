@@ -47,7 +47,7 @@
   const PAGES = {
     notes: { path: '/brain', title: 'Notes' }, graph: { path: '/brain', view: 'graph', title: 'Graph' }, trash: { path: '/brain', view: 'trash', title: 'Trash' },
     'design-map': { path: '/graph', title: 'Design map' }, motion: { path: '/motion', title: 'Motion' }, pdf: { path: '/pdf', title: 'PDF' },
-    code: { path: '/code', title: 'Code graph' }, data: { path: '/data', title: 'Data' }, flows: { path: '/flows', title: 'Flows' }, skills: { path: '/skills', title: 'Skills' },
+    code: { path: '/code', title: 'Code graph' }, data: { path: '/data', title: 'Data' }, flows: { path: '/flows', title: 'Flows' }, github: { path: '/github', title: 'GitHub' }, skills: { path: '/skills', title: 'Skills' },
   };
   const routeOf = (path, search) => {
     if (path === '/brain') { const v = new URLSearchParams(search).get('view'); return v === 'graph' ? 'graph' : v === 'trash' ? 'trash' : 'notes'; }
@@ -126,7 +126,7 @@
     paintFigma();
     $('#sb-ver').textContent = appVersion || http?.version || '';
     // a book or a game the code graph cannot read: hide the code pages (unless you are on one)
-    $('#grp-code').hidden = Boolean(p && !p.codeFiles && !['code', 'data', 'flows'].includes(route));
+    $('#grp-code').hidden = Boolean(p && !p.codeFiles && !['code', 'data', 'flows', 'github'].includes(route));
     $$('.sb-item').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   }
 
@@ -304,7 +304,21 @@
     document.title = r === 'overview' ? 'wridge' : `${PAGES[r]?.title ?? 'Settings'} · wridge`;
   }
   const fromHash = () => (location.hash.replace(/^#\/?/, '') || 'overview').split('?')[0];
-  window.addEventListener('hashchange', () => { if (fromHash() !== route) show(fromHash()); });
+  // "#/github?repo=o/r&run=1" (a GitHub notification): the page opens that run; the hash keeps just the route
+  const hashQuery = () => new URLSearchParams(location.hash.split('?')[1] ?? '');
+  function takeHashQuery() {
+    const q = hashQuery();
+    if (q.size) history.replaceState(null, '', `#/${fromHash()}`);
+    return q;
+  }
+  window.addEventListener('hashchange', () => {
+    if (fromHash() === 'github' && route === 'github' && hashQuery().size && frameUrl) {
+      const q = takeHashQuery();
+      frame.contentWindow?.postMessage({ type: 'wridge:github-open', repo: q.get('repo'), run: q.get('run') }, API);
+      return;
+    }
+    if (fromHash() !== route || hashQuery().size) show(fromHash(), { force: hashQuery().size > 0 });
+  });
 
   // pages in the frame
   const frame = $('#frame');
@@ -314,6 +328,7 @@
     const q = new URLSearchParams();
     if (project) q.set('dir', project);
     if (p.view) q.set('view', p.view);
+    if (r === 'github') for (const [k, v] of takeHashQuery()) if (k === 'repo' || k === 'run') q.set(k, v);
     q.set('theme', root.dataset.theme);
     return `${API}${p.path}?${q}`;
   }
@@ -568,6 +583,7 @@
          <div><button class="linkbtn" data-act="folder" data-path="${esc(manifest)}" style="color:var(--text)">${ic('folder')}Show in folder</button></div>`)}
       ${sec('AI', logoTile('logo-claude', 22), 'Connect an AI', 'Claude Code and other MCP clients talk to wridge over Streamable HTTP.',
         `${claudeCard()}<p>Or by hand — Claude Code</p>${copyf(`claude mcp add --transport http --scope user wridge ${S?.mcpUrl ?? `${API}/mcp`}`)}<p>Any MCP client</p>${copyf(S?.mcpUrl ?? `${API}/mcp`)}`)}
+      ${sec('GitHub', `<span class="tile lg">${ic('github')}</span>`, 'GitHub', 'Read-only. wridge sees only the repos you picked on GitHub.', '<div id="gh-set" class="gh-set"><p>Loading…</p></div>')}
       ${sec('Startup', `<span class="tile lg">${ic('startup')}</span>`, 'Startup', 'wridge lives in the tray. Closing the window keeps the server running.',
         `<div class="tgl-row"><div class="grow"><b>Start with Windows</b><small>Opens quietly in the tray when you sign in.</small></div><button class="tgl" role="switch" id="autostart" aria-checked="false" aria-label="Start with Windows"${T ? '' : ' disabled'}></button></div>
          <div class="tgl-row"><div class="grow"><b>Start the server when wridge opens</b><small>Turn off to start it by hand.</small></div><button class="tgl" role="switch" aria-checked="${prefs.autoStartServer}" aria-label="Start the server when wridge opens" data-act="auto-server"${T ? '' : ' disabled'}></button></div>`)}
@@ -581,6 +597,7 @@
     bindActions(v);
     renderLogs();
     refreshClaude();
+    paintGitHubSettings();
     const auto = $('#autostart', v);
     if (T) {
       invoke('plugin:autostart|is_enabled').then((on) => auto.setAttribute('aria-checked', String(on))).catch(() => { auto.disabled = true; });
@@ -590,6 +607,39 @@
         catch (err) { toast(`Couldn’t change it — ${err}`, { kind: 'error' }); }
       };
     }
+  }
+
+  // Settings → GitHub: who is signed in, and which Windows notifications to show (docs/flows/github.md)
+  async function paintGitHubSettings() {
+    const box = $('#gh-set');
+    if (!box) return;
+    if (!serverUp()) { box.innerHTML = '<p>Start the server to see your GitHub sign-in.</p>'; return; }
+    let g;
+    try { g = await api('/api/github/status'); } catch { box.innerHTML = '<p>GitHub needs the Rust engine (Settings → Server).</p>'; return; }
+    if (!$('#gh-set')) return;
+    const post = (path, body) => api(`/api/github${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
+    if (!g.login) {
+      box.innerHTML = `<div class="gh-acct"><span class="gh-av">·</span><div class="grow"><b>Not signed in</b><small>Sign in with your own GitHub account — nothing is shared with anyone else.</small></div><a class="btn btn-primary" href="#/github">Sign in</a></div>`;
+      return;
+    }
+    const tg = (key, on, title, sub) => `<div class="tgl-row"><div class="grow"><b>${title}</b><small>${sub}</small></div><button class="tgl" role="switch" aria-checked="${on}" aria-label="${title}" data-gh="${key}"></button></div>`;
+    box.innerHTML = `<div class="gh-acct"><span class="gh-av">${esc(g.login.slice(0, 1))}</span><div class="grow"><b>@${esc(g.login)}</b><small>${g.state === 'expired' ? 'sign-in expired — sign in again' : `read-only${g.watch?.length ? ` · watching ${plural(g.watch.length, 'repo')}` : ''}`}</small></div>
+        <button class="btn btn-secondary" data-gh-act="manage">${ic('external')}Manage repos</button><button class="btn btn-secondary" data-gh-act="signout">Sign out</button></div>
+      <p>Tell me in Windows when…</p>
+      ${tg('failed', g.notify?.failed ?? true, 'A run fails', 'Runs you started, in the repos you opened here')}
+      ${tg('succeeded', g.notify?.succeeded ?? false, 'A run succeeds', 'Off by default — it gets noisy')}
+      <p class="mono" style="font-size:11px;color:var(--text-faint);margin:0">wridge checks every 5 s while a run is going, every minute otherwise — even with this window closed.</p>`;
+    box.querySelectorAll('[data-gh]').forEach((b) => (b.onclick = async () => {
+      const on = b.getAttribute('aria-checked') !== 'true';
+      b.setAttribute('aria-checked', String(on));
+      try { await post('/notify', { [b.dataset.gh]: on }); } catch (err) { b.setAttribute('aria-checked', String(!on)); toast(`Couldn’t save it — ${err.message}`, { kind: 'error' }); }
+    }));
+    box.querySelector('[data-gh-act="manage"]').onclick = () => post('/open', { url: g.manageUrl }).catch((err) => toast(err.message, { kind: 'error' }));
+    box.querySelector('[data-gh-act="signout"]').onclick = async () => {
+      await post('/signout').catch(() => {});
+      toast('Signed out of GitHub — you can also remove wridge-app on github.com → Settings → Applications');
+      paintGitHubSettings();
+    };
   }
 
   // About: the app, the server it runs, and the plugin in each open file; a server older than the app needs a restart

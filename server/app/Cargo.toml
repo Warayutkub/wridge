@@ -1,6 +1,6 @@
 [package]
 name = "wridge-server"
-version = "1.5.0"
+version = "1.6.0"
 edition = "2021"
 description = "wridge server: Rust port of legacy-node/index.mjs (HTTP API, pages, plugin WebSocket, MCP), tools.mjs, guards.mjs, graph.mjs, skills.mjs and the wara.mjs CLI"
 publish = false
@@ -41,6 +41,8 @@ rusqlite = { version = "0.39", features = ["bundled"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_Threading"] }
+# the GitHub sign-in lives in Windows Credential Manager (github.rs)
+keyring = { version = "3", features = ["windows-native"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

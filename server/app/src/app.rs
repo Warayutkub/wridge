@@ -18,7 +18,7 @@ use crate::zod::{self, *};
 
 pub type Ctx = Arc<App>;
 
-pub const VERSION: &str = "1.5.0";
+pub const VERSION: &str = "1.6.0";
 
 pub struct Today {
     pub day: String,
@@ -66,6 +66,8 @@ pub struct App {
     /// Figma writes only reach the file the AI checked (guards.rs); plugin-side guards live in code.ts.
     pub guarded: FileGuard,
     pub tools: Vec<Arc<Tool>>,
+    /// read-only GitHub (github.rs); its poller starts in server::run
+    pub github: Arc<crate::github::GitHub>,
     pub meta: HashSet<String>,
     pub run: Mutex<RunState>,
     /// Set by stop / restart (index.mjs shutdown()); the server loop watches it.
@@ -90,6 +92,7 @@ impl App {
             bridge,
             guarded,
             tools,
+            github: crate::github::GitHub::from_env(),
             meta: META_TOOLS.iter().map(|s| s.to_string()).collect(),
             run: Mutex::new(RunState {
                 started_at: now_ms() as u64,

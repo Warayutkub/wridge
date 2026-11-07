@@ -11,6 +11,7 @@ pub mod app;
 pub mod bridge;
 pub mod cli;
 pub mod codegraph;
+pub mod github;
 pub mod graph;
 pub mod guards;
 pub mod http;

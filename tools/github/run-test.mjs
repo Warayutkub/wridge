@@ -1,0 +1,11 @@
+// Check the GitHub page by hand: node tools/github/run-test.mjs, then open http://127.0.0.1:4756/app#/github
+// (build the debug server first: cargo build --manifest-path server/app/Cargo.toml)
+// fake GitHub (4710) + the debug wridge server on 4755/4756 pointed at it (memory store, no browser opening)
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import "./fake-github.mjs";
+const ROOT = fileURLToPath(new URL("../../", import.meta.url));
+const exe = `${ROOT}server/app/target/debug/wridge-server.exe`;
+const env = { ...process.env, WARA_PORT: "4755", WARA_HTTP_PORT: "4756", WRIDGE_GITHUB_API: "http://127.0.0.1:4710", WRIDGE_GITHUB_WEB: "http://127.0.0.1:4710", WRIDGE_GITHUB_STORE: "memory", WRIDGE_GITHUB_OPEN: "log" };
+const c = spawn(exe, [], { env, cwd: ROOT, stdio: "inherit" });
+c.on("exit", (code) => { console.log("server exited", code); process.exit(code ?? 0); });

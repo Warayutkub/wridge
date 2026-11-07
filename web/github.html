@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  /* Figma "wara-bridge" → section "wridge GitHub · Prototype · Approved"; flow: docs/flows/github.md */
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+  .gh-top { flex: none; gap: 16px; border-bottom: 0; padding-bottom: 6px; }
+  .gh-top .w-titles { margin-right: 6px; }
+  .gh-spacer { flex: 1; }
+  .gh-top .btn { height: 36px; }
+  .btn .w-icon { width: 15px; height: 15px; color: currentColor; }
+
+  /* repo switcher */
+  .rs { position: relative; }
+  .rs-btn { display: flex; align-items: center; gap: 8px; height: 38px; max-width: 340px; padding: 0 10px 0 8px; border: 1px solid var(--border); border-radius: 9px;
+    background: var(--background); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; transition: border-color .15s var(--ease), box-shadow .15s var(--ease); }
+  .rs-btn:hover { border-color: var(--border-strong); }
+  .rs-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .rs-btn .owner { color: var(--text-muted); white-space: nowrap; }
+  .rs-btn b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-btn .w-icon { width: 14px; height: 14px; color: var(--text-muted); transition: transform .2s var(--ease); }
+  .rs-btn[aria-expanded="true"] .w-icon { transform: rotate(180deg); }
+  .av { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 6px; background: var(--ink); color: var(--on-ink); font: 600 11px/1 var(--sans); text-transform: uppercase; }
+  .av.sm { width: 18px; height: 18px; border-radius: 5px; font-size: 10px; }
+  .rs-pop { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 300px; padding: 6px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--background); box-shadow: var(--shadow-md); transform-origin: top left; animation: pop-in .16s var(--ease); }
+  @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } }
+  .rs-pop .w-search { width: 100%; height: 34px; margin-bottom: 6px; }
+  .rs-list { max-height: 320px; overflow-y: auto; }
+  .rs-group { padding: 8px 8px 4px; }
+  .rs-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 7px; background: none; color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+  .rs-item:hover, .rs-item.active { background: var(--surface-2); }
+  .rs-item[aria-selected="true"] { background: var(--surface); }
+  .rs-item .owner { color: var(--text-muted); }
+  .rs-item .lock { width: 12px; height: 12px; color: var(--text-faint); }
+  .rs-item .end { margin-left: auto; }
+  .rs-none { padding: 10px 8px; font-size: 12.5px; color: var(--text-muted); }
+  .rs-add { width: 100%; display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 9px 8px; border: 0; border-top: 1px solid var(--border); border-radius: 0 0 7px 7px;
+    background: none; color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+  .rs-add:hover { background: var(--surface-1); }
+  .rs-add small { margin-left: auto; font: 11px var(--mono); color: var(--text-faint); }
+
+  .acct { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px 0 4px; border: 1px solid var(--border); border-radius: 999px; background: var(--background);
+    color: var(--text-2); font: 12px var(--mono); cursor: pointer; transition: border-color .15s var(--ease); }
+  .acct:hover { border-color: var(--border-strong); }
+  .acct .av { width: 22px; height: 22px; border-radius: 50%; background: var(--primary-soft); color: var(--primary); }
+
+  /* tabs */
+  .tabs { flex: none; display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--border); }
+  .tab { position: relative; display: inline-flex; align-items: center; gap: 7px; padding: 10px 10px 12px; border: 0; background: none; color: var(--text-muted); font: 500 13px var(--sans); cursor: pointer; }
+  .tab .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .tab[aria-selected="true"] { color: var(--text); }
+  .tab[aria-selected="true"]::after { content: ""; position: absolute; left: 6px; right: 6px; bottom: -1px; height: 2px; border-radius: 2px; background: var(--ink); }
+  .tab[aria-disabled="true"] { cursor: default; color: var(--text-faint); }
+  .tab .n { padding: 1px 6px; border-radius: 999px; background: var(--surface-2); font: 10.5px var(--mono); color: var(--text-muted); }
+  .tab[aria-selected="true"] .n { background: var(--ink); color: var(--on-ink); }
+  .tab .soon { font: 9.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); }
+
+  .content { flex: 1; min-height: 0; overflow-y: auto; }
+  .banner { margin: 16px 24px 0; }
+
+  /* sign-in cards */
+  .center { min-height: 100%; display: grid; place-items: center; padding: 32px; }
+  .gate { width: min(368px, 100%); display: flex; flex-direction: column; gap: 16px; padding: 26px; border: 1px solid var(--border); border-radius: 14px; background: var(--background); }
+  .gate h2 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
+  .gate p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--text-2); }
+  .gate .small { font-size: 11.5px; color: var(--text-muted); }
+  .gate .w-tile { width: 38px; height: 38px; }
+  .perm { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+  .perm div { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--text-2); }
+  .perm .w-icon { width: 14px; height: 14px; }
+  .perm small { font-size: 11.5px; color: var(--text-muted); }
+  .code { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-1); }
+  .code b { font: 600 26px/1 var(--mono); letter-spacing: .14em; }
+  .howto { display: flex; flex-direction: column; gap: 9px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+  .howto li { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-2); counter-increment: s; }
+  .howto li::before { content: counter(s); width: 18px; height: 18px; flex: none; display: grid; place-items: center; border-radius: 5px; background: var(--surface-2); font: 10.5px var(--mono); color: var(--text-muted); }
+  .wait { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 500; }
+  .wait .spinner { width: 14px; height: 14px; border-width: 2px; }
+  .wait small { margin-left: auto; font: 11px var(--mono); color: var(--text-muted); font-weight: 400; }
+  .gate-actions { display: flex; align-items: center; gap: 8px; }
+
+  /* actions list */
+  .runs-wrap { display: flex; gap: 18px; padding: 18px 24px 32px; }
+  .wf { width: 150px; flex: none; display: flex; flex-direction: column; gap: 2px; }
+  .wf .w-label { padding: 6px 8px 8px; }
+  .wf .w-row { justify-content: space-between; }
+  .wf .w-row span:last-child { font: 11px var(--mono); color: var(--text-faint); }
+  .runs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+  .filters { display: flex; align-items: center; gap: 6px; }
+  .fpill { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--background);
+    color: var(--text-2); font: 500 12.5px var(--sans); cursor: pointer; transition: background .15s var(--ease), color .15s var(--ease); }
+  .fpill small { font: 10.5px var(--mono); color: var(--text-faint); }
+  .fpill[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .fpill[aria-pressed="true"] small { color: color-mix(in srgb, var(--on-ink) 65%, transparent); }
+  .branch { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); }
+  .branch .w-icon { width: 13px; height: 13px; color: var(--text-muted); }
+  .branch select { border: 0; outline: 0; background: transparent; color: var(--text-2); font: 11.5px var(--mono); cursor: pointer; }
+  .list { border: 1px solid var(--border); border-radius: 10px; background: var(--background); overflow: hidden; }
+  .run { width: 100%; display: flex; align-items: center; gap: 12px; padding: 11px 14px; border: 0; border-bottom: 1px solid var(--surface-2); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
+    transition: background .12s var(--ease); animation: w-in .24s var(--ease) both; }
+  .run:last-child { border-bottom: 0; }
+  .list.calm .run { animation: none; }
+  .run:hover { background: var(--surface-1); }
+  .run:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .run .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .run .t { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .run .m { font: 11px var(--mono); color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .run .when { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font: 11.5px var(--mono); color: var(--text-2); }
+  .run .when small { font-size: 11px; color: var(--text-faint); }
+
+  /* status marks */
+  .st { width: 16px; height: 16px; flex: none; display: grid; place-items: center; border-radius: 50%; }
+  .st svg { width: 10px; height: 10px; }
+  .st.k-ok { background: var(--success); color: #fff; }
+  .st.k-bad { background: var(--danger); color: #fff; }
+  .st.k-off { background: var(--text-faint); color: #fff; }
+  .st.k-run { border: 2px solid var(--warning); background: none; }
+  .st.k-run::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--warning); animation: pulse 1.2s ease-in-out infinite; }
+  .st.k-queued { border: 1.5px dashed var(--text-faint); }
+  .st.k-skip { border: 1.5px solid var(--text-faint); color: var(--text-faint); }
+  .st.k-skip svg { width: 8px; }
+
+  /* run detail */
+  .detail { display: flex; flex-direction: column; gap: 16px; padding: 18px 24px 28px; }
+  .back { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 2px 0; border: 0; background: none; color: var(--text-muted); font: 13px var(--sans); cursor: pointer; }
+  .back:hover { color: var(--text); }
+  .back .w-icon { width: 14px; height: 14px; color: currentColor; transition: transform .15s var(--ease); }
+  .back:hover .w-icon { transform: translateX(-2px); }
+  .d-head { display: flex; align-items: center; gap: 10px; }
+  .d-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .d-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: -6px; font: 11.5px var(--mono); color: var(--text-muted); }
+  .panel { border: 1px solid var(--border); border-radius: 10px; background: var(--background); }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 0; }
+  .panel-head small { font: 11px var(--mono); color: var(--text-faint); }
+  .jobs { display: flex; align-items: center; gap: 0; padding: 12px 14px 14px; overflow-x: auto; }
+  .job { flex: 1 0 150px; max-width: 210px; display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--background);
+    color: var(--text); font: 500 12.5px var(--mono); cursor: pointer; transition: border-color .15s var(--ease), background .15s var(--ease), box-shadow .15s var(--ease); }
+  .job:hover { border-color: var(--border-strong); }
+  .job .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .job small { flex: none; font: 10.5px var(--mono); color: var(--text-faint); }
+  .job[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .job.k-bad[aria-pressed="true"] { background: var(--danger-soft); }
+  .job.k-run[aria-pressed="true"] { background: var(--warning-soft); }
+  .wire { flex: 0 0 22px; height: 1px; background: var(--border-strong); position: relative; }
+  .wire::before, .wire::after { content: ""; position: absolute; top: -2px; width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong); }
+  .wire::before { left: -2px; } .wire::after { right: -2px; }
+  .steps { border-top: 0; }
+  .step { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--surface-2); font-size: 13px; }
+  .step .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .step small { font: 11px var(--mono); color: var(--text-2); }
+  .step.k-bad { background: var(--danger-soft); font-weight: 500; }
+  .step.k-run { background: var(--warning-soft); font-weight: 500; }
+  .step.k-skip .nm { color: var(--text-faint); }
+  .log { position: relative; margin: 0; padding: 14px 16px; border-radius: 10px; background: #1A1917; color: #D9D5CC; font: 11.5px/1.75 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 360px; overflow-y: auto; }
+  .log .e { color: #F2867B; }
+  .log .g { color: #fff; }
+  .log .dim { color: #8E897F; }
+  .foot { font: 11px var(--mono); color: var(--text-faint); }
+
+  .skel-row { height: 56px; border-bottom: 1px solid var(--surface-2); padding: 14px; }
+  .skel-row .skel { height: 10px; margin-bottom: 8px; width: 40%; }
+  .skel-row .skel + .skel { width: 25%; }
+  .empty-pane { padding: 40px 24px; }
+</style>
+</head>
+<body>
+<header class="w-toolbar gh-top">
+  <div class="topbar-left">
+    <div class="w-titles"><p class="w-label">Code · GitHub</p><h1>GitHub</h1></div>
+  </div>
+  <div class="rs" id="rs" hidden>
+    <button class="rs-btn" id="rs-btn" aria-haspopup="listbox" aria-expanded="false"><span class="av" id="rs-av">·</span><span class="owner" id="rs-owner"></span><b id="rs-name">Pick a repo</b><span id="rs-st"></span><span class="w-icon" data-wicon="chevrondown"></span></button>
+  </div>
+  <div class="gh-spacer"></div>
+  <button class="acct" id="acct" hidden title="Account and notifications (Settings)"><span class="av" id="acct-av">·</span><span id="acct-name"></span></button>
+  <button class="btn btn-secondary" id="open-gh" hidden><span class="w-icon" data-wicon="external"></span>Open on GitHub</button>
+</header>
+<nav class="tabs" id="tabs" role="tablist" aria-label="GitHub" hidden></nav>
+<div class="content" id="content" aria-live="polite"></div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = ui.esc;
+  const ic = (n) => `<span class="w-icon">${ui.icon(n)}</span>`;
+  document.querySelectorAll('[data-wicon]').forEach((el) => { el.innerHTML = ui.icon(el.dataset.wicon); });
+
+  // ---------- state ----------
+  let st = null;              // GET /api/github/status
+  let repos = null;           // [{fullName, owner, name, private, url}]
+  let watch = [];
+  let repo = '';              // "owner/name"
+  let runs = null;            // GET .../runs
+  let runsErr = '';
+  let detail = null;          // GET .../runs/{id}
+  let detailFor = 0;
+  let pickedJob = null;       // job id shown below the nodes
+  const logs = new Map();     // job id → log tail
+  let filter = 'all', wfPick = '', branchPick = '';
+  let timer = 0;
+  const shownOnce = new Set();   // repos whose run list has slid in already
+  const params = () => new URLSearchParams(location.search);
+  const runId = () => Number(params().get('run')) || 0;
+
+  async function api(path, opts = {}) {
+    const res = await fetch('/api/github' + path, { cache: 'no-store', ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) } });
+    const body = await res.json().catch(() => ({}));
+    if (body.status) st = body.status;
+    if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+    return body;
+  }
+  const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
+  const open = (url) => url && post('/open', { url }).catch((e) => ui.toast(e.message, { kind: 'error' }));
+  function setUrl(next, push) {
+    const q = new URLSearchParams();
+    if (next.repo) q.set('repo', next.repo);
+    if (next.run) q.set('run', next.run);
+    const url = `${location.pathname}${q.size ? `?${q}` : ''}`;
+    if (url !== location.pathname + location.search) history[push ? 'pushState' : 'replaceState'](null, '', url);
+  }
+
+  // ---------- time ----------
+  const secs = (a, b) => Math.max(0, Math.round(((b ? Date.parse(b) : Date.now()) - Date.parse(a)) / 1000));
+  const dur = (s) => (s == null || Number.isNaN(s) ? '' : s < 60 ? `${s}s` : s < 3600 ? `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s` : `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`);
+  const ago = (t) => { if (!t) return ''; const m = Math.round((Date.now() - Date.parse(t)) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} h ago` : m < 2880 ? 'yesterday' : `${Math.floor(m / 1440)} days ago`; };
+
+  // ---------- status marks ----------
+  const CHECK = '<svg viewBox="0 0 12 12"><path d="m2.5 6.2 2.3 2.3 4.7-4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const CROSS = '<svg viewBox="0 0 12 12"><path d="m3.5 3.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  const SLASH = '<svg viewBox="0 0 12 12"><path d="M3 6h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  function kind(x) {
+    if (!x) return 'queued';
+    if (x.status !== 'completed') return x.status === 'in_progress' ? 'run' : 'queued';
+    return { success: 'ok', failure: 'bad', timed_out: 'bad', startup_failure: 'bad', cancelled: 'off', skipped: 'skip', neutral: 'off', action_required: 'queued' }[x.conclusion] ?? 'off';
+  }
+  const mark = (x) => { const k = kind(x); return `<span class="st k-${k}" aria-label="${esc(word(x))}">${k === 'ok' ? CHECK : k === 'bad' ? CROSS : k === 'off' ? SLASH : k === 'skip' ? SLASH : ''}</span>`; };
+  function word(x) {
+    const k = kind(x);
+    return { ok: 'Passed', bad: 'Failed', off: x?.conclusion === 'cancelled' ? 'Cancelled' : 'Done', run: 'Running', queued: x?.status === 'waiting' ? 'Waiting' : 'Queued', skip: 'Skipped' }[k];
+  }
+  const runSecs = (r) => (r.startedAt ? secs(r.startedAt, r.status === 'completed' ? r.updatedAt : null) : null);
+
+  // ---------- top bar ----------
+  function paintTop() {
+    const ready = st && ['ready', 'offline', 'expired'].includes(st.state);
+    $('#acct').hidden = !(st?.login);
+    $('#acct-name').textContent = st?.login ? `@${st.login}` : '';
+    $('#acct-av').textContent = (st?.login ?? '·').slice(0, 1);
+    $('#rs').hidden = !ready;
+    const [owner, name] = repo ? repo.split('/') : ['', ''];
+    $('#rs-av').textContent = (name || '·').slice(0, 1);
+    $('#rs-owner').textContent = owner ? `${owner} /` : '';
+    $('#rs-name').textContent = name || (repos && !repos.length ? 'No repos yet' : 'Pick a repo');
+    const active = runs?.runs?.find((r) => r.status !== 'completed');
+    const last = runs?.runs?.[0];
+    $('#rs-st').innerHTML = repo && runs?.runs?.length ? mark(active ?? last) : '';
+    $('#open-gh').hidden = !(ready && repo);
+    const tabs = $('#tabs');
+    tabs.hidden = !(ready && repo);
+    if (!tabs.hidden) {
+      const nRun = runs?.runs?.filter((r) => r.status !== 'completed').length ?? 0;
+      const T = [['Overview', 'overview'], ['Actions', 'actions'], ['Pull requests', 'link'], ['Branches', 'branch'], ['Commits', 'activity'], ['Issues', 'clock'], ['Releases', 'external']];
+      tabs.innerHTML = T.map(([t, i]) => t === 'Actions'
+        ? `<button class="tab" role="tab" aria-selected="true">${ic(i)}${t}${nRun ? `<span class="n">${nRun}</span>` : ''}</button>`
+        : `<button class="tab" role="tab" aria-selected="false" aria-disabled="true" title="Coming in the next update">${ic(i)}${t}<span class="soon">soon</span></button>`).join('');
+    }
+  }
+  $('#acct').onclick = () => ui.go('settings');
+  $('#open-gh').onclick = () => {
+    const r = repos?.find((x) => x.fullName === repo);
+    const run = detail?.run;
+    open(runId() && run?.url ? run.url : r?.url ?? `https://github.com/${repo}`);
+  };
+
+  // ---------- repo switcher ----------
+  let pop = null, popActive = 0;
+  function closePop() { pop?.remove(); pop = null; $('#rs-btn').setAttribute('aria-expanded', 'false'); }
+  function openPop() {
+    closePop();
+    pop = document.createElement('div');
+    pop.className = 'rs-pop';
+    pop.innerHTML = `<label class="w-search">${ic('search')}<input type="search" placeholder="Find a repo…" aria-label="Find a repo" autocomplete="off" spellcheck="false"></label><div class="rs-list" role="listbox" aria-label="Repos"></div>
+      <button class="rs-add">${ic('plus')}Add repos on GitHub ${ic('external')}<small>${esc(st?.login ? '@' + st.login : '')}</small></button>`;
+    $('#rs').append(pop);
+    $('#rs-btn').setAttribute('aria-expanded', 'true');
+    const input = pop.querySelector('input');
+    const draw = () => {
+      const q = input.value.trim().toLowerCase();
+      const all = (repos ?? []).filter((r) => !q || r.fullName.toLowerCase().includes(q));
+      const recent = q ? [] : watch.map((w) => all.find((r) => r.fullName === w)).filter(Boolean);
+      const rest = all.filter((r) => !recent.includes(r));
+      const order = [...recent, ...rest];
+      popActive = Math.min(popActive, Math.max(0, order.length - 1));
+      const row = (r) => { const i = order.indexOf(r); return `<button class="rs-item${i === popActive ? ' active' : ''}" role="option" aria-selected="${r.fullName === repo}" data-i="${i}"><span class="av sm">${esc(r.name.slice(0, 1))}</span><span class="owner">${esc(r.owner)} /</span><b>${esc(r.name)}</b>${r.private ? `<span class="w-icon lock">${ui.icon('lock')}</span>` : ''}</button>`; };
+      pop.querySelector('.rs-list').innerHTML = !repos ? '<div class="rs-none">Loading…</div>' : !order.length ? `<div class="rs-none">${repos.length ? 'No repo matches' : 'wridge can’t read any repo yet'}</div>`
+        : `${recent.length ? `<p class="w-label rs-group">Recent</p>${recent.map(row).join('')}` : ''}${rest.length ? `<p class="w-label rs-group">All · ${rest.length}</p>${rest.map(row).join('')}` : ''}`;
+      pop.querySelectorAll('[data-i]').forEach((b) => (b.onclick = () => { closePop(); pickRepo(order[Number(b.dataset.i)].fullName); }));
+      pop._order = order;
+    };
+    input.oninput = () => { popActive = 0; draw(); };
+    input.onkeydown = (e) => {
+      const order = pop._order ?? [];
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); popActive = (popActive + (e.key === 'ArrowDown' ? 1 : order.length - 1)) % Math.max(1, order.length); draw(); }
+      else if (e.key === 'Enter' && order[popActive]) { closePop(); pickRepo(order[popActive].fullName); }
+      else if (e.key === 'Escape') { closePop(); $('#rs-btn').focus(); }
+    };
+    pop.querySelector('.rs-add').onclick = () => { closePop(); open(st?.installUrl); };
+    draw();
+    input.focus();
+    loadRepos().then(() => pop && draw());
+  }
+  $('#rs-btn').onclick = () => (pop ? closePop() : openPop());
+  document.addEventListener('pointerdown', (e) => { if (pop && !e.target.closest('#rs')) closePop(); });
+  document.addEventListener('keydown', (e) => { if (e.ctrlKey && e.key.toLowerCase() === 'k' && !$('#rs').hidden) { e.preventDefault(); openPop(); } });
+
+  function pickRepo(r, push = true) {
+    if (r === repo && !runId()) return;
+    repo = r;
+    try { localStorage.setItem('wridge-gh-repo', r); } catch { /* storage blocked */ }
+    runs = null; runsErr = ''; detail = null; wfPick = ''; branchPick = ''; filter = 'all';
+    setUrl({ repo: r }, push);
+    paint();
+    refresh();
+  }
+
+  // ---------- loading ----------
+  async function loadStatus() { try { st = await api('/status'); } catch { st = st ?? { state: 'error' }; } }
+  async function loadRepos() {
+    try { const r = await api('/repos'); repos = r.repos; watch = r.watch ?? []; } catch (e) { if (!repos) repos = null; throw e; }
+  }
+  async function loadRuns() {
+    if (!repo) return;
+    try { runs = await api(`/repo/${repo}/runs`); runsErr = ''; } catch (e) { runsErr = e.message; }
+  }
+  async function loadDetail(id) {
+    try {
+      const d = await api(`/repo/${repo}/runs/${id}`);
+      if (runId() !== id) return;
+      detail = d; detailFor = id;
+      const jobs = d.jobs ?? [];
+      if (!jobs.some((j) => j.id === pickedJob)) pickedJob = (jobs.find((j) => kind(j) === 'bad') ?? jobs.find((j) => kind(j) === 'run') ?? jobs[0])?.id ?? null;
+      const job = jobs.find((j) => j.id === pickedJob);
+      if (job && kind(job) === 'bad' && !logs.has(job.id)) {
+        logs.set(job.id, null);
+        api(`/repo/${repo}/jobs/${job.id}/log`).then((l) => { logs.set(job.id, l); paint(); }).catch(() => logs.set(job.id, { lines: [], available: false }));
+      }
+    } catch (e) { if (detailFor !== id) detail = { error: e.message }; }
+  }
+
+  // one loop: fast while something runs or signs in, slow otherwise; paused while hidden (unless running)
+  async function refresh() {
+    clearTimeout(timer);
+    await loadStatus();
+    const s = st?.state;
+    if (['ready', 'offline', 'expired'].includes(s)) {
+      if (!repos?.length) await loadRepos().catch(() => {}); // none yet: keep looking (the install page may be open)
+      if (!repo && repos?.length) {
+        let saved = ''; try { saved = localStorage.getItem('wridge-gh-repo') ?? ''; } catch { /* storage blocked */ }
+        const want = params().get('repo');
+        repo = [want, saved, ...(watch ?? [])].find((r) => r && repos.some((x) => x.fullName === r)) ?? repos[0].fullName;
+        setUrl({ repo, run: runId() || undefined }, false);
+      }
+      if (repo) {
+        await loadRuns();
+        if (runId()) await loadDetail(runId());
+      }
+    }
+    paint();
+    const running = runs?.runs?.some((r) => r.status !== 'completed') || (detail?.run && detail.run.status !== 'completed');
+    const ms = s === 'signing_in' ? 2000 : ['ready', 'offline', 'expired'].includes(s) && !repos?.length ? 5000 : running ? 5000 : s === 'offline' ? 15000 : 60000;
+    timer = setTimeout(() => { if (document.hidden && !running) document.addEventListener('visibilitychange', refresh, { once: true }); else refresh(); }, ms);
+  }
+  addEventListener('popstate', () => { const r = params().get('repo'); if (r && r !== repo) { repo = r; runs = null; } detail = null; paint(); refresh(); });
+
+  // ---------- views ----------
+  function paint() {
+    paintTop();
+    const c = $('#content');
+    const s = st?.state;
+    if (!st) { c.innerHTML = '<div class="center"><span class="spinner"></span></div>'; return; }
+    if (s === 'signed_out') return (c.innerHTML = gateSignIn());
+    if (s === 'signing_in') return (c.innerHTML = gateCode());
+    if (s === 'error') return (c.innerHTML = `<div class="center"><div class="w-empty">${ui.emptyIcon('unplug')}<h2>Can’t reach wridge</h2><p>The wridge server didn’t answer. Is it running?</p></div></div>`);
+    if (repos && !repos.length) return (c.innerHTML = gatePick());
+    const banner = s === 'expired' ? `<div class="banner warn"><span class="w-icon">${ui.icon('lock')}</span><div class="banner-text"><b>Your GitHub sign-in expired</b>What you see is from before. Sign in again to see new runs.</div><button class="banner-action" data-act="signin">Sign in again</button></div>`
+      : s === 'offline' ? `<div class="banner warn"><span class="w-icon">${ui.icon('cloudoff')}</span><div class="banner-text"><b>Can’t reach GitHub</b>Showing what wridge saw last — trying again by itself.</div></div>` : '';
+    // keep the log where the reader left it (a repaint every few seconds must not jump); a new log opens at its first error
+    const prevLog = $('#log'), prev = prevLog ? { job: Number(prevLog.dataset.job), top: prevLog.scrollTop } : null;
+    c.innerHTML = banner + (runId() ? viewDetail() : viewRuns());
+    wire(c);
+    const log = $('#log');
+    if (log) {
+      if (prev && prev.job === Number(log.dataset.job)) log.scrollTop = prev.top;
+      else { const e = log.querySelector('.e'); if (e) log.scrollTop = Math.max(0, e.offsetTop - log.clientHeight / 2); }
+    }
+    // rows slide in once per repo, not on every refresh
+    if (runs && !runId()) shownOnce.add(repo);
+  }
+
+  function gateSignIn() {
+    const fail = st?.signin?.state;
+    const msg = fail === 'denied' ? 'Sign-in was cancelled on GitHub.' : fail === 'expired' ? 'The code expired before it was used.' : fail?.startsWith('error') ? `GitHub said: ${fail.slice(7)}` : '';
+    setTimeout(() => wire($('#content')));
+    return `<div class="center"><div class="gate w-fade-in">
+      <span class="w-tile">${ic('github')}</span>
+      <h2>Connect GitHub</h2>
+      <p>See Actions runs and why they failed — and get a Windows notification when your run fails — next to your design and code.</p>
+      ${msg ? `<div class="banner bad" style="margin:0"><div class="banner-text">${esc(msg)}</div></div>` : ''}
+      <div class="perm"><p class="w-label">Read-only access</p>
+        <div>${ic('lock')}Actions runs, jobs and logs</div><div>${ic('lock')}Pull requests, reviews and issues</div>
+        <div>${ic('lock')}Branches, commits and code</div><div>${ic('lock')}Releases and their files</div>
+        <small>wridge can’t push, merge, comment or re-run anything.</small></div>
+      <button class="btn btn-primary btn-block" data-act="signin">${msg ? 'Try again' : 'Sign in with GitHub'}</button>
+      <p class="small">You sign in on github.com with your own account. The key stays in Windows Credential Manager on this PC — not in wridge’s files.</p>
+    </div></div>`;
+  }
+
+  let copied = '';
+  function gateCode() {
+    const si = st.signin;
+    const left = si.expiresIn ?? 0;
+    setTimeout(() => wire($('#content')));
+    return `<div class="center"><div class="gate">
+      <p class="w-label">Sign in · step 1 of 2</p>
+      <h2>Enter this code on GitHub</h2>
+      <div class="code"><b>${esc(si.userCode)}</b><button class="w-pill ${copied === si.userCode ? 'ok dot' : 'raised'}" data-act="copy">${copied === si.userCode ? 'Copied' : 'Copy'}</button></div>
+      <ol class="howto"><li>We opened ${esc(si.verificationUri.replace(/^https?:\/\//, ''))} in your browser</li><li>Paste the code and sign in with your account</li><li>Choose Authorize — wridge asks to read only</li></ol>
+      <div class="wait"><span class="spinner"></span>Waiting for you to approve…<small>expires in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}</small></div>
+      <div class="gate-actions"><button class="btn btn-secondary" data-act="reopen">${ic('external')}Open the page again</button><button class="btn btn-ghost" data-act="cancel">Cancel</button></div>
+    </div></div>`;
+  }
+
+  function gatePick() {
+    setTimeout(() => wire($('#content')));
+    return `<div class="center"><div class="gate w-fade-in">
+      <p class="w-label">Sign in · step 2 of 2</p>
+      <span class="w-pill ok dot sans" style="align-self:flex-start">Signed in as @${esc(st.login ?? '')}</span>
+      <h2>Pick the repos wridge may read</h2>
+      <p>GitHub lets you choose: all your repos, or only some. Repos of an organization need its owner’s OK. You can change this any time.</p>
+      <button class="btn btn-primary btn-block" data-act="install">Choose repos on GitHub ↗</button>
+      <div class="wait" style="font-weight:400;color:var(--text-muted)"><span class="spinner"></span>Watching for changes — this page moves on by itself.</div>
+    </div></div>`;
+  }
+
+  function viewRuns() {
+    if (!runs && !runsErr) return `<div class="runs-wrap"><div class="runs"><div class="list">${'<div class="skel-row"><div class="skel"></div><div class="skel"></div></div>'.repeat(5)}</div></div></div>`;
+    if (!runs) return `<div class="empty-pane w-empty">${ui.emptyIcon('alert')}<h2>Couldn’t load the runs</h2><p>${esc(runsErr)}</p><button class="btn btn-secondary" data-act="retry">Try again</button></div>`;
+    const all = runs.runs;
+    if (!all.length) return `<div class="empty-pane w-empty">${ui.emptyIcon('inbox')}<h2>No workflow runs yet</h2><p>This repo has no GitHub Actions runs. Add a workflow in <code>.github/workflows/</code> and push — runs show up here by themselves.</p></div>`;
+    const wfs = [...new Set(all.map((r) => r.workflow))];
+    const branches = [...new Set(all.map((r) => r.branch).filter(Boolean))];
+    const inWf = all.filter((r) => (!wfPick || r.workflow === wfPick) && (!branchPick || r.branch === branchPick));
+    const nRun = inWf.filter((r) => kind(r) === 'run' || kind(r) === 'queued').length, nBad = inWf.filter((r) => kind(r) === 'bad').length;
+    const shown = inWf.filter((r) => filter === 'all' || (filter === 'running' ? ['run', 'queued'].includes(kind(r)) : kind(r) === 'bad'));
+    return `<div class="runs-wrap">
+      <aside class="wf"><p class="w-label">Workflows · ${wfs.length}</p>
+        <button class="w-row${!wfPick ? ' on' : ''}" data-wf=""><span>All workflows</span><span>${all.length}</span></button>
+        ${wfs.map((w) => `<button class="w-row${wfPick === w ? ' on' : ''}" data-wf="${esc(w)}"><span>${esc(w)}</span><span>${all.filter((r) => r.workflow === w).length}</span></button>`).join('')}
+      </aside>
+      <div class="runs">
+        <div class="filters">
+          <button class="fpill" data-f="all" aria-pressed="${filter === 'all'}">All <small>${inWf.length}</small></button>
+          <button class="fpill" data-f="running" aria-pressed="${filter === 'running'}">Running <small>${nRun}</small></button>
+          <button class="fpill" data-f="failed" aria-pressed="${filter === 'failed'}">Failed <small>${nBad}</small></button>
+          <label class="branch">${ic('branch')}<select id="branch" aria-label="Branch"><option value="">all branches</option>${branches.map((b) => `<option${b === branchPick ? ' selected' : ''}>${esc(b)}</option>`).join('')}</select></label>
+        </div>
+        <div class="list${shownOnce.has(repo) ? ' calm' : ''}">${shown.length ? shown.map((r, i) => `<button class="run" data-run="${r.id}" style="animation-delay:${Math.min(i, 8) * 18}ms">${mark(r)}
+          <span class="txt"><span class="t">${esc(r.title || r.workflow)}</span><span class="m">${esc(r.workflow)} #${r.number} · ${esc(r.branch ?? '')} · ${esc(r.sha ?? '')} · @${esc(r.actor ?? '')}</span></span>
+          <span class="when">${esc(dur(runSecs(r)))}<small>${kind(r) === 'run' ? 'running' : kind(r) === 'queued' ? word(r).toLowerCase() : esc(ago(r.updatedAt))}</small></span></button>`).join('')
+          : `<div class="rs-none" style="padding:18px 14px">Nothing ${filter === 'running' ? 'running' : 'failed'} here.</div>`}</div>
+      </div></div>`;
+  }
+
+  function viewDetail() {
+    const back = `<button class="back" data-act="back">${ic('arrowleft')}Runs</button>`;
+    if (!detail || detailFor !== runId()) return `<div class="detail">${back}${detail?.error ? `<div class="banner bad" style="margin:0"><div class="banner-text">${esc(detail.error)}</div></div>` : '<div class="panel" style="height:220px"><div class="skel-row"><div class="skel"></div><div class="skel"></div></div></div>'}</div>`;
+    const r = detail.run, jobs = detail.jobs ?? [];
+    const k = kind(r);
+    const job = jobs.find((j) => j.id === pickedJob);
+    const jobSecs = (j) => (j.startedAt ? secs(j.startedAt, j.completedAt) : null);
+    const log = job ? logs.get(job.id) : null;
+    const pill = `<span class="w-pill dot sans ${k === 'ok' ? 'ok' : k === 'bad' ? 'bad' : k === 'run' ? 'warn' : ''}">${word(r)}${runSecs(r) != null ? ` · ${dur(runSecs(r))}` : ''}</span>`;
+    const waits = (j, i) => (kind(j) === 'queued' && i > 0 ? `needs ${jobs[i - 1].name}` : kind(j) === 'skip' ? 'skipped' : dur(jobSecs(j)));
+    let logHtml = '';
+    if (job && kind(job) === 'bad') {
+      if (log === undefined || log === null) logHtml = '<pre class="log"><span class="dim">Loading the log…</span></pre>';
+      else if (!log.available || !log.lines.length) logHtml = `<pre class="log"><span class="dim">GitHub has no log for this job (logs are kept for 90 days).</span></pre>`;
+      else logHtml = `<pre class="log" id="log" data-job="${job.id}">${log.lines.map((l) => `<span class="${l.error ? 'e' : l.group ? 'g' : ''}">${esc(l.group ? '▸ ' + l.text.replace('##[group]', '') : l.text.replace('##[endgroup]', ''))}</span>`).join('\n')}</pre>`;
+    } else if (job && kind(job) === 'run') {
+      logHtml = `<pre class="log"><span class="dim">GitHub shares a job’s log when the job ends — the step list above updates every 5 s.</span></pre>`;
+    }
+    return `<div class="detail">${back}
+      <div class="d-head"><h2>${esc(r.title || r.workflow)}</h2>
+        ${k === 'bad' && log?.lines?.length ? `<button class="btn btn-secondary" data-act="copylog">${ic('copy')}Copy error</button>` : ''}
+        <button class="btn btn-secondary" data-act="openrun">${ic('external')}Open run on GitHub</button></div>
+      <div class="d-meta">${pill}<span>${esc(r.workflow)} #${r.number} · ${esc(r.branch ?? '')} · ${esc(r.sha ?? '')} · @${esc(r.actor ?? '')} · ${esc(r.event ?? '')}</span></div>
+      <div class="panel"><div class="panel-head"><p class="w-label">Jobs · ${jobs.length}</p><small>pick a job to see its steps</small></div>
+        <div class="jobs">${jobs.map((j, i) => `${i ? '<span class="wire" aria-hidden="true"></span>' : ''}<button class="job k-${kind(j)}" data-job="${j.id}" aria-pressed="${j.id === pickedJob}">${mark(j)}<span class="nm">${esc(j.name)}</span><small>${esc(waits(j, i))}</small></button>`).join('') || '<span class="foot">No jobs yet.</span>'}</div></div>
+      ${job ? `<div class="panel steps"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">${esc(job.name)}${job.labels?.[0] ? ` · ${esc(job.labels[0])}` : ''}${jobSecs(job) != null ? ` · ${kind(job) === 'run' ? 'started ' + dur(jobSecs(job)) + ' ago' : dur(jobSecs(job))}` : ''}</p></div>
+        ${(job.steps ?? []).map((s) => { const sk = kind(s); return `<div class="step k-${sk}">${mark(s)}<span class="nm">${esc(s.name)}</span><small>${sk === 'skip' || sk === 'queued' ? '–' : esc(dur(s.startedAt ? secs(s.startedAt, s.completedAt) : null))}</small></div>`; }).join('')}</div>` : ''}
+      ${logHtml}
+      <p class="foot">${k === 'run' || k === 'queued' ? 'Live · updates every 5 s' : `Finished ${esc(ago(r.updatedAt))} · log kept by GitHub for 90 days`}</p>
+    </div>`;
+  }
+
+  // ---------- actions ----------
+  function wire(c) {
+    c.querySelectorAll('[data-act]').forEach((b) => (b.onclick = () => act(b.dataset.act, b)));
+    c.querySelectorAll('[data-wf]').forEach((b) => (b.onclick = () => { wfPick = b.dataset.wf; paint(); }));
+    c.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => { filter = b.dataset.f; paint(); }));
+    const br = c.querySelector('#branch'); if (br) br.onchange = () => { branchPick = br.value; paint(); };
+    c.querySelectorAll('[data-run]').forEach((b) => (b.onclick = () => { setUrl({ repo, run: b.dataset.run }, true); detail = null; pickedJob = null; paint(); loadDetail(runId()).then(paint); }));
+    c.querySelectorAll('[data-job]').forEach((b) => (b.onclick = () => { pickedJob = Number(b.dataset.job); loadDetail(runId()).then(paint); paint(); }));
+  }
+  async function act(a, el) {
+    if (a === 'signin') {
+      ui.setLoading?.(el, true);
+      try {
+        st = await post('/signin');
+        const si = st.signin;
+        try { await navigator.clipboard.writeText(si.userCode); copied = si.userCode; } catch { /* clipboard blocked: the Copy button is there */ }
+        open(si.verificationUri);
+      } catch (e) { ui.toast(e.message, { kind: 'error' }); }
+      refresh();
+    } else if (a === 'copy') {
+      try { await navigator.clipboard.writeText(st.signin.userCode); copied = st.signin.userCode; paint(); } catch { ui.toast('Couldn’t copy — select the code instead', { kind: 'error' }); }
+    } else if (a === 'reopen') open(st.signin?.verificationUri);
+    else if (a === 'cancel') { await post('/signin/cancel').catch(() => {}); refresh(); }
+    else if (a === 'install') open(st.installUrl);
+    else if (a === 'retry') { runsErr = ''; paint(); refresh(); }
+    else if (a === 'back') { setUrl({ repo }, true); detail = null; paint(); refresh(); }
+    else if (a === 'openrun') open(detail?.run?.url);
+    else if (a === 'copylog') {
+      const l = logs.get(pickedJob);
+      try { await navigator.clipboard.writeText(l.lines.map((x) => x.text).join('\n')); ui.toast('Error copied'); } catch { ui.toast('Couldn’t copy', { kind: 'error' }); }
+    }
+  }
+  // the code countdown ticks every second without asking the server
+  setInterval(() => { if (st?.state === 'signing_in' && st.signin?.expiresIn > 0) { st.signin.expiresIn--; const s = $('.wait small'); if (s) s.textContent = `expires in ${Math.floor(st.signin.expiresIn / 60)}:${String(st.signin.expiresIn % 60).padStart(2, '0')}`; } }, 1000);
+  // the window tells us the run to open (tray notification)
+  addEventListener('message', (e) => { if (e.source === window.parent && e.data?.type === 'wridge:github-open' && e.data.repo) { repo = e.data.repo; runs = null; setUrl({ repo, run: e.data.run }, true); detail = null; paint(); refresh(); } });
+
+  repo = params().get('repo') ?? '';
+  paint();
+  refresh();
+})();
+</script>
+</body>
+</html>

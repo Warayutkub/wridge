@@ -57,6 +57,7 @@ const PAGES = {
   "/code": ["code.html", "text/html"],
   "/data": ["data.html", "text/html"],
   "/flows": ["flows.html", "text/html"],
+  "/github": ["github.html", "text/html"],
   "/skills": ["skills.html", "text/html"],
   "/motion": ["motion.html", "text/html"],
   "/pdf": ["pdf.html", "text/html"],
@@ -476,7 +477,7 @@ async function runTool(t, args, source) {
 
 function createMcpServer(profile) {
   const tools = profileTools(profile);
-  const server = new McpServer({ name: "wridge", version: "1.5.0" }, { instructions: instructions(tools, profile) });
+  const server = new McpServer({ name: "wridge", version: "1.6.0" }, { instructions: instructions(tools, profile) });
   for (const t of tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.inputSchema }, (args) =>
       runTool(t, args, "MCP"),
@@ -580,6 +581,9 @@ const http = createServer(async (req, res) => {
       res.writeHead(200, { "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "no-store" });
       return res.end(readFileSync(join(WEB, file), "utf8"));
     }
+
+    // GitHub (docs/flows/github.md) lives in the Rust engine only
+    if (pathname === "/api/github" || pathname.startsWith("/api/github/")) return json(res, 501, { error: "GitHub is not available on this engine — switch to Rust in Settings → Server" });
 
     switch (route) {
       // ---- code graph page (works without Figma) ----
@@ -1015,7 +1019,7 @@ const http = createServer(async (req, res) => {
         refreshFileName();
         if (state.today.day !== new Date().toDateString()) state.today = newDay();
         return json(res, 200, {
-          version: "1.5.0",
+          version: "1.6.0",
           fileName: state.fileName,
           openFiles: openFiles(),
           today: state.today,

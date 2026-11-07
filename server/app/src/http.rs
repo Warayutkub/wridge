@@ -40,6 +40,7 @@ pub const PAGES: &[(&str, &str, &str)] = &[
     ("/code", "code.html", "text/html"),
     ("/data", "data.html", "text/html"),
     ("/flows", "flows.html", "text/html"),
+    ("/github", "github.html", "text/html"),
     ("/skills", "skills.html", "text/html"),
     ("/motion", "motion.html", "text/html"),
     ("/pdf", "pdf.html", "text/html"),
@@ -216,6 +217,64 @@ async fn known_body_dir(app: &Ctx, dir: Option<&Value>, message: &str) -> anyhow
 const ADD_FIRST: &str = "Add this project in the code graph page first";
 const ADD_BRAIN: &str = "Add this project first";
 
+/// `/api/github/*` (docs/flows/github.md): the window's only way to GitHub; tokens never leave the server.
+async fn github_route(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
+    let gh = &app.github;
+    let path = req.path.trim_start_matches("/api/github").to_string();
+    let ok = |v: anyhow::Result<Value>| match v {
+        Ok(v) => json_response(200, &v),
+        Err(e) => json_response(502, &json!({"error": e.to_string(), "status": gh.status()})),
+    };
+    let post = req.method == Method::POST;
+    if req.method != Method::GET && !post {
+        return Ok(error_json(405, "method not allowed"));
+    }
+    match (post, path.as_str()) {
+        (false, "/status") => return Ok(json_response(200, &gh.status())),
+        (true, "/signin") => return Ok(ok(gh.sign_in().await)),
+        (true, "/signin/cancel") => {
+            gh.cancel_sign_in();
+            return Ok(json_response(200, &gh.status()));
+        }
+        (true, "/signout") => {
+            gh.sign_out();
+            return Ok(json_response(200, &gh.status()));
+        }
+        (true, "/notify") => {
+            let b = req.json(BODY_LIMIT).await?;
+            return Ok(ok(gh.set_notify(b.get("failed").and_then(Value::as_bool), b.get("succeeded").and_then(Value::as_bool))));
+        }
+        (true, "/open") => {
+            let b = req.json(BODY_LIMIT).await?;
+            let url = b.get("url").and_then(Value::as_str).unwrap_or("");
+            return Ok(match gh.open(url) {
+                Ok(()) => json_response(200, &json!({"opened": url})),
+                Err(e) => error_json(400, &e.to_string()),
+            });
+        }
+        (false, "/repos") => return Ok(ok(gh.repos().await)),
+        _ => {}
+    }
+    // /repo/{owner}/{name}/runs · /runs/{id} · /jobs/{id}/log
+    if let (false, Some(rest)) = (post, path.strip_prefix("/repo/")) {
+        let parts: Vec<&str> = rest.split('/').collect();
+        if parts.len() >= 3 {
+            let repo = format!("{}/{}", parts[0], parts[1]);
+            if !crate::github::valid_repo(&repo) {
+                return Ok(error_json(400, "not a repo"));
+            }
+            let id = |s: &str| s.parse::<u64>().ok();
+            match &parts[2..] {
+                ["runs"] => return Ok(ok(gh.runs(&repo).await)),
+                ["runs", n] if id(n).is_some() => return Ok(ok(gh.run(&repo, id(n).unwrap()).await)),
+                ["jobs", n, "log"] if id(n).is_some() => return Ok(ok(gh.log(&repo, id(n).unwrap()).await)),
+                _ => {}
+            }
+        }
+    }
+    Ok(error_json(404, "not found"))
+}
+
 async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
     let path = req.path.clone();
     let get = req.method == Method::GET;
@@ -260,6 +319,10 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
                 String::from_utf8_lossy(&bytes).into_owned().into_bytes(),
             ));
         }
+    }
+
+    if path == "/api/github" || path.starts_with("/api/github/") {
+        return github_route(app, req).await;
     }
 
     let route = format!("{} {}", req.method, path);
