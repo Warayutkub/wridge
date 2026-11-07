@@ -354,6 +354,8 @@
     if (e.data?.type === 'wridge:navigate' && typeof e.data.route === 'string') { location.hash = `#/${e.data.route}`; return; }
     if (e.data?.type === 'wridge:save' && e.data.blob instanceof Blob) { saveForPage(e); return; }
     if (e.data?.type === 'wridge:reveal' && typeof e.data.path === 'string') { reveal(e.data.path); return; }
+    // a page can't always reach the clipboard from its frame: the window copies for it
+    if (e.data?.type === 'wridge:copy' && typeof e.data.text === 'string') { copy(e.data.text, { quiet: true }).then((ok) => e.source?.postMessage({ type: 'wridge:copied', id: e.data.id, ok }, API)); return; }
     if (e.data?.type !== 'wridge:path') return;
     const r = routeOf(e.data.path, e.data.search);
     if (!r) return;
@@ -425,8 +427,10 @@
       };
     });
   }
-  async function copy(text) {
-    try { await navigator.clipboard.writeText(text); return true; } catch { toast('Couldn’t copy — select the text instead', { kind: 'error' }); return false; }
+  // the app's own clipboard first (Tauri), the browser's otherwise
+  async function copy(text, { quiet = false } = {}) {
+    if (T) { try { await invoke('plugin:clipboard-manager|write_text', { text }); return true; } catch { /* fall back below */ } }
+    try { await navigator.clipboard.writeText(text); return true; } catch { if (!quiet) toast('Couldn’t copy — select the text instead', { kind: 'error' }); return false; }
   }
   // switch the server engine; a running server restarts on the new one
   async function setEngine(engine) {

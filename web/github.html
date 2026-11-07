@@ -529,12 +529,12 @@
       try {
         st = await post('/signin');
         const si = st.signin;
-        try { await navigator.clipboard.writeText(si.userCode); copied = si.userCode; } catch { /* clipboard blocked: the Copy button is there */ }
+        if (await ui.copy(si.userCode)) copied = si.userCode;
         open(si.verificationUri);
       } catch (e) { ui.toast(e.message, { kind: 'error' }); }
       refresh();
     } else if (a === 'copy') {
-      try { await navigator.clipboard.writeText(st.signin.userCode); copied = st.signin.userCode; paint(); } catch { ui.toast('Couldn’t copy — select the code instead', { kind: 'error' }); }
+      if (await ui.copy(st.signin.userCode)) { copied = st.signin.userCode; paint(); } else ui.toast('Couldn’t copy — select the code instead', { kind: 'error' });
     } else if (a === 'reopen') open(st.signin?.verificationUri);
     else if (a === 'cancel') { await post('/signin/cancel').catch(() => {}); refresh(); }
     else if (a === 'install') open(st.installUrl);
@@ -543,7 +543,7 @@
     else if (a === 'openrun') open(detail?.run?.url);
     else if (a === 'copylog') {
       const l = logs.get(pickedJob);
-      try { await navigator.clipboard.writeText(l.lines.map((x) => x.text).join('\n')); ui.toast('Error copied'); } catch { ui.toast('Couldn’t copy', { kind: 'error' }); }
+      if (await ui.copy(l.lines.map((x) => x.text).join(String.fromCharCode(10)))) ui.toast('Error copied'); else ui.toast('Couldn’t copy', { kind: 'error' });
     }
   }
   // the code countdown ticks every second without asking the server

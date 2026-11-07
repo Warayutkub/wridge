@@ -1,6 +1,6 @@
 [package]
 name = "wridge"
-version = "1.6.0"
+version = "1.6.1"
 description = "wridge — Wisdom Bridge: AI, Figma and code, with a brain"
 authors = ["Wara"]
 edition = "2024"

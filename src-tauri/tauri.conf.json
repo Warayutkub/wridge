@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "wridge",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "identifier": "app.wridge.desktop",
   "build": {
     "frontendDist": "../web"

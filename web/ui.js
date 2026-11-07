@@ -419,6 +419,17 @@
     });
   }
   // open File Explorer at a saved file (inside the wridge window only)
+  // copy text: the page's own clipboard, or (inside the wridge window, where the frame may not have it) the window's
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch { if (!EMBED) return false; }
+    const id = Math.random().toString(36).slice(2);
+    return new Promise((done) => {
+      const on = (e) => { if (e.source !== window.parent || e.data?.type !== 'wridge:copied' || e.data.id !== id) return; window.removeEventListener('message', on); done(Boolean(e.data.ok)); };
+      window.addEventListener('message', on);
+      window.parent.postMessage({ type: 'wridge:copy', id, text }, '*');
+      setTimeout(() => { window.removeEventListener('message', on); done(false); }, 3000);
+    });
+  }
   const reveal = (path) => { if (EMBED && path) window.parent.postMessage({ type: 'wridge:reveal', path }, '*'); };
 
   // the Figma icon set (load /app-icons.js before ui.js): ui.icon('notes') → <svg>; wrap in <span class="w-icon">
@@ -427,6 +438,6 @@
   // data, flows, skills, settings); outside the window, open the matching web page
   const WEB = { overview: '/', notes: '/brain', graph: '/brain?view=graph', trash: '/brain?view=trash', 'design-map': '/graph', motion: '/motion', pdf: '/pdf', code: '/code', data: '/data', flows: '/flows', github: '/github', skills: '/skills', settings: '/' };
   const go = (route) => (EMBED ? window.parent.postMessage({ type: 'wridge:navigate', route }, '*') : (location.href = WEB[route] ?? '/'));
-  window.ui = { ICONS, icon, go, esc, saveFile, reveal, icons, chip, toast, confirmDialog, inputDialog, setLoading, playAnim, emptyIcon, celebrate, reducedMotion, projectPicker, nav: { setActive, setCount } };
+  window.ui = { ICONS, icon, go, esc, saveFile, reveal, copy, icons, chip, toast, confirmDialog, inputDialog, setLoading, playAnim, emptyIcon, celebrate, reducedMotion, projectPicker, nav: { setActive, setCount } };
   document.addEventListener('DOMContentLoaded', () => { shell(); icons(); });
 })();
