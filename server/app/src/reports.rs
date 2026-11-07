@@ -22,7 +22,8 @@ pub fn default_theme() -> Value {
         "title": "#111111", "text": "#3A3833", "muted": "#77736B", "faint": "#A8A49B",
         "accent": "#2F6BFF", "ok": "#1F9D55", "warn": "#C27C0E", "bad": "#D23B2F", "info": "#2F6BFF", "neutral": "#A8A49B",
         "before": "#C9C4BA", "after": "accent", "series": ["accent", "ok", "warn", "#7A3BC4", "#0E9AA7", "bad"], "grid": "#EBE8E2",
-        "radius": 14, "font": "IBM Plex Sans Thai", "mono": "IBM Plex Mono", "density": "comfortable", "width": 1440
+        "radius": 14, "font": "IBM Plex Sans Thai", "mono": "IBM Plex Mono", "density": "comfortable", "width": 1440,
+        "scale": 1, "sizes": {}, "weights": {}
     })
 }
 
@@ -149,7 +150,18 @@ pub fn validate(report: &Value) -> anyhow::Result<Vec<String>> {
             let missing = match t {
                 "stats" | "timeline" | "checklist" => (!need("items")).then_some("items"),
                 "compare" => (!need("rows")).then_some("rows"),
-                "chart" => (!need("series")).then_some("series"),
+                "chart" => {
+                    let kind = b.get("kind").and_then(Value::as_str).unwrap_or(if need("items") && !need("series") { "hbars" } else { "line" });
+                    let (ok, what) = match kind {
+                        "line" | "bars" | "stacked" | "area" => (need("series"), "series"),
+                        "hbars" | "donut" | "pie" | "funnel" => (need("items"), "items"),
+                        "scatter" => (need("points") || need("series"), "points"),
+                        "gauge" => (need("value") || need("items"), "value (or items)"),
+                        "heatmap" => (need("days") || need("values"), "days (or values)"),
+                        k => bail!("row {}: unknown chart kind \"{k}\" — line, bars, hbars, stacked, area, donut, pie, scatter, gauge, heatmap, funnel", i + 1),
+                    };
+                    (!ok).then_some(what)
+                }
                 "board" => (!need("columns")).then_some("columns"),
                 "table" => (!need("columns") || !need("rows")).then_some("columns and rows"),
                 "flow" => (!need("steps")).then_some("steps"),
@@ -475,5 +487,9 @@ mod tests {
         assert_eq!(slug("../x").unwrap(), "x");
         assert_eq!(slug("รายงาน สัปดาห์ 1").unwrap(), "รายงาน-สัปดาห์-1");
         assert!(save_theme(".", "x", &json!({"acent": "#000"})).is_err());
+        // chart kinds say what they need
+        let w = validate(&json!({"title": "x", "rows": [{"type": "chart", "kind": "donut", "series": []}, {"type": "chart", "kind": "gauge", "value": 72}, {"type": "chart", "items": [{"label": "a", "value": 1}]}]})).unwrap();
+        assert_eq!(w, ["row 1: chart has no items"]);
+        assert!(e(json!({"title": "x", "rows": [{"type": "chart", "kind": "radar"}]})).contains("unknown chart kind \"radar\""));
     }
 }
