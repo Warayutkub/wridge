@@ -972,6 +972,62 @@ Read edits back later with board_map.` }] };
   );
 
   tool(
+    "tasks",
+    "The project's task board, shared with the person (wridge → Tasks; file docs/tasks/board.json). list (filters: status, label, from, query) · get id · add tasks[] · update id + set · move id + status (+ index) · tick id + subtask · note id + text · accept / skip id (+ text = the reason) · remove id. Found something to fix while checking? add it with change {where, old, new} and from \"<check> · <date>\": it waits in Review until the person accepts; after accept make the change, then move it to done. Never raise a skipped one again (list status: skipped shows the reasons). Before first use: get_skill(\"reports-tasks\").",
+    {
+      projectDir: z.string().describe("Absolute path of the project"),
+      action: z.enum(["list", "get", "add", "update", "move", "tick", "note", "accept", "skip", "remove"]),
+      id: z.string().optional().describe('e.g. "T-3"'),
+      tasks: z
+        .array(
+          z.object({
+            title: z.string(),
+            description: z.string().optional().describe("Markdown"),
+            status: z.enum(["todo", "doing", "review", "done"]).optional().describe("default todo; review when change is given"),
+            labels: z.array(z.string()).optional(),
+            subtasks: z.array(z.string()).optional(),
+            links: z.array(z.string()).optional().describe("file:line, docs/flows/x.md, figma:12:34, a PR or https URL"),
+            due: z.string().optional(),
+            who: z.string().optional().describe("who does it: AI or a name"),
+            from: z.string().optional().describe('the batch, e.g. "AI check · 7 Nov"'),
+            change: z.object({ where: z.string().optional(), old: z.string(), new: z.string() }).optional().describe("a suggested edit the person accepts or skips"),
+          }),
+        )
+        .optional()
+        .describe("add: one or more tasks"),
+      set: z.record(z.string(), z.any()).optional().describe("update: the fields to replace (names as in tasks[])"),
+      status: z.enum(["todo", "doing", "review", "done", "skipped", "all"]).optional().describe("move: the new column · list: filter (skipped are hidden unless asked)"),
+      index: z.number().int().min(0).optional().describe("move: position in the column"),
+      subtask: z.number().int().min(1).optional().describe("tick: its number, as get shows"),
+      done: z.boolean().optional().describe("tick: false unticks"),
+      text: z.string().max(2000).optional().describe("note: the note · skip: the reason"),
+      label: z.string().optional().describe("list filter"),
+      from: z.string().optional().describe("list filter: the batch name contains this"),
+      query: z.string().optional().describe("list filter: words in title or description"),
+    },
+    async () => {
+      throw new Error("Tasks need the Rust engine — switch to Rust in wridge → Settings → Server");
+    },
+  );
+
+  tool(
+    "report",
+    "Reports the person reads in wridge → Reports and exports as image or PDF — no Figma needed (docs/reports/<name>.json). write: report {title, subtitle?, eyebrow?, status?, theme?, rows: [block | [block, block] (≤3 side by side)]}; blocks: header, stats, compare, chart, board, table (preset basic|status|numbers|progress|compare|grouped), timeline, callout, checklist, flow, text, image, tasks (live from the Tasks board: {type: \"tasks\", filter: {from|label|status}}), divider. Send content only — colors and layout have defaults; set theme / block style / item color only when asked. theme: save tokens under name, then \"theme\": \"<name>\". list · get name · remove name · export name + format png|pdf. Load get_skill(\"reports-tasks\") for each block's fields before the first report.",
+    {
+      projectDir: z.string().describe("Absolute path of the project"),
+      action: z.enum(["list", "get", "write", "remove", "theme", "export"]),
+      name: z.string().optional().describe("file name in docs/reports/ (write: defaults to the title)"),
+      report: z.record(z.string(), z.any()).optional().describe("write: {title, rows: [...]} — see the skill for each block"),
+      mode: z.enum(["create", "replace"]).optional().describe("write: default create (fails if the name exists)"),
+      theme: z.record(z.string(), z.any()).optional().describe('theme: tokens to save under name, e.g. {"accent": "#7A3BC4"}'),
+      format: z.enum(["png", "pdf"]).optional().describe("export: default png"),
+    },
+    async () => {
+      throw new Error("Reports need the Rust engine — switch to Rust in wridge → Settings → Server");
+    },
+  );
+
+  tool(
     "project_memory",
     `What was agreed and where work stands, kept outside the chat so compaction or a new session loses nothing — for any project (app, game, book, study…), code or not. overview: open tasks, decision titles, brain tags — start here. find: matching decisions, working notes and brain notes (one line each). decide: a project-level decision the user agreed to → docs/decisions.md. note: a short agreement made while working on a task (.wara). handoff: create/update a task's state; close: true when finished. Brain = the project's knowledge as Markdown files in brain/ that the user reads too (Obsidian-style [[links]]: [[Note]], [[code:path#Name]], [[figma:12:34]], [[roblox:Path]], [[project:Note]]; a front-matter key with links is a named relation, e.g. boss_of: [[CH1]]). read: one whole note + its links and backlinks. write: name + content (mode create | append | replace; replace keeps the old text in the trash). trash: move a note to brain/.trash (restore with path). Only the project of this session; another project only when the user asks. Search before reading; write only what was decided or is hard to find again, not chat trivia. Never open docs/decisions.md or brain/ files whole — use find/read.`,
     {

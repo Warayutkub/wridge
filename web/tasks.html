@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tasks · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  /* Figma "wara-bridge" → "wridge Tasks · Prototype · Approved"; the board is docs/tasks/board.json */
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+  .tk-top .w-search { width: 240px; }
+  .tk-top .spacer { flex: 1; }
+  .tk-top .btn { height: 36px; }
+  .btn .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .tk-bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 24px; flex-wrap: wrap; }
+  .fp { height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); color: var(--text-2); font: 500 12.5px var(--sans); cursor: pointer; transition: background .15s var(--ease), color .15s var(--ease); white-space: nowrap; }
+  .fp[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .tk-bar .spacer { flex: 1; }
+  .tk-bar .file { font: 11px var(--mono); color: var(--text-faint); }
+  .board { flex: 1; min-height: 0; display: flex; gap: 12px; padding: 0 24px 24px; }
+  .col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 8px; border: 1px solid var(--surface-2); border-radius: 12px; background: var(--surface-1); transition: background .15s var(--ease), border-color .15s var(--ease); }
+  .col.over { background: var(--primary-soft); border-color: var(--primary); }
+  .col-h { display: flex; align-items: center; gap: 7px; padding: 4px 6px; font-size: 13px; font-weight: 600; }
+  .col-h i { width: 8px; height: 8px; border-radius: 50%; }
+  .col-h small { font: 11px var(--mono); color: var(--text-faint); font-weight: 400; }
+  .col-h .add { margin-left: auto; width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: 6px; background: none; color: var(--text-faint); cursor: pointer; }
+  .col-h .add:hover { background: var(--surface-2); color: var(--text); }
+  .col-note { margin: -2px 6px 2px; font-size: 11.5px; color: var(--text-muted); }
+  .cards { flex: 1; min-height: 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 1px; }
+  .card { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); cursor: pointer; text-align: left; font: inherit; color: inherit;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease), transform .15s var(--ease), opacity .15s; animation: w-in .22s var(--ease) both; }
+  .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+  .card[aria-current="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+  .card.dragging { opacity: .4; transform: scale(.98); }
+  .card.calm { animation: none; }
+  .card.done b { color: var(--text-muted); }
+  .card:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .card b { font-size: 13px; font-weight: 600; line-height: 1.45; }
+  .card .desc { font-size: 12px; line-height: 1.5; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .labels { display: flex; flex-wrap: wrap; gap: 4px; }
+  .lbl { padding: 1px 6px; border-radius: 5px; font-size: 11px; font-weight: 500; line-height: 1.5; }
+  .diff { padding: 6px 8px; border: 1px solid var(--surface-2); border-radius: 7px; background: var(--surface-1); font: 11px/1.5 var(--mono); overflow: hidden; }
+  .diff div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .diff .m { color: var(--danger-text); } .diff .p { color: var(--success-text); }
+  .foot { display: flex; align-items: center; gap: 10px; font: 11px var(--mono); color: var(--text-muted); }
+  .foot span { display: inline-flex; align-items: center; gap: 4px; }
+  .foot .late { color: var(--danger); }
+  .foot svg { width: 13px; height: 13px; }
+  .who { margin-left: auto; width: 20px; height: 20px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font: 600 10px/1 var(--sans); text-transform: uppercase; }
+  .who.ai { background: var(--ink); color: var(--on-ink); font-size: 8.5px; }
+  .newcard { padding: 8px; border: 1px solid var(--primary); border-radius: 10px; background: var(--background); }
+  .newcard textarea { width: 100%; border: 0; outline: 0; resize: none; font: 600 13px/1.45 var(--sans); background: none; color: var(--text); }
+  .newcard small { font-size: 11px; color: var(--text-faint); }
+  .more-skipped { margin: 4px 6px; border: 0; background: none; font: 12px var(--sans); color: var(--text-muted); cursor: pointer; text-align: left; }
+  .more-skipped:hover { color: var(--text); text-decoration: underline; }
+  /* panel */
+  .panel { position: fixed; z-index: 30; top: 0; right: 0; bottom: 0; width: min(460px, 100vw); display: flex; flex-direction: column; background: var(--background); border-left: 1px solid var(--border); box-shadow: -12px 0 40px rgba(17,17,17,.12); animation: slide-in .22s var(--ease); }
+  @keyframes slide-in { from { transform: translateX(24px); opacity: 0; } }
+  .p-head { display: flex; align-items: center; gap: 8px; padding: 14px 20px; border-bottom: 1px solid var(--surface-2); }
+  .p-head .spacer { flex: 1; }
+  .p-head .id { font: 11px var(--mono); color: var(--text-faint); }
+  .p-head select { height: 32px; padding: 0 28px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); font: 500 13px var(--sans); color: var(--text); cursor: pointer; }
+  .iconbtn { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 7px; background: none; color: var(--text-muted); cursor: pointer; }
+  .iconbtn:hover { background: var(--surface-2); color: var(--text); }
+  .iconbtn svg { width: 16px; height: 16px; }
+  .p-body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 24px; display: flex; flex-direction: column; gap: 22px; }
+  .p-title { margin: 0; padding: 2px 6px; margin-left: -6px; border-radius: 6px; font-size: 22px; font-weight: 600; line-height: 1.3; letter-spacing: -.02em; outline: 0; }
+  .p-title:hover { background: var(--surface-1); } .p-title:focus { background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--border); }
+  .fields { display: grid; grid-template-columns: 84px 1fr; gap: 10px 12px; align-items: center; font-size: 13px; }
+  .fields > span { color: var(--text-muted); font-size: 12.5px; }
+  .fields input { width: 100%; height: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: 6px; background: none; font: 13px var(--sans); color: var(--text); }
+  .fields input:hover { border-color: var(--border); } .fields input:focus { outline: 0; border-color: var(--primary); background: var(--background); }
+  .fields input::placeholder { color: var(--text-faint); }
+  .sec { display: flex; flex-direction: column; gap: 10px; }
+  .sec-h { display: flex; align-items: center; gap: 8px; }
+  .sec-h .spacer { flex: 1; }
+  .sec-h .link { border: 0; background: none; font: 12px var(--sans); color: var(--text-muted); cursor: pointer; }
+  .sec-h .link:hover { color: var(--text); text-decoration: underline; }
+  .prog { width: 80px; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; } .prog i { display: block; height: 100%; background: var(--success); transition: width .3s var(--ease); }
+  .md { font-size: 14px; line-height: 1.65; color: var(--text-2); display: flex; flex-direction: column; gap: 6px; } .md ul { margin: 0; padding-left: 20px; } .md code { font: 12.5px var(--mono); background: var(--surface-1); padding: 1px 5px; border-radius: 4px; }
+  .md.empty { color: var(--text-faint); cursor: text; }
+  .p-body textarea.edit { width: 100%; min-height: 120px; padding: 10px; border: 1px solid var(--primary); border-radius: 8px; font: 14px/1.6 var(--sans); color: var(--text); resize: vertical; outline: 0; }
+  .sub { display: flex; align-items: center; gap: 10px; font-size: 13.5px; cursor: pointer; }
+  .sub input { width: 16px; height: 16px; accent-color: var(--success); cursor: pointer; }
+  .sub.on span { color: var(--text-muted); text-decoration: line-through; text-decoration-color: var(--text-faint); }
+  .addsub { display: flex; align-items: center; gap: 8px; } .addsub input { flex: 1; height: 30px; padding: 0 8px; border: 1px dashed var(--border); border-radius: 6px; background: none; font: 13px var(--sans); }
+  .addsub input:focus { outline: 0; border-style: solid; border-color: var(--primary); }
+  .lnk { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--surface-2); border-radius: 8px; background: var(--surface-1); font: 12px var(--mono); color: var(--text); text-decoration: none; cursor: pointer; }
+  .lnk:hover { border-color: var(--border-strong); } .lnk svg { width: 14px; height: 14px; flex: none; color: var(--text-muted); } .lnk span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lnk small { color: var(--text-faint); }
+  .code { border-radius: 10px; background: #1A1917; padding: 10px 0; font: 12px/1.7 var(--mono); overflow-x: auto; }
+  .code div { padding: 0 14px; white-space: pre; } .code .m { background: #3A1C19; color: #F59A90; } .code .p { background: #16301F; color: #6FD69A; }
+  .where { display: inline-flex; align-items: center; gap: 6px; font: 11.5px var(--mono); color: var(--text); }
+  .act { display: flex; flex-direction: column; gap: 10px; }
+  .ev { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.5; } .ev .who { margin: 0; } .ev > span:not(.who) { flex: 1; } .ev small { font: 11px var(--mono); color: var(--text-faint); white-space: nowrap; }
+  .p-foot { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--surface-2); align-items: center; }
+  .p-foot input { flex: 1; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); font: 13px var(--sans); }
+  .p-foot input:focus { outline: 0; border-color: var(--primary); background: var(--background); }
+  .p-foot .grow { flex: 1; }
+  .reason { font-size: 13px; padding: 10px 12px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-2); }
+  .empty { flex: 1; display: grid; place-items: center; padding: 40px; }
+  .empty .in { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 470px; }
+  .empty h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; } .empty p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-muted); }
+  .empty .tile { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 14px; background: var(--background); } .empty .tile svg { width: 26px; height: 26px; }
+  .ex { width: 440px; max-width: 100%; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+  .ex button { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); font: 13px var(--sans); color: var(--text-2); text-align: left; cursor: pointer; }
+  .ex button:hover { border-color: var(--border-strong); color: var(--text); }
+</style>
+</head>
+<body>
+<header class="w-toolbar tk-top">
+  <div class="topbar-left"><div class="w-titles"><p class="w-label">Project · Tasks</p><h1>Tasks</h1></div></div>
+  <label class="w-search"><span class="w-icon" data-wicon="search"></span><input id="q" type="search" placeholder="Find a task…" aria-label="Find a task" autocomplete="off"><span class="w-kbd">Ctrl K</span></label>
+  <span class="spacer"></span>
+  <button class="btn btn-primary" id="new"><span class="w-icon" data-wicon="plus"></span>New task</button>
+</header>
+<div class="tk-bar" id="bar" hidden></div>
+<main class="board" id="board" aria-label="Board"></main>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script src="/report-render.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = ui.esc, md = wrReport.md;
+  document.querySelectorAll("[data-wicon]").forEach((el) => { el.innerHTML = ui.icon(el.dataset.wicon); });
+  const dir = new URLSearchParams(location.search).get("dir") ?? "";
+  const COLS = [["todo", "To do", "var(--text-faint)"], ["doing", "Doing", "var(--primary)"], ["review", "Review", "var(--warning)"], ["done", "Done", "var(--success)"]];
+  const I = {
+    sub: '<svg viewBox="0 0 20 20" fill="none"><rect x="3" y="3" width="14" height="14" rx="3.5" stroke="currentColor" stroke-width="1.6"/><path d="m6.8 10.2 2.2 2.2 4.3-4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    link: '<svg viewBox="0 0 20 20" fill="none"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5l-1 1M11.5 8.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    cal: '<svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4.5" width="14" height="12.5" rx="2.5" stroke="currentColor" stroke-width="1.6"/><path d="M3 8.5h14M7 2.5v3M13 2.5v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    file: '<svg viewBox="0 0 20 20" fill="none"><path d="M5 2.5h6.5L15.5 6.5v10.25c0 .41-.34.75-.75.75h-9.5a.75.75 0 0 1-.75-.75V3.25c0-.41.34-.75.75-.75Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    close: '<svg viewBox="0 0 20 20" fill="none"><path d="m5 5 10 10M15 5 5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    trash: '<svg viewBox="0 0 20 20" fill="none"><path d="M4 6h12M8 6V4h4v2M6 6l.7 10h6.6L14 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plus: '<svg viewBox="0 0 20 20" fill="none" width="14" height="14"><path d="M10 4v12M4 10h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    tasks: '<svg viewBox="0 0 20 20" fill="none"><rect x="2.75" y="3" width="5" height="5" rx="1.25" stroke="currentColor" stroke-width="1.2"/><path d="m3.9 13.6 1.3 1.3 2.4-2.6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M10.5 5.5h6.75M10.5 13.75h6.75" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  };
+  const LABEL = { ui: ["#E8EEFF", "#1F4FD1"], content: ["#F3E8FF", "#7A3BC4"], feature: ["#E6F4EC", "#17794A"], ops: ["#EBE8E2", "#3A3833"], perf: ["#FBF0DC", "#8A5A0B"], bug: ["#FBE7E4", "#A42C22"], docs: ["#E3F4F5", "#0B6E77"] };
+  const PALETTE = Object.values(LABEL);
+  const lblColor = (n) => LABEL[n.toLowerCase()] ?? PALETTE[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
+  const lbl = (n) => { const [bg, fg] = lblColor(n); return `<span class="lbl" style="background:${bg};color:${fg}">${esc(n)}</span>`; };
+  const who = (w) => `<span class="who${w === "AI" ? " ai" : ""}" title="${esc(w || "you")}">${esc(w === "AI" ? "AI" : (w || "you").replace(/^@/, "").slice(0, 1))}</span>`;
+  const sub = (t) => { const s = t.subtasks ?? []; return s.length ? `${s.filter((x) => x.done).length}/${s.length}` : ""; };
+  const isLate = (d) => { const t = Date.parse(d); return !Number.isNaN(t) && t < Date.now() - 864e5; };
+  const ago = (iso) => { const t = Date.parse(iso); if (Number.isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? "now" : m < 60 ? `${m} min` : m < 1440 ? new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+
+  let board = null, stamp = -1, err = "", filter = "all", open = null, showSkipped = false, adding = null, editing = null, painted = false;
+  const api = async (method, body) => {
+    const res = await fetch(`/api/tasks?dir=${encodeURIComponent(dir)}`, { method, cache: "no-store", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error ?? `HTTP ${res.status}`);
+    return j;
+  };
+  async function act(body, quiet) {
+    try { const r = await api("POST", body); board = r.board; stamp = r.stamp; paint(); return r; }
+    catch (e) { ui.toast(e.message, { kind: "error" }); refresh(); }
+  }
+  const tasks = () => board?.tasks ?? [];
+  const byId = (id) => tasks().find((t) => t.id === id);
+
+  function visible() {
+    const term = $("#q").value.trim().toLowerCase();
+    return tasks().filter((t) => {
+      if (term && !`${t.title} ${t.description} ${(t.labels ?? []).join(" ")}`.toLowerCase().includes(term)) return false;
+      if (filter === "mine") return t.who !== "AI";
+      if (filter === "ai") return t.by === "AI";
+      if (filter.startsWith("from:")) return t.from === filter.slice(5);
+      return true;
+    });
+  }
+
+  function cardHtml(t) {
+    const where = t.change?.where;
+    const links = (t.links ?? []).length;
+    return `<div class="card${t.status === "done" ? " done" : ""}${painted ? " calm" : ""}" draggable="true" tabindex="0" data-id="${esc(t.id)}" aria-current="${open === t.id}">
+      ${(t.labels ?? []).length || t.from ? `<div class="labels">${(t.labels ?? []).map(lbl).join("")}${t.from ? `<span class="lbl" style="background:var(--primary-soft);color:var(--primary)">● ${esc(t.from.split(" · ")[0])}</span>` : ""}</div>` : ""}
+      <b>${esc(t.title)}</b>
+      ${t.change ? `<div class="diff"><div class="m">− ${esc(t.change.old)}</div><div class="p">+ ${esc(t.change.new)}</div></div>` : ""}
+      ${t.description ? `<div class="desc">${esc(t.description.replace(/\s+/g, " "))}</div>` : ""}
+      <div class="foot">${sub(t) ? `<span>${I.sub}${sub(t)}</span>` : ""}${where ? `<span>${I.file}${esc(where)}</span>` : links ? `<span>${I.link}${links}</span>` : ""}${t.due ? `<span class="${isLate(t.due) && t.status !== "done" ? "late" : ""}">${I.cal}${esc(t.due)}</span>` : ""}${who(t.who)}</div>
+    </div>`;
+  }
+
+  function paint() {
+    const main = $("#board");
+    if (!dir) { main.innerHTML = `<div class="empty"><div class="in"><h2>Pick a project first</h2><p>The board lives in the project's docs/tasks/ folder.</p></div></div>`; return; }
+    if (!board) { main.innerHTML = err ? `<div class="empty"><div class="in">${ui.emptyIcon("alert")}<h2>Couldn’t read the board</h2><p>${esc(err)}</p></div></div>` : `<div class="empty"><span class="spinner"></span></div>`; return; }
+    if (!tasks().length && !adding) {
+      $("#bar").hidden = true;
+      main.innerHTML = `<div class="empty"><div class="in w-fade-in"><span class="tile">${I.tasks}</span><h2>No tasks yet</h2><p>One board for this project — you and your AI both add, move and tick tasks. It's a file in docs/tasks/, so it travels with your code.</p>
+        <button class="btn btn-primary" id="first">New task</button>
+        <div class="ex"><p class="w-label">Ask your AI, for example</p>${["แตกงาน feature ชำระเงินเป็น task ให้หน่อย", "ตรวจหน้า checkout แล้วจดสิ่งที่ต้องแก้ลง Tasks", "ทำ task ที่อยู่ใน To do อันแรกเลย"].map((p) => `<button data-copy="${esc(p)}">“${esc(p)}”</button>`).join("")}</div></div></div>`;
+      $("#first").onclick = () => startAdd("todo");
+      main.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => ((await ui.copy(b.dataset.copy)) ? ui.toast("Copied — paste it to your AI") : null)));
+      return;
+    }
+    // filters: all · mine · from AI · the newest batches
+    const batches = [...new Set(tasks().filter((t) => t.from).sort((a, b) => (b.created ?? "").localeCompare(a.created ?? "")).map((t) => t.from))].slice(0, 3);
+    const bar = $("#bar");
+    bar.hidden = false;
+    bar.innerHTML = [["all", "All"], ["mine", "Mine"], ["ai", "From AI"], ...batches.map((b) => [`from:${b}`, `${b} · ${tasks().filter((t) => t.from === b).length}`])]
+      .map(([k, n]) => `<button class="fp" data-f="${esc(k)}" aria-pressed="${filter === k}">${esc(n)}</button>`).join("") + `<span class="spacer"></span><span class="file">docs/tasks/board.json · ${tasks().length} task${tasks().length === 1 ? "" : "s"}</span>`;
+    bar.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { filter = b.dataset.f; paint(); }));
+    const vis = visible();
+    const skipped = vis.filter((t) => t.status === "skipped");
+    main.innerHTML = COLS.map(([st, name, dot]) => {
+      const list = vis.filter((t) => t.status === st);
+      return `<section class="col" data-st="${st}"><div class="col-h"><i style="background:${dot}"></i>${name}<small>${list.length}</small><button class="add" data-add="${st}" aria-label="Add a task to ${name}" title="Add a task">${I.plus}</button></div>
+        ${st === "review" ? `<p class="col-note">The AI's suggestions wait here for your yes</p>` : ""}
+        <div class="cards">${adding === st ? `<div class="newcard"><textarea rows="2" id="newtitle" placeholder="What needs doing?"></textarea><small>Enter to add · Esc to cancel</small></div>` : ""}${list.map(cardHtml).join("")}
+        ${st === "done" && skipped.length ? `<button class="more-skipped" id="toggle-skipped">${showSkipped ? "Hide" : "Show"} ${skipped.length} skipped</button>${showSkipped ? skipped.map(cardHtml).join("") : ""}` : ""}</div></section>`;
+    }).join("");
+    painted = true;
+    wireBoard(main);
+    paintPanel();
+  }
+
+  function wireBoard(main) {
+    main.querySelectorAll(".card").forEach((c) => {
+      c.onclick = () => { open = c.dataset.id; paint(); };
+      c.onkeydown = (e) => { if (e.key === "Enter") c.click(); };
+      c.ondragstart = (e) => { e.dataTransfer.setData("text/plain", c.dataset.id); e.dataTransfer.effectAllowed = "move"; c.classList.add("dragging"); };
+      c.ondragend = () => c.classList.remove("dragging");
+    });
+    main.querySelectorAll(".col").forEach((col) => {
+      col.ondragover = (e) => { e.preventDefault(); col.classList.add("over"); };
+      col.ondragleave = (e) => { if (!col.contains(e.relatedTarget)) col.classList.remove("over"); };
+      col.ondrop = (e) => {
+        e.preventDefault(); col.classList.remove("over");
+        const id = e.dataTransfer.getData("text/plain");
+        const cards = [...col.querySelectorAll(".card")].filter((c) => c.dataset.id !== id);
+        const index = cards.filter((c) => c.getBoundingClientRect().top + c.offsetHeight / 2 < e.clientY).length;
+        const t = byId(id);
+        if (!t) return;
+        // optimistic: move it now, the server answers with the board
+        t.status = col.dataset.st;
+        paint();
+        act({ action: "move", id, status: col.dataset.st, index });
+      };
+    });
+    main.querySelectorAll("[data-add]").forEach((b) => (b.onclick = () => startAdd(b.dataset.add)));
+    $("#toggle-skipped")?.addEventListener("click", () => { showSkipped = !showSkipped; paint(); });
+    const nt = $("#newtitle");
+    if (nt) {
+      nt.focus();
+      nt.onkeydown = async (e) => {
+        if (e.key === "Escape") { adding = null; paint(); }
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          const title = nt.value.trim(); const st = adding; adding = null;
+          if (!title) return paint();
+          const r = await act({ action: "add", tasks: [{ title, status: st }] });
+          const id = r?.message?.match(/T-\d+/)?.[0]; if (id) { open = id; paint(); }
+        }
+      };
+      nt.onblur = () => setTimeout(() => { if (adding && document.activeElement !== nt) { adding = null; paint(); } }, 150);
+    }
+  }
+  function startAdd(st) { adding = st; open = null; paint(); }
+  $("#new").onclick = () => startAdd("todo");
+  $("#q").oninput = () => paint();
+  document.addEventListener("keydown", (e) => {
+    if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); $("#q").focus(); }
+    if (e.key === "Escape" && open && !document.querySelector("dialog[open]") && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName ?? "") && !document.activeElement?.isContentEditable) { open = null; editing = null; paint(); }
+  });
+
+  // ---------- the panel ----------
+  function paintPanel() {
+    document.querySelector(".panel")?.remove();
+    const t = open && byId(open);
+    if (!t) return;
+    const p = document.createElement("aside");
+    p.className = "panel";
+    p.setAttribute("aria-label", t.title);
+    const subs = t.subtasks ?? [];
+    const doneN = subs.filter((x) => x.done).length;
+    const suggestion = t.change && t.status === "review";
+    p.innerHTML = `<div class="p-head">
+        <select id="st" aria-label="Status">${[...COLS, ["skipped", "Skipped"]].map(([k, n]) => `<option value="${k}"${t.status === k ? " selected" : ""}>${n}</option>`).join("")}</select>
+        ${t.from ? `<span class="lbl" style="background:var(--primary-soft);color:var(--primary)">● ${esc(t.from)}</span>` : ""}
+        <span class="spacer"></span><span class="id">${esc(t.id)}</span>
+        <button class="iconbtn" id="del" title="Delete this task" aria-label="Delete this task">${I.trash}</button>
+        <button class="iconbtn" id="close" title="Close (Esc)" aria-label="Close">${I.close}</button></div>
+      <div class="p-body">
+        <h2 class="p-title" id="title" contenteditable="plaintext-only" spellcheck="false">${esc(t.title)}</h2>
+        ${t.status === "skipped" && t.skipReason ? `<div class="reason"><b>Skipped:</b> ${esc(t.skipReason)}</div>` : ""}
+        ${suggestion ? "" : `<div class="fields">
+          <span>Labels</span><input id="f-labels" value="${esc((t.labels ?? []).join(", "))}" placeholder="+ add, comma between">
+          <span>Doing it</span><input id="f-who" value="${esc(t.who ?? "")}" placeholder="AI or a name">
+          <span>Due</span><input id="f-due" value="${esc(t.due ?? "")}" placeholder="— set a date">
+          <span>Made by</span><span style="color:var(--text-2)">${esc(t.by === "AI" ? "AI" : "you")} · ${esc(ago(t.created))}</span></div>`}
+        ${t.change ? `<div class="sec"><div class="sec-h"><p class="w-label">Suggested change</p><span class="spacer"></span>${t.change.where ? `<span class="where">${I.file.replace("<svg", '<svg width="13" height="13"')}${esc(t.change.where)}</span>` : ""}</div>
+          <div class="code">${t.change.old.split("\n").map((l) => `<div class="m">- ${esc(l)}</div>`).join("")}${t.change.new.split("\n").map((l) => `<div class="p">+ ${esc(l)}</div>`).join("")}</div></div>` : ""}
+        <div class="sec"><div class="sec-h"><p class="w-label">${t.change ? "Why" : "Description"}</p><span class="spacer"></span><button class="link" id="edit-desc">${editing === "desc" ? "Done" : "Edit"}</button></div>
+          ${editing === "desc" ? `<textarea class="edit" id="desc">${esc(t.description ?? "")}</textarea>` : `<div class="md${t.description ? "" : " empty"}" id="desc-view">${t.description ? md(t.description) : "Add a description — lists with - work"}</div>`}</div>
+        ${suggestion ? `<div class="banner info" style="margin:0"><div class="banner-text"><b>Accept → the AI makes this change, then ticks it done</b>Skip asks for a short reason, so the next check doesn't raise it again.</div></div>` : ""}
+        <div class="sec"><div class="sec-h"><p class="w-label">Subtasks${subs.length ? ` · ${doneN}/${subs.length}` : ""}</p><span class="spacer"></span>${subs.length ? `<span class="prog"><i style="width:${(doneN / subs.length) * 100}%"></i></span>` : ""}</div>
+          ${subs.map((x, i) => `<label class="sub${x.done ? " on" : ""}"><input type="checkbox" data-sub="${i + 1}"${x.done ? " checked" : ""}><span>${esc(x.text)}</span></label>`).join("")}
+          <div class="addsub">${I.plus}<input id="newsub" placeholder="Add a subtask — Enter"></div></div>
+        ${(t.links ?? []).length ? `<div class="sec"><p class="w-label">Links</p>${t.links.map((l) => `<a class="lnk" data-link="${esc(l)}">${/^https?:/.test(l) ? I.link : I.file}<span>${esc(l)}</span><small>${/^https?:/.test(l) ? "web" : /^figma:/.test(l) ? "Figma" : /flows\//.test(l) ? "flow" : "file"}</small></a>`).join("")}</div>` : ""}
+        <div class="sec"><p class="w-label">Activity</p><div class="act">${(t.activity ?? []).slice(-12).reverse().map((a) => `<div class="ev">${who(a.who === "AI" ? "AI" : "you")}<span>${esc(a.text)}</span><small>${esc(ago(a.at))}</small></div>`).join("") || '<span class="md empty">Nothing yet</span>'}</div></div>
+      </div>
+      <div class="p-foot">${suggestion
+        ? `<button class="btn btn-primary grow" id="accept">Accept</button><button class="btn btn-secondary" id="editfirst">Edit first</button><button class="btn btn-ghost" id="skip">Skip</button>`
+        : `<input id="note" placeholder="Write a note — the AI reads it too"><button class="btn btn-secondary" id="send">Send</button>`}</div>`;
+    document.body.append(p);
+    const id = t.id;
+    $("#close", p).onclick = () => { open = null; editing = null; paint(); };
+    $("#st", p).onchange = (e) => act({ action: "move", id, status: e.target.value });
+    $("#del", p).onclick = async () => { if (await ui.confirmDialog({ title: `Delete ${id}?`, body: `“${t.title}” goes off the board. This can't be undone from wridge (git still has it).`, confirm: "Delete", danger: true })) { open = null; act({ action: "remove", id }); } };
+    const title = $("#title", p);
+    title.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); title.blur(); } };
+    title.onblur = () => { const v = title.textContent.trim(); if (v && v !== t.title) act({ action: "update", id, set: { title: v } }); else title.textContent = t.title; };
+    for (const [f, key, split] of [["#f-labels", "labels", true], ["#f-who", "who"], ["#f-due", "due"]]) {
+      const el = $(f, p); if (!el) continue;
+      el.onkeydown = (e) => { if (e.key === "Enter") el.blur(); };
+      el.onchange = () => act({ action: "update", id, set: { [key]: split ? el.value.split(",").map((x) => x.trim()).filter(Boolean) : el.value.trim() } });
+    }
+    $("#edit-desc", p).onclick = () => {
+      if (editing === "desc") { const v = $("#desc", p).value; editing = null; act({ action: "update", id, set: { description: v } }); }
+      else { editing = "desc"; paintPanel(); $("#desc")?.focus(); }
+    };
+    $("#desc-view", p)?.addEventListener("click", (e) => { if (e.target.tagName !== "A") { editing = "desc"; paintPanel(); $("#desc")?.focus(); } });
+    p.querySelectorAll("[data-sub]").forEach((c) => (c.onchange = () => act({ action: "tick", id, subtask: Number(c.dataset.sub), done: c.checked })));
+    $("#newsub", p).onkeydown = (e) => { if (e.key === "Enter" && e.target.value.trim()) act({ action: "update", id, set: { subtasks: [...subs, { text: e.target.value.trim(), done: false }] } }); };
+    p.querySelectorAll("[data-link]").forEach((a) => (a.onclick = () => {
+      const l = a.dataset.link;
+      if (/^https?:/.test(l)) window.open(l, "_blank", "noopener");
+      else if (/^docs\/flows\//.test(l)) ui.go("flows");
+      else ui.reveal(`${dir.replace(/\\/g, "/")}/${l.replace(/:\d+$/, "")}`);
+    }));
+    const send = () => { const v = $("#note", p).value.trim(); if (v) act({ action: "note", id, text: v }); };
+    $("#send", p)?.addEventListener("click", send);
+    $("#note", p)?.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+    $("#accept", p)?.addEventListener("click", async () => { await act({ action: "accept", id }); ui.toast(`${id} accepted — the AI makes the change next time it checks the board`); });
+    $("#skip", p)?.addEventListener("click", async () => {
+      const reason = await ui.inputDialog({ title: `Skip ${id}?`, body: "Say why in a few words — the next check reads this and won't raise it again.", label: "Reason", placeholder: "e.g. fetch already has a global timeout", confirm: "Skip" });
+      if (reason != null) act({ action: "skip", id, text: reason });
+    });
+    $("#editfirst", p)?.addEventListener("click", async () => {
+      const v = await ui.inputDialog({ title: "Edit the change", body: "What it should become. Accepting uses your version.", label: "New", value: t.change.new, confirm: "Save and accept" });
+      if (v != null) { await act({ action: "update", id, set: { change: { ...t.change, new: v } } }); act({ action: "accept", id }); }
+    });
+  }
+
+  async function refresh() {
+    if (!dir) return paint();
+    try {
+      const r = await api("GET");
+      err = "";
+      if (r.stamp !== stamp || !board) { board = r.board; stamp = r.stamp; if (!document.querySelector(".panel :focus")) paint(); }
+    } catch (e) { err = e.message; if (!board) paint(); }
+  }
+  paint();
+  refresh();
+  setInterval(() => { if (!document.hidden) refresh(); }, 3000);
+})();
+</script>
+</body>
+</html>

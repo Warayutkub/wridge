@@ -1,6 +1,6 @@
 [package]
 name = "wridge-server"
-version = "1.6.1"
+version = "1.7.0"
 edition = "2021"
 description = "wridge server: Rust port of legacy-node/index.mjs (HTTP API, pages, plugin WebSocket, MCP), tools.mjs, guards.mjs, graph.mjs, skills.mjs and the wara.mjs CLI"
 publish = false

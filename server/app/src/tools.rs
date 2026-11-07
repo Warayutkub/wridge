@@ -1739,6 +1739,72 @@ pub fn define_tools() -> Vec<Tool> {
     );
 
     d.custom(
+        "tasks",
+        "The project's task board, shared with the person (wridge → Tasks; file docs/tasks/board.json). list (filters: status, label, from, query) · get id · add tasks[] · update id + set · move id + status (+ index) · tick id + subtask · note id + text · accept / skip id (+ text = the reason) · remove id. Found something to fix while checking? add it with change {where, old, new} and from \"<check> · <date>\": it waits in Review until the person accepts; after accept make the change, then move it to done. Never raise a skipped one again (list status: skipped shows the reasons). Before first use: get_skill(\"reports-tasks\").",
+        shape()
+            .f("projectDir", string().describe("Absolute path of the project"))
+            .f("action", enumeration(&["list", "get", "add", "update", "move", "tick", "note", "accept", "skip", "remove"]))
+            .f("id", string().optional().describe("e.g. \"T-3\""))
+            .f(
+                "tasks",
+                array(object(
+                    shape()
+                        .f("title", string())
+                        .f("description", string().optional().describe("Markdown"))
+                        .f("status", enumeration(&["todo", "doing", "review", "done"]).optional().describe("default todo; review when change is given"))
+                        .f("labels", array(string()).optional())
+                        .f("subtasks", array(string()).optional())
+                        .f("links", array(string()).optional().describe("file:line, docs/flows/x.md, figma:12:34, a PR or https URL"))
+                        .f("due", string().optional())
+                        .f("who", string().optional().describe("who does it: AI or a name"))
+                        .f("from", string().optional().describe("the batch, e.g. \"AI check · 7 Nov\""))
+                        .f(
+                            "change",
+                            object(shape().f("where", string().optional()).f("old", string()).f("new", string()).build())
+                                .optional()
+                                .describe("a suggested edit the person accepts or skips"),
+                        )
+                        .build(),
+                ))
+                .optional()
+                .describe("add: one or more tasks"),
+            )
+            .f("set", record(any()).optional().describe("update: the fields to replace (names as in tasks[])"))
+            .f("status", enumeration(&["todo", "doing", "review", "done", "skipped", "all"]).optional().describe("move: the new column · list: filter (skipped are hidden unless asked)"))
+            .f("index", int().min(0.0).optional().describe("move: position in the column"))
+            .f("subtask", int().min(1.0).optional().describe("tick: its number, as get shows"))
+            .f("done", boolean().optional().describe("tick: false unticks"))
+            .f("text", string().max(2000.0).optional().describe("note: the note · skip: the reason"))
+            .f("label", string().optional().describe("list filter"))
+            .f("from", string().optional().describe("list filter: the batch name contains this"))
+            .f("query", string().optional().describe("list filter: words in title or description"))
+            .build(),
+        handler(|_ctx: Ctx, args: Value| async move {
+            let dir = js_string(get(&args, "projectDir"));
+            blocking(move || Ok(text_result(crate::tasks::apply(&dir, &args, "AI")?.0))).await
+        }),
+    );
+
+    d.custom(
+        "report",
+        "Reports the person reads in wridge → Reports and exports as image or PDF — no Figma needed (docs/reports/<name>.json). write: report {title, subtitle?, eyebrow?, status?, theme?, rows: [block | [block, block] (≤3 side by side)]}; blocks: header, stats, compare, chart, board, table (preset basic|status|numbers|progress|compare|grouped), timeline, callout, checklist, flow, text, image, tasks (live from the Tasks board: {type: \"tasks\", filter: {from|label|status}}), divider. Send content only — colors and layout have defaults; set theme / block style / item color only when asked. theme: save tokens under name, then \"theme\": \"<name>\". list · get name · remove name · export name + format png|pdf. Load get_skill(\"reports-tasks\") for each block's fields before the first report.",
+        shape()
+            .f("projectDir", string().describe("Absolute path of the project"))
+            .f("action", enumeration(&["list", "get", "write", "remove", "theme", "export"]))
+            .f("name", string().optional().describe("file name in docs/reports/ (write: defaults to the title)"))
+            .f("report", record(any()).optional().describe("write: {title, rows: [...]} — see the skill for each block"))
+            .f("mode", enumeration(&["create", "replace"]).optional().describe("write: default create (fails if the name exists)"))
+            .f("theme", record(any()).optional().describe("theme: tokens to save under name, e.g. {\"accent\": \"#7A3BC4\"}"))
+            .f("format", enumeration(&["png", "pdf"]).optional().describe("export: default png"))
+            .build(),
+        handler(|ctx: Ctx, args: Value| async move {
+            let dir = js_string(get(&args, "projectDir"));
+            let obj = args.as_object().cloned().unwrap_or_default();
+            Ok(text_result(crate::reports::tool(&dir, &obj, ctx.http_port).await?))
+        }),
+    );
+
+    d.custom(
         "project_memory",
         "What was agreed and where work stands, kept outside the chat so compaction or a new session loses nothing — for any project (app, game, book, study…), code or not. overview: open tasks, decision titles, brain tags — start here. find: matching decisions, working notes and brain notes (one line each). decide: a project-level decision the user agreed to → docs/decisions.md. note: a short agreement made while working on a task (.wara). handoff: create/update a task's state; close: true when finished. Brain = the project's knowledge as Markdown files in brain/ that the user reads too (Obsidian-style [[links]]: [[Note]], [[code:path#Name]], [[figma:12:34]], [[roblox:Path]], [[project:Note]]; a front-matter key with links is a named relation, e.g. boss_of: [[CH1]]). read: one whole note + its links and backlinks. write: name + content (mode create | append | replace; replace keeps the old text in the trash). trash: move a note to brain/.trash (restore with path). Only the project of this session; another project only when the user asks. Search before reading; write only what was decided or is hard to find again, not chat trivia. Never open docs/decisions.md or brain/ files whole — use find/read.",
         shape()

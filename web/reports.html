@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports · wridge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/ui.css">
+<style>
+  /* Figma "wara-bridge" → "wridge Reports · Prototype · Approved" */
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; background: var(--surface); }
+  .rp-top .w-search { width: 240px; }
+  .rp-top .spacer { flex: 1; }
+  .rp-top .btn { height: 36px; }
+  .btn .w-icon { width: 15px; height: 15px; color: currentColor; }
+  .rp-body { flex: 1; min-height: 0; display: flex; }
+  .rp-list { width: 280px; flex: none; overflow-y: auto; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; border-right: 1px solid var(--border); }
+  .rp-list .w-label { padding: 8px 6px 4px; }
+  .rp-item { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; transition: background .15s var(--ease), border-color .15s var(--ease); animation: w-in .24s var(--ease) both; }
+  .rp-item:hover { background: var(--surface-2); }
+  .rp-item[aria-current="true"] { background: var(--background); border-color: var(--border); box-shadow: var(--shadow-sm); }
+  .rp-item b { font-size: 13px; font-weight: 500; line-height: 1.45; color: var(--text); }
+  .rp-item[aria-current="true"] b { font-weight: 600; }
+  .rp-item small { font: 11px var(--mono); color: var(--text-faint); }
+  .rp-item:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .rp-none { padding: 10px 12px; font-size: 12.5px; color: var(--text-muted); }
+  .rp-pv { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+  .rp-pv-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 12px 24px; border-bottom: 1px solid var(--border); background: var(--surface-1); }
+  .rp-pv-head b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rp-pv-head .spacer { flex: 1; }
+  .rp-pv-head .file { font: 11px var(--mono); color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rp-canvas { flex: 1; min-height: 0; overflow: auto; padding: 28px; }
+  .rp-paper { margin: 0 auto; background: #fff; border-radius: 4px; box-shadow: 0 1px 2px rgba(17,17,17,.06), 0 12px 32px rgba(17,17,17,.08); overflow: hidden; transition: opacity .2s var(--ease); }
+  .rp-paper.loading { opacity: .4; }
+  .rp-scale { transform-origin: 0 0; }
+  .rp-zoom { position: absolute; right: 24px; bottom: 24px; display: flex; align-items: center; gap: 1px; padding: 3px; }
+  .rp-zoom button { height: 26px; min-width: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: var(--text-2); font-size: 13px; cursor: pointer; }
+  .rp-zoom button:hover { background: var(--surface-2); color: var(--text); }
+  .rp-zoom .lvl { min-width: 44px; text-align: center; font: 11px var(--mono); color: var(--text-muted); }
+  .rp-empty { flex: 1; display: grid; place-items: center; padding: 40px; }
+  .rp-empty .in { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 460px; }
+  .rp-empty h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .rp-empty p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--text-muted); }
+  .rp-empty .tile { width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 14px; background: var(--background); }
+  .rp-empty .tile .w-icon { width: 26px; height: 26px; }
+  .prompt { width: 440px; max-width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); text-align: left; }
+  .prompt small { font: 500 11px var(--mono); color: var(--text-faint); }
+  .prompt span { flex: 1; font-size: 13px; }
+  .prompt .btn { height: 32px; }
+</style>
+</head>
+<body>
+<header class="w-toolbar rp-top">
+  <div class="topbar-left"><div class="w-titles"><p class="w-label">Design · Reports</p><h1>Reports</h1></div></div>
+  <label class="w-search"><span class="w-icon" data-wicon="search"></span><input id="q" type="search" placeholder="Find a report…" aria-label="Find a report" autocomplete="off"><span class="w-kbd">Ctrl K</span></label>
+  <span class="spacer"></span>
+  <button class="btn btn-secondary" id="copy" hidden><span class="w-icon" data-wicon="copy"></span>Copy image</button>
+  <button class="btn btn-secondary" id="png" hidden><span class="w-icon" data-wicon="download"></span>PNG</button>
+  <button class="btn btn-primary" id="pdf" hidden><span class="w-icon" data-wicon="download"></span>PDF</button>
+</header>
+<div class="rp-body" id="body"></div>
+
+<script src="/app-icons.js"></script>
+<script src="/ui.js"></script>
+<script src="/report-render.js"></script>
+<script>
+(() => {
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = ui.esc;
+  const DL = '<svg viewBox="0 0 20 20" fill="none"><path d="M10 3v9.5m0 0 3.5-3.5M10 12.5 6.5 9M4 15.5h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  document.querySelectorAll("[data-wicon]").forEach((el) => { el.innerHTML = el.dataset.wicon === "download" ? DL : ui.icon(el.dataset.wicon); });
+  const params = new URLSearchParams(location.search);
+  const dir = params.get("dir") ?? "";
+  let list = null, current = params.get("name") ?? "", data = null, zoom = 0, err = "";
+  const api = async (path, opts) => {
+    const res = await fetch(path, { cache: "no-store", ...opts });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`);
+    return body;
+  };
+  const q = (o) => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&");
+
+  function groups(items) {
+    const now = new Date(), day = 864e5;
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const g = { Today: [], "This week": [], Earlier: [] };
+    for (const r of items) (r.updated >= start ? g.Today : r.updated >= start - 6 * day ? g["This week"] : g.Earlier).push(r);
+    return Object.entries(g).filter(([, v]) => v.length);
+  }
+  const when = (ms) => { const d = new Date(ms), t = new Date(); return d.toDateString() === t.toDateString() ? d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
+
+  function paint() {
+    const body = $("#body");
+    const has = list?.reports?.length;
+    for (const id of ["copy", "png", "pdf"]) $("#" + id).hidden = !current || !has;
+    if (!dir) { body.innerHTML = `<div class="rp-empty"><div class="in"><h2>Pick a project first</h2><p>Reports live in the project's docs/reports/ folder.</p></div></div>`; return; }
+    if (err && !list) { body.innerHTML = `<div class="rp-empty"><div class="in">${ui.emptyIcon("alert")}<h2>Couldn’t read the reports</h2><p>${esc(err)}</p></div></div>`; return; }
+    if (!list) { body.innerHTML = `<div class="rp-empty"><span class="spinner"></span></div>`; return; }
+    if (!has) {
+      body.innerHTML = `<div class="rp-empty"><div class="in w-fade-in"><span class="tile"><span class="w-icon">${REPORT_ICON}</span></span><h2>No reports yet</h2><p>Ask your AI for one — it writes the blocks, wridge lays them out. No Figma needed; reports live in docs/reports/ next to your code.</p>
+        <div class="prompt"><small>TRY</small><span>“สรุปงานวันนี้เป็น report”</span><button class="btn btn-secondary" id="copy-prompt">Copy</button></div></div></div>`;
+      $("#copy-prompt").onclick = async () => ((await ui.copy("สรุปงานวันนี้เป็น report")) ? ui.toast("Copied — paste it to your AI") : ui.toast("Couldn’t copy", { kind: "error" }));
+      return;
+    }
+    const term = $("#q").value.trim().toLowerCase();
+    const shown = list.reports.filter((r) => !term || `${r.title} ${r.name}`.toLowerCase().includes(term));
+    if (!body.querySelector(".rp-list")) {
+      body.innerHTML = `<nav class="rp-list" aria-label="Reports"></nav><section class="rp-pv"><div class="rp-pv-head"><b id="pv-title"></b><span id="pv-chip"></span><span class="spacer"></span><span class="file" id="pv-file"></span></div>
+        <div class="rp-canvas" id="canvas"><div class="rp-paper" id="paper"><div class="rp-scale" id="scale"></div></div></div>
+        <div class="w-float rp-zoom" role="group" aria-label="Zoom"><button id="zo" aria-label="Zoom out">−</button><span class="lvl" id="zl"></span><button id="zi" aria-label="Zoom in">+</button><button id="zf">Fit</button></div></section>`;
+      $("#zo").onclick = () => setZoom((zoom || fit()) / 1.25);
+      $("#zi").onclick = () => setZoom((zoom || fit()) * 1.25);
+      $("#zf").onclick = () => setZoom(0);
+      new ResizeObserver(() => { if (!zoom) layout(); }).observe($("#canvas"));
+    }
+    $(".rp-list").innerHTML = shown.length ? groups(shown).map(([g, items]) => `<p class="w-label">${esc(g)}</p>${items.map((r, i) => `<button class="rp-item" data-name="${esc(r.name)}" aria-current="${r.name === current}" style="animation-delay:${i * 20}ms"><b>${esc(r.title)}</b><small>${esc(when(r.updated))} · ${r.blocks} block${r.blocks === 1 ? "" : "s"}</small></button>`).join("")}`).join("") : `<p class="rp-none">No report matches “${esc(term)}”.</p>`;
+    $(".rp-list").querySelectorAll("[data-name]").forEach((b) => (b.onclick = () => open(b.dataset.name)));
+  }
+  const REPORT_ICON = '<svg viewBox="0 0 20 20" fill="none"><path d="M5 2.5h7l3.5 3.5v10.25c0 .69-.56 1.25-1.25 1.25h-9.25c-.69 0-1.25-.56-1.25-1.25V3.75c0-.69.56-1.25 1.25-1.25Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M7 14.5v-2.5M10 14.5V9.5M13 14.5v-4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>';
+
+  const fit = () => { const c = $("#canvas"); const w = data?.theme?.width ?? 1440; return c ? Math.min(1, (c.clientWidth - 56) / w) : 0.5; };
+  function layout() {
+    const sc = $("#scale"), paper = $("#paper"), root = sc?.firstElementChild;
+    if (!root) return;
+    const z = zoom || fit();
+    sc.style.transform = `scale(${z})`;
+    paper.style.width = `${root.offsetWidth * z}px`;
+    paper.style.height = `${root.offsetHeight * z}px`;
+    $("#zl").textContent = `${Math.round(z * 100)}%`;
+  }
+  function setZoom(z) { zoom = z ? Math.min(2, Math.max(0.15, z)) : 0; layout(); }
+
+  async function open(name, quiet) {
+    current = name;
+    history.replaceState(null, "", `${location.pathname}?${q({ dir, name })}${params.get("theme") ? `&theme=${params.get("theme")}` : ""}`);
+    paint();
+    if (!quiet) $("#paper")?.classList.add("loading");
+    try {
+      data = await api(`/api/reports/get?${q({ dir, name })}`);
+      const meta = list.reports.find((r) => r.name === name);
+      $("#pv-title").textContent = data.report.title ?? name;
+      $("#pv-chip").innerHTML = "";
+      $("#pv-file").textContent = `docs/reports/${name}.json${meta ? ` · ${when(meta.updated)}` : ""}`;
+      wrReport.render($("#scale"), data, { fileUrl: (p) => `/api/reports/file?${q({ dir, path: p })}` });
+      await document.fonts.ready;
+      layout();
+    } catch (e) {
+      $("#scale").innerHTML = `<div style="padding:40px;color:var(--danger-text)">${esc(e.message)}</div>`;
+    }
+    $("#paper")?.classList.remove("loading");
+  }
+
+  async function exportAs(format, btn) {
+    ui.setLoading(btn, true, format === "copy" ? "Copying…" : "Saving…");
+    try {
+      const r = await api(`/api/reports/export?${q({ dir })}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: current, format }) });
+      if (format === "copy") ui.toast("Image copied — paste it into LINE, Slack or a doc");
+      else ui.toast(`Saved ${r.file.split("/").slice(-3).join("/")}`, { action: "Show in folder", onAction: () => ui.reveal(r.file) });
+    } catch (e) { ui.toast(e.message, { kind: "error" }); }
+    ui.setLoading(btn, false);
+    btn.innerHTML = btn.dataset.html;
+  }
+  for (const [id, f] of [["copy", "copy"], ["png", "png"], ["pdf", "pdf"]]) { const b = $("#" + id); b.dataset.html = b.innerHTML; b.onclick = () => exportAs(f, b); }
+  $("#q").oninput = paint;
+  document.addEventListener("keydown", (e) => { if (e.ctrlKey && e.key.toLowerCase() === "k") { e.preventDefault(); $("#q").focus(); } });
+
+  // the AI writes reports while you look: pick them up
+  let lastSeen = "";
+  async function refresh() {
+    if (!dir) return paint();
+    try {
+      list = await api(`/api/reports?${q({ dir })}`); err = "";
+      const sig = JSON.stringify(list.reports.map((r) => [r.name, r.updated]));
+      if (!current || !list.reports.some((r) => r.name === current)) current = list.reports[0]?.name ?? "";
+      const cur = list.reports.find((r) => r.name === current);
+      const changed = sig !== lastSeen;
+      lastSeen = sig;
+      paint();
+      if (current && (changed && (!data || data.name !== current || cur?.updated !== data.updated))) await open(current, Boolean(data));
+    } catch (e) { err = e.message; paint(); }
+  }
+  refresh();
+  setInterval(() => { if (!document.hidden) refresh(); }, 4000);
+})();
+</script>
+</body>
+</html>

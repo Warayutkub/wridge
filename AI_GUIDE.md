@@ -81,5 +81,10 @@ Agreements live in the project, not only in the chat (`project_memory`; in Claud
   - **Signposts:** `code_graph` (find / file / used_by / uses / impact) ends with "Brain notes linking here" when notes point at that code: read the ones that matter before changing it. Links to code that no longer exists are reported as missing.
   - **Scope:** stay in the project this session works in. Read another project's brain only when the user asks. If the session's folder holds many projects, ask which one before writing.
 
+## Tasks and reports — no Figma needed
+- **Tasks** (`tasks`, file `docs/tasks/board.json`): one board per project that the user sees and edits in wridge → Tasks. Planning a feature → `add` tasks with subtasks; checking something → `add` each finding with `change {where, old, new}` and one `from` per batch, then stop for the user's Accept / Skip; accepted → make the change, `move … done`. Never raise a skipped finding again. `list` before picking up work.
+- **Reports** (`report`, file `docs/reports/<name>.json`): when the user wants a summary, status or results they can share — `write` blocks (header, stats, compare, chart, board, table, timeline, callout, checklist, flow, text, image, tasks). Send content only; looks have defaults (colors only when asked, via theme / style / color). The user copies it as an image or exports PNG/PDF from wridge → Reports.
+- Load `get_skill("reports-tasks")` before the first use: every block's fields, table presets, themes.
+
 ## Limits
 Figma's API can't set prototype device or overlay position/background, can't play Motion or export video. Tell the user to do those in Figma.

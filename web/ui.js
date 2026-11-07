@@ -304,8 +304,8 @@
   // ---- Side menu shared by every page (Figma "Brain · Prototype"): brain / design / code groups, the
   // project picker, and a status light. Each page's own top bar stays as its toolbar; its old nav is hidden.
   const NAV = [
-    { label: 'Brain', items: [['/brain', 'Notes'], ['/brain?view=graph', 'Graph'], ['/brain?view=trash', 'Trash']] },
-    { label: 'Design', items: [['/graph', 'Design map'], ['/motion', 'Motion'], ['/pdf', 'PDF']] },
+    { label: 'Brain', items: [['/tasks', 'Tasks'], ['/brain', 'Notes'], ['/brain?view=graph', 'Graph'], ['/brain?view=trash', 'Trash']] },
+    { label: 'Design', items: [['/graph', 'Design map'], ['/motion', 'Motion'], ['/pdf', 'PDF'], ['/reports', 'Reports']] },
     { label: 'Code', code: true, items: [['/code', 'Code graph'], ['/data', 'Data'], ['/flows', 'Flows'], ['/github', 'GitHub']] },
   ];
   const projectStore = { get: () => { try { return localStorage.getItem('code-project'); } catch { return null; } }, set: (v) => { try { localStorage.setItem('code-project', v); } catch { /* storage blocked */ } } };
@@ -436,7 +436,7 @@
   const icon = (name) => window.ICON?.[name] ?? '';
   // move the wridge window to one of its pages (overview, notes, graph, trash, design-map, motion, pdf, code,
   // data, flows, skills, settings); outside the window, open the matching web page
-  const WEB = { overview: '/', notes: '/brain', graph: '/brain?view=graph', trash: '/brain?view=trash', 'design-map': '/graph', motion: '/motion', pdf: '/pdf', code: '/code', data: '/data', flows: '/flows', github: '/github', skills: '/skills', settings: '/' };
+  const WEB = { overview: '/', notes: '/brain', graph: '/brain?view=graph', trash: '/brain?view=trash', 'design-map': '/graph', motion: '/motion', pdf: '/pdf', code: '/code', data: '/data', flows: '/flows', github: '/github', tasks: '/tasks', reports: '/reports', skills: '/skills', settings: '/' };
   const go = (route) => (EMBED ? window.parent.postMessage({ type: 'wridge:navigate', route }, '*') : (location.href = WEB[route] ?? '/'));
   window.ui = { ICONS, icon, go, esc, saveFile, reveal, copy, icons, chip, toast, confirmDialog, inputDialog, setLoading, playAnim, emptyIcon, celebrate, reducedMotion, projectPicker, nav: { setActive, setCount } };
   document.addEventListener('DOMContentLoaded', () => { shell(); icons(); });

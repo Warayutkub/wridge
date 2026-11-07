@@ -18,7 +18,7 @@ use crate::zod::{self, *};
 
 pub type Ctx = Arc<App>;
 
-pub const VERSION: &str = "1.6.1";
+pub const VERSION: &str = "1.7.0";
 
 pub struct Today {
     pub day: String,
@@ -289,6 +289,8 @@ pub fn profile_names(profile: &str) -> Vec<&'static str> {
             "code_design_sync",
             "project_knowledge",
             "project_memory",
+            "tasks",
+            "report",
             "component_usage",
             "get_design_context",
             "get_tokens",
@@ -352,6 +354,8 @@ pub fn profile_names(profile: &str) -> Vec<&'static str> {
             "select_nodes",
             "create_section",
             "project_memory",
+            "tasks",
+            "report",
             "get_design_context",
             "get_tokens",
             "export_assets",

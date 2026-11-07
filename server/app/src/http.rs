@@ -41,6 +41,10 @@ pub const PAGES: &[(&str, &str, &str)] = &[
     ("/data", "data.html", "text/html"),
     ("/flows", "flows.html", "text/html"),
     ("/github", "github.html", "text/html"),
+    ("/tasks", "tasks.html", "text/html"),
+    ("/reports", "reports.html", "text/html"),
+    ("/report-view", "report-view.html", "text/html"),
+    ("/report-render.js", "report-render.js", "text/javascript"),
     ("/skills", "skills.html", "text/html"),
     ("/motion", "motion.html", "text/html"),
     ("/pdf", "pdf.html", "text/html"),
@@ -217,6 +221,69 @@ async fn known_body_dir(app: &Ctx, dir: Option<&Value>, message: &str) -> anyhow
 const ADD_FIRST: &str = "Add this project in the code graph page first";
 const ADD_BRAIN: &str = "Add this project first";
 
+/// `/api/tasks` and `/api/reports*`: the Tasks and Reports pages (the same code as the `tasks` / `report` tools;
+/// the window acts as "you").
+async fn work_route(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
+    let dir = req.param("dir").unwrap_or_default();
+    let post = req.method == Method::POST;
+    let fail = |e: anyhow::Error| json_response(400, &json!({"error": e.to_string()}));
+    match (post, req.path.as_str()) {
+        (false, "/api/tasks") => {
+            let d = dir.clone();
+            let r = crate::codegraph::blocking(move || {
+                crate::tasks::check_dir(&d)?;
+                Ok(json!({"board": crate::tasks::load(&d)?, "stamp": crate::tasks::stamp(&d), "file": crate::tasks::board_path(&d).display().to_string().replace('\\', "/")}))
+            })
+            .await;
+            Ok(r.map(|v| json_response(200, &v)).unwrap_or_else(fail))
+        }
+        (true, "/api/tasks") => {
+            let body = req.json(BODY_LIMIT).await?;
+            let d = dir.clone();
+            let r = crate::codegraph::blocking(move || {
+                let (msg, board) = crate::tasks::apply(&d, &body, "you")?;
+                Ok(json!({"message": msg, "board": board, "stamp": crate::tasks::stamp(&d)}))
+            })
+            .await;
+            Ok(r.map(|v| json_response(200, &v)).unwrap_or_else(fail))
+        }
+        (false, "/api/reports") => Ok(crate::reports::list(&dir).map(|v| json_response(200, &v)).unwrap_or_else(fail)),
+        (false, "/api/reports/get") => {
+            let name = req.param("name").unwrap_or_default();
+            Ok(crate::reports::get(&dir, &name).map(|v| json_response(200, &v)).unwrap_or_else(fail))
+        }
+        (true, "/api/reports/export") => {
+            let b = req.json(BODY_LIMIT).await?;
+            let name = b.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+            let format = b.get("format").and_then(Value::as_str).unwrap_or("png").to_string();
+            if !["png", "pdf", "copy"].contains(&format.as_str()) {
+                return Ok(error_json(400, "format: png, pdf or copy"));
+            }
+            Ok(crate::reports::export(&dir, &name, &format, app.http_port).await.map(|v| json_response(200, &v)).unwrap_or_else(fail))
+        }
+        // an image a report shows (inside the project only)
+        (false, "/api/reports/file") => {
+            let rel = req.param("path").unwrap_or_default();
+            let base = std::path::Path::new(&dir);
+            let ok_ext = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
+            let file = base.join(&rel);
+            let (Ok(b), Ok(f)) = (base.canonicalize(), file.canonicalize()) else { return Ok(error_json(404, "no such file")) };
+            let ext = f.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+            if !f.starts_with(&b) || !ok_ext.contains(&ext.as_str()) {
+                return Ok(error_json(403, "only images inside the project"));
+            }
+            let kind = match ext.as_str() { "svg" => "image/svg+xml", "jpg" | "jpeg" => "image/jpeg", e => if e == "png" { "image/png" } else if e == "gif" { "image/gif" } else { "image/webp" } };
+            Ok(bytes_response(kind, "no-cache", std::fs::read(&f)?))
+        }
+        (true, "/api/reports/remove") => {
+            let b = req.json(BODY_LIMIT).await?;
+            let name = b.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+            Ok(crate::reports::remove(&dir, &name).map(|m| json_response(200, &json!({"message": m}))).unwrap_or_else(fail))
+        }
+        _ => Ok(error_json(404, "not found")),
+    }
+}
+
 /// `/api/github/*` (docs/flows/github.md): the window's only way to GitHub; tokens never leave the server.
 async fn github_route(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
     let gh = &app.github;
@@ -323,6 +390,9 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
 
     if path == "/api/github" || path.starts_with("/api/github/") {
         return github_route(app, req).await;
+    }
+    if path == "/api/tasks" || path == "/api/reports" || path.starts_with("/api/reports/") {
+        return work_route(app, req).await;
     }
 
     let route = format!("{} {}", req.method, path);

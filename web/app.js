@@ -47,7 +47,7 @@
   const PAGES = {
     notes: { path: '/brain', title: 'Notes' }, graph: { path: '/brain', view: 'graph', title: 'Graph' }, trash: { path: '/brain', view: 'trash', title: 'Trash' },
     'design-map': { path: '/graph', title: 'Design map' }, motion: { path: '/motion', title: 'Motion' }, pdf: { path: '/pdf', title: 'PDF' },
-    code: { path: '/code', title: 'Code graph' }, data: { path: '/data', title: 'Data' }, flows: { path: '/flows', title: 'Flows' }, github: { path: '/github', title: 'GitHub' }, skills: { path: '/skills', title: 'Skills' },
+    code: { path: '/code', title: 'Code graph' }, data: { path: '/data', title: 'Data' }, flows: { path: '/flows', title: 'Flows' }, github: { path: '/github', title: 'GitHub' }, tasks: { path: '/tasks', title: 'Tasks' }, reports: { path: '/reports', title: 'Reports' }, skills: { path: '/skills', title: 'Skills' },
   };
   const routeOf = (path, search) => {
     if (path === '/brain') { const v = new URLSearchParams(search).get('view'); return v === 'graph' ? 'graph' : v === 'trash' ? 'trash' : 'notes'; }

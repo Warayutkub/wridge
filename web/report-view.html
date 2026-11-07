@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Report · wridge</title>
+<!-- The report alone, at its own width: what Edge prints to PNG / PDF (server/app/src/reports.rs export). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=block">
+<style>
+  html, body { margin: 0; padding: 0; background: #FBFAF8; }
+  body.err { font: 14px system-ui; padding: 40px; color: #A42C22; }
+</style>
+<style id="page-size"></style>
+</head>
+<body>
+<div id="host"></div>
+<script src="/report-render.js"></script>
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const dir = q.get("dir") ?? "", name = q.get("name") ?? "";
+  try {
+    const res = await fetch(`/api/reports/get?dir=${encodeURIComponent(dir)}&name=${encodeURIComponent(name)}`, { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    const root = wrReport.render(document.getElementById("host"), data, { fileUrl: (p) => `/api/reports/file?dir=${encodeURIComponent(dir)}&path=${encodeURIComponent(p)}` });
+    document.body.style.background = getComputedStyle(root).getPropertyValue("--page");
+    await document.fonts.ready;
+    await Promise.all([...root.querySelectorAll("img")].map((i) => (i.complete ? null : new Promise((ok) => { i.onload = i.onerror = ok; }))));
+    const h = Math.ceil(root.getBoundingClientRect().height);
+    document.body.dataset.height = String(h);
+    const w = Math.ceil(root.getBoundingClientRect().width);
+    // PDF: one long page, the size of the report
+    document.getElementById("page-size").textContent = `@page { size: ${w}px ${q.get("h") ?? h}px; margin: 0; } html, body { width: ${w}px; }`;
+  } catch (e) {
+    document.body.className = "err";
+    document.body.textContent = `Couldn't draw the report: ${e.message}`;
+    document.body.dataset.height = "200";
+  }
+})();
+</script>
+</body>
+</html>
