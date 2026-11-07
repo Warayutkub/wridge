@@ -246,35 +246,74 @@ pub fn save_theme(dir: &str, name: &str, theme: &Value) -> anyhow::Result<String
 
 // ---------------------------------------------------------------- export
 
-fn browser() -> Option<PathBuf> {
+/// Edge and Chrome, in that order (WRIDGE_BROWSER first when set).
+fn browsers() -> Vec<PathBuf> {
     let mut c: Vec<PathBuf> = vec![];
-    for var in ["ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"] {
-        if let Ok(base) = std::env::var(var) {
-            c.push(Path::new(&base).join("Microsoft/Edge/Application/msedge.exe"));
-            c.push(Path::new(&base).join("Google/Chrome/Application/chrome.exe"));
+    if let Ok(p) = std::env::var("WRIDGE_BROWSER") {
+        c.push(PathBuf::from(p));
+    }
+    let mut bases: Vec<PathBuf> = ["ProgramFiles(x86)", "ProgramFiles", "LOCALAPPDATA"].iter().filter_map(|v| std::env::var(v).ok().map(PathBuf::from)).collect();
+    // the usual places too, in case the server got a thin environment
+    bases.extend([PathBuf::from(r"C:\Program Files (x86)"), PathBuf::from(r"C:\Program Files")]);
+    for app in ["Microsoft/Edge/Application/msedge.exe", "Google/Chrome/Application/chrome.exe"] {
+        for b in &bases {
+            c.push(b.join(app));
         }
     }
-    if let Ok(p) = std::env::var("WRIDGE_BROWSER") {
-        c.insert(0, PathBuf::from(p));
-    }
-    c.into_iter().find(|p| p.is_file())
+    let mut seen = std::collections::HashSet::new();
+    c.into_iter().filter(|p| p.is_file() && seen.insert(p.to_string_lossy().to_lowercase().replace('\\', "/"))).collect()
 }
 
-async fn headless(args: Vec<String>) -> anyhow::Result<String> {
-    let exe = browser().ok_or_else(|| anyhow!("export needs Microsoft Edge or Google Chrome (set WRIDGE_BROWSER to its .exe)"))?;
-    let profile = std::env::temp_dir().join("wridge-report-browser");
+static RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// One headless browser run with its own fresh profile (a profile another browser holds makes the new one
+/// hand off and quit at once) and none of the WebView2 settings the wridge window passes down.
+async fn run_browser(exe: &Path, args: &[String]) -> anyhow::Result<std::process::Output> {
+    let n = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let profile = std::env::temp_dir().join("wridge-report-browser").join(format!("{}-{n}", std::process::id()));
     let mut cmd = tokio::process::Command::new(exe);
-    cmd.args(["--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--run-all-compositor-stages-before-draw"])
+    for (k, _) in std::env::vars_os() {
+        let k = k.to_string_lossy().to_string();
+        if k.starts_with("WEBVIEW2_") || k.starts_with("CHROME_") || k.starts_with("ELECTRON_") {
+            cmd.env_remove(&k);
+        }
+    }
+    cmd.args(["--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--run-all-compositor-stages-before-draw", "--disable-background-networking"])
         .arg(format!("--user-data-dir={}", profile.display()))
         .args(args)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
         .kill_on_drop(true);
     #[cfg(windows)]
     cmd.creation_flags(0x0800_0000);
-    let out = tokio::time::timeout(Duration::from_secs(60), cmd.output()).await.map_err(|_| anyhow!("the browser took too long to draw the report"))??;
-    Ok(String::from_utf8_lossy(&out.stdout).to_string())
+    let out = tokio::time::timeout(Duration::from_secs(60), cmd.output()).await.map_err(|_| anyhow!("the browser took too long to draw the report"));
+    let _ = std::fs::remove_dir_all(&profile);
+    Ok(out??)
+}
+
+/// Runs the browser until `done` says it worked: each browser twice, then the next one. The error says why.
+async fn headless(args: Vec<String>, done: impl Fn(&std::process::Output) -> bool) -> anyhow::Result<String> {
+    let list = browsers();
+    if list.is_empty() {
+        bail!("export needs Microsoft Edge or Google Chrome (set WRIDGE_BROWSER to its .exe)");
+    }
+    let mut why = String::new();
+    for exe in &list {
+        for _ in 0..2 {
+            let started = std::time::Instant::now();
+            match run_browser(exe, &args).await {
+                Ok(out) if done(&out) => return Ok(String::from_utf8_lossy(&out.stdout).to_string()),
+                Ok(out) => {
+                    let err = String::from_utf8_lossy(&out.stderr);
+                    let tail: String = err.lines().filter(|l| !l.trim().is_empty()).last().unwrap_or("").chars().take(240).collect();
+                    why = format!("{} ended after {} ms ({}){}", exe.file_name().unwrap().to_string_lossy(), started.elapsed().as_millis(), out.status, if tail.is_empty() { String::new() } else { format!(": {tail}") });
+                }
+                Err(e) => why = format!("{}: {e}", exe.file_name().unwrap().to_string_lossy()),
+            }
+        }
+    }
+    bail!("couldn't draw the report — {why}")
 }
 
 /// Renders the report to PNG or PDF next to it (docs/reports/exports/); "copy" also puts the PNG on the clipboard.
@@ -285,7 +324,7 @@ pub async fn export(dir: &str, name: &str, format: &str, http_port: u16) -> anyh
     let q: String = url::form_urlencoded::Serializer::new(String::new()).append_pair("dir", dir).append_pair("name", &name).finish();
     let url = format!("http://127.0.0.1:{http_port}/report-view?{q}");
     // pass 1: how tall the report is (the page writes it into the DOM once fonts are in)
-    let dom = headless(vec!["--virtual-time-budget=8000".into(), format!("--window-size={width},900"), "--dump-dom".into(), url.clone()]).await?;
+    let dom = headless(vec!["--virtual-time-budget=8000".into(), format!("--window-size={width},900"), "--dump-dom".into(), url.clone()], |o| String::from_utf8_lossy(&o.stdout).contains("data-height=\"")).await?;
     let height: u64 = dom.split("data-height=\"").nth(1).and_then(|s| s.split('"').next()).and_then(|s| s.parse().ok()).ok_or_else(|| anyhow!("the report page didn't finish drawing"))?;
     let height = height.clamp(200, 30000);
     let out_dir = reports_dir(dir).join("exports");
@@ -300,7 +339,8 @@ pub async fn export(dir: &str, name: &str, format: &str, http_port: u16) -> anyh
         args.push("--force-device-scale-factor=2".into());
     }
     args.push(format!("{url}&h={height}"));
-    headless(args).await?;
+    let target = file.clone();
+    headless(args, move |_| target.is_file()).await?;
     if !file.is_file() {
         bail!("the browser didn't write {}", file.display());
     }
