@@ -4,6 +4,8 @@
 
 The secret meaning: **w**ara-b**ridge**, the project it grew out of.
 
+**Website:** https://warayutkub.github.io/wridge · **Download:** [latest release](https://github.com/Warayutkub/wridge/releases/latest)
+
 ## What it does
 
 - **Figma for your AI.** Claude Code (or any MCP client) reads and edits your Figma files through the wridge plugin: screens, components, prototypes, motion, PDFs.
@@ -28,6 +30,7 @@ Your files, notes and code stay on your computer; the server only listens on loc
 - `web/` the app's pages
 - `legacy-node/` the original Node server, kept as a fallback engine and as the reference for the parity tests
 - `skills/` the methods the AI loads before each kind of work; `AI_GUIDE.md` the guide it reads first
+- `site/` the website (plain HTML, CSS and JS; published by `.github/workflows/pages.yml`); `tools/site/` makes its demo project and screenshots
 
 Building needs Rust, Node.js and the Dart SDK (for the Dart parser: `dart pub get` and `dart compile exe` in `legacy-node/codegraph/dart`). The parity tests read a few real projects listed in `server/parity-projects.json` (copy `server/parity-projects.example.json`).
 

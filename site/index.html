@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>wridge — Figma and code, for your AI</title>
+<meta name="description" content="wridge lets Claude Code read and build in your Figma files, keeps a brain of what you agreed, and runs entirely on your computer. Free for Windows.">
+<meta property="og:title" content="wridge — Figma and code, for your AI">
+<meta property="og:description" content="Your AI asks. wridge carries it across. Figma builds.">
+<meta property="og:image" content="https://warayutkub.github.io/wridge/assets/img/app-overview.webp">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="wridge, back to top">
+      <svg class="mark" viewBox="0 0 40 27" aria-hidden="true"><path d="M.96 10.4 2.56.64l7.84 6.08z" fill="currentColor"/><path d="m39.04 10.4-1.6-9.76-7.84 6.08z" fill="var(--blue)"/><rect x=".8" y="6.4" width="16" height="19.2" rx="4.8" fill="currentColor"/><rect x="23.2" y="6.4" width="16" height="19.2" rx="4.8" fill="var(--blue)"/><rect x="13.6" y="13.6" width="12.8" height="4.8" rx="2.4" fill="currentColor"/><circle class="eye" cx="9.12" cy="15.36" r="2.88" fill="var(--bg)"/><circle class="eye" cx="30.88" cy="15.36" r="2.88" fill="var(--bg)"/></svg>
+      <b>wridge</b><span class="ver mono" data-version>1.5.0</span>
+    </a>
+    <nav class="links" aria-label="Sections">
+      <a href="#how">How it works</a><a href="#memory">Memory</a><a href="#install">Install</a><a href="#faq">FAQ</a><a href="https://github.com/Warayutkub/wridge">GitHub</a>
+    </nav>
+    <a class="btn btn-dark btn-sm" data-download href="https://github.com/Warayutkub/wridge/releases/latest">Download</a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- hero -->
+  <section class="hero wrap">
+    <div class="hero-text">
+      <p class="label">◇ Wisdom Bridge · for Windows</p>
+      <h1 class="reveal-lines"><span>Figma and code,</span><span>for your AI.</span></h1>
+      <p class="lede">wridge lets Claude Code read and build in your Figma files, keeps a brain of what you agreed, and runs entirely on your computer.</p>
+      <div class="row">
+        <a class="btn btn-dark" data-download href="https://github.com/Warayutkub/wridge/releases/latest">Download <span data-version>1.5.0</span><small class="mono">Windows · <span data-size>22 MB</span></small></a>
+        <a class="btn btn-light" href="https://github.com/Warayutkub/wridge">View on GitHub <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 13 13 7M8 7h5v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+      </div>
+      <p class="fine mono">Free to use · runs on localhost · Claude Code or any MCP client</p>
+    </div>
+    <div class="stage" aria-hidden="true">
+      <img class="sticker bob" src="assets/stickers/working.webp" alt="" width="400" height="400">
+      <span class="chip chip-ok"><i></i>Ready · Figma connected</span>
+      <span class="chip chip-cmd mono"><i></i>create_frame</span>
+    </div>
+  </section>
+
+  <!-- the bridge: pinned, scroll drives the story -->
+  <section id="how" class="bridge" aria-labelledby="how-title">
+    <div class="bridge-run">
+      <div class="bridge-pin">
+        <div class="wrap">
+          <p class="label">◇ How it works</p>
+          <h2 id="how-title">Your AI asks. wridge carries it across. Figma builds.</h2>
+          <div class="scene" aria-hidden="true">
+            <div class="panel cc">
+              <div class="panel-head"><svg viewBox="0 0 24 24" class="claude"><path fill="#D97757" d="M12 2.5l1.6 6.1 5.1-3.7-3.7 5.1 6.1 1.6-6.1 1.6 3.7 5.1-5.1-3.7L12 21.5l-1.6-6.1-5.1 3.7 3.7-5.1L2.9 12l6.1-1.6-3.7-5.1 5.1 3.7z"/></svg><span class="mono">Claude Code</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="cc-body mono">
+                <p class="prompt">› Build the Overview screen, same<br>&nbsp; style as the rest of the app.</p>
+                <ul class="cmds">
+                  <li><i></i>create_frame<em>Overview</em></li>
+                  <li><i></i>create_text<em>Title</em></li>
+                  <li><i></i>set_auto_layout<em>Rows</em></li>
+                  <li><i></i>add_interaction<em>Back</em></li>
+                </ul>
+              </div>
+            </div>
+            <div class="track">
+              <span class="rail"></span><span class="rail lit"></span><span class="joint a"></span><span class="joint b"></span>
+              <span class="track-mark"><svg viewBox="0 0 40 27"><path d="M.96 10.4 2.56.64l7.84 6.08z" fill="#111"/><path d="m39.04 10.4-1.6-9.76-7.84 6.08z" fill="#2F6BFF"/><rect x=".8" y="6.4" width="16" height="19.2" rx="4.8" fill="#111"/><rect x="23.2" y="6.4" width="16" height="19.2" rx="4.8" fill="#2F6BFF"/><rect x="13.6" y="13.6" width="12.8" height="4.8" rx="2.4" fill="#111"/><circle cx="9.12" cy="15.36" r="2.88" fill="#EEECE7"/><circle cx="30.88" cy="15.36" r="2.88" fill="#EEECE7"/></svg></span>
+              <span class="in-flight mono"><i></i><b>create_frame</b></span>
+              <span class="track-note mono">wridge · localhost</span>
+            </div>
+            <div class="panel fig">
+              <div class="panel-head"><svg viewBox="0 0 22 33" class="figma"><path d="M11 16.5a5.5 5.5 0 1 1 11 0 5.5 5.5 0 0 1-11 0z" fill="#1ABCFE"/><path d="M0 27.5A5.5 5.5 0 0 1 5.5 22H11v5.5a5.5 5.5 0 1 1-11 0z" fill="#0ACF83"/><path d="M11 0v11h5.5a5.5 5.5 0 1 0 0-11z" fill="#FF7262"/><path d="M0 5.5A5.5 5.5 0 0 0 5.5 11H11V0H5.5A5.5 5.5 0 0 0 0 5.5z" fill="#F24E1E"/><path d="M0 16.5A5.5 5.5 0 0 0 5.5 22H11V11H5.5A5.5 5.5 0 0 0 0 16.5z" fill="#A259FF"/></svg><span class="mono">Figma · your file</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="canvas">
+                <span class="frame-name mono">Overview</span>
+                <div class="frame">
+                  <div class="reveal"><img src="assets/img/app-overview.webp" alt="" width="1600" height="1025" loading="lazy"></div>
+                  <div class="selection"><i></i><i></i><i></i><i></i><span class="size mono">Overview · 1280 × 820</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ol class="steps">
+            <li data-step="0"><span class="bar"></span><span class="mono">01</span><b>Ask</b></li>
+            <li data-step="1"><span class="bar"></span><span class="mono">02</span><b>Carry</b></li>
+            <li data-step="2"><span class="bar"></span><span class="mono">03</span><b>Build</b></li>
+          </ol>
+          <p class="caption" aria-live="polite">You ask your AI for a screen, a fix, a flow.</p>
+        </div>
+      </div>
+    </div>
+    <!-- small screens: three still beats -->
+    <div class="beats wrap">
+      <p class="label">◇ How it works</p>
+      <h2>Your AI asks. wridge carries it across. Figma builds.</h2>
+      <article class="beat"><div class="beat-vis"><span class="tile"><svg viewBox="0 0 24 24"><path fill="#D97757" d="M12 2.5l1.6 6.1 5.1-3.7-3.7 5.1 6.1 1.6-6.1 1.6 3.7 5.1-5.1-3.7L12 21.5l-1.6-6.1-5.1 3.7 3.7-5.1L2.9 12l6.1-1.6-3.7-5.1 5.1 3.7z"/></svg></span><span class="chip-dark mono"><i></i>create_frame</span></div><h3><span class="mono">01</span>Ask</h3><p>You ask your AI for a screen, a fix, a flow.</p></article>
+      <article class="beat"><div class="beat-vis"><span class="mini-track"><span class="lit"></span></span><span class="chip-dark mono blue"><i></i>set_auto_layout</span></div><h3><span class="mono">02</span>Carry</h3><p>wridge carries each command across — one file at a time, in order.</p></article>
+      <article class="beat"><div class="beat-vis shot"><img src="assets/img/app-overview.webp" alt="The wridge Overview screen, built in Figma" loading="lazy" width="1600" height="1025"></div><h3><span class="mono">03</span>Build</h3><p>Figma builds it, and wridge remembers what you agreed.</p></article>
+    </div>
+  </section>
+
+  <!-- memory: brain, code graph, data graph -->
+  <section id="memory" class="band band-side">
+    <div class="wrap">
+      <div class="head">
+        <div>
+          <p class="label">◇ Memory</p>
+          <h2 class="big">Your AI never starts from zero.</h2>
+          <p class="lede">wridge keeps three maps of every project and hands them to your AI at the start of each session.</p>
+        </div>
+        <img class="sticker pop" src="assets/stickers/thinking.webp" alt="" width="170" height="170" loading="lazy">
+      </div>
+      <div class="maps">
+        <div class="map-list" role="tablist" aria-label="Project maps">
+          <button class="map" role="tab" aria-selected="true" aria-controls="map-stage" data-shot="app-brain-graph" data-alt="The Brain graph: notes and how they link"><span class="mono">01</span><b>Brain</b><p>Notes, decisions and handoffs as linked Markdown you can read too. A new AI session picks up where the last one stopped.</p><small class="mono">notes · links · handoffs</small></button>
+          <button class="map" role="tab" aria-selected="false" aria-controls="map-stage" data-shot="app-code-graph" data-alt="The Code graph: routes, components and files"><span class="mono">02</span><b>Code graph</b><p>Every file, component and route, and what a change would touch — so your AI reuses what exists instead of adding a copy.</p><small class="mono">files · symbols · impact</small></button>
+          <button class="map" role="tab" aria-selected="false" aria-controls="map-stage" data-shot="app-data" data-alt="The Data graph: tables, columns and relations"><span class="mono">03</span><b>Data graph</b><p>Tables, columns and relations from your migrations, and every query that reads or writes them — before anyone changes the schema.</p><small class="mono">tables · columns · queries</small></button>
+        </div>
+        <figure class="map-stage" id="map-stage" role="tabpanel">
+          <img src="assets/img/app-brain-graph.webp" alt="The Brain graph: notes and how they link" width="1600" height="1025" loading="lazy">
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- and also -->
+  <section id="features" class="band">
+    <div class="wrap">
+      <div class="head">
+        <div><p class="label">◇ And also</p><h2>Built for how you<br>work with AI.</h2></div>
+        <img class="sticker pop" src="assets/stickers/thumbs-cool.webp" alt="" width="150" height="150" loading="lazy">
+      </div>
+      <div class="cards">
+        <article class="card"><p class="label">◇ Design</p><h3>Figma for your AI</h3><p>Claude Code reads and builds your screens, components, prototypes and motion — and checks which file is open before it writes.</p><div class="shot"><img src="assets/img/figma-canvas.webp" alt="This website's own design in Figma, built through wridge" loading="lazy" width="1600" height="902"></div></article>
+        <article class="card"><p class="label">◇ Together</p><h3>Several AIs at once</h3><p>Each AI session works in its own Figma file. Commands to one file take turns; different files run side by side.</p><div class="shot"><img src="assets/img/app-figma-picker.webp" alt="The Figma file picker in wridge, with the AI sessions in each file" loading="lazy" width="1600" height="1025"></div></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- install -->
+  <section id="install" class="band band-side">
+    <div class="wrap">
+      <div class="head">
+        <div><p class="label">◇ Install</p><h2>Running in four steps.</h2></div>
+        <img class="sticker pop" src="assets/stickers/point.webp" alt="" width="150" height="150" loading="lazy">
+      </div>
+      <ol class="install">
+        <li><span class="mono">01</span><b>Download</b><p>Get the installer from <a href="https://github.com/Warayutkub/wridge/releases/latest">GitHub Releases</a> and run it. If Windows says the publisher is unknown, choose <em>More info → Run anyway</em>.</p></li>
+        <li><span class="mono">02</span><b>Start</b><p>Open wridge — the cat in the tray — and press <em>Start server</em>.</p></li>
+        <li><span class="mono">03</span><b>Add the plugin</b><p>In Figma desktop: <em>Plugins → Development → Import plugin from manifest</em>. wridge shows where the file is.</p></li>
+        <li><span class="mono">04</span><b>Connect your AI</b><p><em>Settings → Connect an AI → Set up Claude Code</em>. Start a new session and ask away.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- privacy -->
+  <section id="privacy" class="band">
+    <div class="wrap privacy">
+      <img class="sticker pop" src="assets/stickers/sleeping.webp" alt="" width="300" height="300" loading="lazy">
+      <div>
+        <p class="label">◇ Privacy</p>
+        <h2>Your work stays<br>on your computer.</h2>
+        <p class="lede">wridge runs a small server on localhost. Your Figma files, notes and code never pass through anyone else’s server.</p>
+        <dl class="facts">
+          <div><dt>Server</dt><dd class="mono">127.0.0.1:3156</dd></div>
+          <div><dt>Figma plugin</dt><dd class="mono">ws://localhost:3155</dd></div>
+          <div><dt>Project memory</dt><dd class="mono">&lt;your project&gt;/.wara</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- faq -->
+  <section id="faq" class="band">
+    <div class="wrap narrow">
+      <p class="label">◇ FAQ</p>
+      <h2>Questions</h2>
+      <div class="faq">
+        <details open><summary>Windows says the publisher is unknown.</summary><p>wridge isn’t signed with a paid certificate yet. Choose <em>More info → Run anyway</em> — it is the same file as on GitHub Releases.</p></details>
+        <details><summary>Which AI works with it?</summary><p>Claude Code is set up in one click from wridge’s settings. Any client that speaks MCP over HTTP can connect to <code>http://127.0.0.1:3156/mcp</code>.</p></details>
+        <details><summary>Do I need a paid Figma plan?</summary><p>No. The plugin runs as a development plugin in the Figma desktop app, which works on the free plan.</p></details>
+        <details><summary>Can I change the code?</summary><p>You can read it on GitHub and use wridge for free, but the license doesn’t allow changing or redistributing it. Found a bug or have an idea? <a href="https://github.com/Warayutkub/wridge/issues">Open an issue</a>.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- download -->
+  <section class="cta">
+    <img class="sticker pop" src="assets/stickers/cheer.webp" alt="" width="190" height="190" loading="lazy">
+    <h2 class="big">Ready when you are.</h2>
+    <a class="btn btn-dark" data-download href="https://github.com/Warayutkub/wridge/releases/latest">Download <span data-version>1.5.0</span><small class="mono">Windows · <span data-size>22 MB</span></small></a>
+    <p class="fine mono">Windows 10 / 11 · 64-bit · free to use</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="brand"><svg class="mark" viewBox="0 0 40 27" aria-hidden="true"><path d="M.96 10.4 2.56.64l7.84 6.08z" fill="currentColor"/><path d="m39.04 10.4-1.6-9.76-7.84 6.08z" fill="var(--blue)"/><rect x=".8" y="6.4" width="16" height="19.2" rx="4.8" fill="currentColor"/><rect x="23.2" y="6.4" width="16" height="19.2" rx="4.8" fill="var(--blue)"/><rect x="13.6" y="13.6" width="12.8" height="4.8" rx="2.4" fill="currentColor"/><circle cx="9.12" cy="15.36" r="2.88" fill="var(--bg)"/><circle cx="30.88" cy="15.36" r="2.88" fill="var(--bg)"/></svg><b>wridge</b><span class="mono fine">© 2026 Warayut</span></span>
+    <nav class="links"><a href="https://github.com/Warayutkub/wridge">GitHub</a><a href="https://github.com/Warayutkub/wridge/releases">Releases</a><a href="https://github.com/Warayutkub/wridge/blob/main/LICENSE">License</a></nav>
+  </div>
+</footer>
+
+<script src="main.js?v=6" defer></script>
+</body>
+</html>
