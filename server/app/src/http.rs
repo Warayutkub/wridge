@@ -247,6 +247,21 @@ async fn work_route(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
             .await;
             Ok(r.map(|v| json_response(200, &v)).unwrap_or_else(fail))
         }
+        // the pages wait here until the AI (or another window) changes something — up to 25 s, then they ask again.
+        // Answers come from the network, not from timers a hidden page slows down.
+        (false, "/api/tasks/wait") | (false, "/api/reports/wait") => {
+            let since = req.param("since").unwrap_or_default();
+            let tasks = req.path == "/api/tasks/wait";
+            let sig = |d: &str| if tasks { crate::tasks::stamp(d).to_string() } else { crate::reports::signature(d) };
+            let start = std::time::Instant::now();
+            loop {
+                let now = sig(&dir);
+                if now != since || start.elapsed() > std::time::Duration::from_secs(25) {
+                    return Ok(json_response(200, &json!({"since": now, "changed": now != since})));
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            }
+        }
         (false, "/api/reports") => Ok(crate::reports::list(&dir).map(|v| json_response(200, &v)).unwrap_or_else(fail)),
         (false, "/api/reports/get") => {
             let name = req.param("name").unwrap_or_default();
@@ -391,7 +406,7 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
     if path == "/api/github" || path.starts_with("/api/github/") {
         return github_route(app, req).await;
     }
-    if path == "/api/tasks" || path == "/api/reports" || path.starts_with("/api/reports/") {
+    if path == "/api/tasks" || path == "/api/tasks/wait" || path == "/api/reports" || path.starts_with("/api/reports/") {
         return work_route(app, req).await;
     }
 

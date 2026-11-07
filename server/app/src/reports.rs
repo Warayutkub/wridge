@@ -105,6 +105,23 @@ pub fn list(dir: &str) -> anyhow::Result<Value> {
     Ok(json!({"reports": out, "themes": themes, "folder": reports_dir(dir).display().to_string().replace('\\', "/")}))
 }
 
+/// A short fingerprint of the reports folder (names + change times), so the page can wait for a change.
+pub fn signature(dir: &str) -> String {
+    let mut parts: Vec<String> = std::fs::read_dir(reports_dir(dir))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("json"))
+        .map(|e| format!("{}:{}", e.file_name().to_string_lossy(), modified(&e.path())))
+        .collect();
+    parts.sort();
+    let mut h: u64 = 1469598103934665603;
+    for b in parts.join("|").bytes() {
+        h = (h ^ b as u64).wrapping_mul(1099511628211);
+    }
+    format!("{}-{h:x}", parts.len())
+}
+
 /// Checks a report the AI wrote: a title, rows of known blocks; returns warnings (unknown keys are kept).
 pub fn validate(report: &Value) -> anyhow::Result<Vec<String>> {
     let o = report.as_object().ok_or_else(|| anyhow!("report must be an object: {{title, rows: [...]}}"))?;

@@ -404,7 +404,24 @@
   }
   paint();
   refresh();
-  setInterval(() => { if (!document.hidden) refresh(); }, 3000);
+  // keep checking even when the page says it is hidden: inside the wridge window WebView2 can report "hidden"
+  // after the window was in the tray, and the board then never caught up with the AI
+  let lastCheck = Date.now();
+  setInterval(() => { if (Date.now() - lastCheck >= (document.hidden ? 15000 : 3000)) { lastCheck = Date.now(); refresh(); } }, 1000);
+  addEventListener("focus", () => { lastCheck = Date.now(); refresh(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { lastCheck = Date.now(); refresh(); } });
+  // real time: wait on the server until something changes (a long poll — not slowed when the page is hidden)
+  (async () => {
+    let since = "";
+    for (;;) {
+      try {
+        const r = await (await fetch(`/api/tasks/wait?dir=${encodeURIComponent(dir)}&since=${encodeURIComponent(since)}`, { cache: "no-store" })).json();
+        if (r.since === undefined) throw new Error("no wait on this engine");
+        if (since && r.changed) { lastCheck = Date.now(); await refresh(); }
+        since = r.since;
+      } catch { await new Promise((ok) => setTimeout(ok, 5000)); }
+    }
+  })();
 })();
 </script>
 </body>

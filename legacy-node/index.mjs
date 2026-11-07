@@ -481,7 +481,7 @@ async function runTool(t, args, source) {
 
 function createMcpServer(profile) {
   const tools = profileTools(profile);
-  const server = new McpServer({ name: "wridge", version: "1.7.3" }, { instructions: instructions(tools, profile) });
+  const server = new McpServer({ name: "wridge", version: "1.7.4" }, { instructions: instructions(tools, profile) });
   for (const t of tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.inputSchema }, (args) =>
       runTool(t, args, "MCP"),
@@ -587,7 +587,7 @@ const http = createServer(async (req, res) => {
     }
 
     // GitHub (docs/flows/github.md) lives in the Rust engine only
-    if (pathname === "/api/tasks" || pathname === "/api/reports" || pathname.startsWith("/api/reports/")) return json(res, 501, { error: "Tasks and Reports need the Rust engine — switch to Rust in Settings → Server" });
+    if (pathname === "/api/tasks" || pathname === "/api/tasks/wait" || pathname === "/api/reports" || pathname.startsWith("/api/reports/")) return json(res, 501, { error: "Tasks and Reports need the Rust engine — switch to Rust in Settings → Server" });
     if (pathname === "/api/github" || pathname.startsWith("/api/github/")) return json(res, 501, { error: "GitHub is not available on this engine — switch to Rust in Settings → Server" });
 
     switch (route) {
@@ -1024,7 +1024,7 @@ const http = createServer(async (req, res) => {
         refreshFileName();
         if (state.today.day !== new Date().toDateString()) state.today = newDay();
         return json(res, 200, {
-          version: "1.7.3",
+          version: "1.7.4",
           fileName: state.fileName,
           openFiles: openFiles(),
           today: state.today,

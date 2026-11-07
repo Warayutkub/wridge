@@ -379,7 +379,8 @@
     paint();
     const running = runs?.runs?.some((r) => r.status !== 'completed') || (detail?.run && detail.run.status !== 'completed');
     const ms = s === 'signing_in' ? 2000 : ['ready', 'offline', 'expired'].includes(s) && !repos?.length ? 5000 : running ? 5000 : s === 'offline' ? 15000 : 60000;
-    timer = setTimeout(() => { if (document.hidden && !running) document.addEventListener('visibilitychange', refresh, { once: true }); else refresh(); }, ms);
+    // a hidden page (or one WebView2 wrongly calls hidden) still checks, just less often
+    timer = setTimeout(refresh, document.hidden && !running ? Math.max(ms, 60000) : ms);
   }
   addEventListener('popstate', () => { const r = params().get('repo'); if (r && r !== repo) { repo = r; runs = null; } detail = null; paint(); refresh(); });
 
