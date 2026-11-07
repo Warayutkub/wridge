@@ -100,6 +100,18 @@
   .p-foot input { flex: 1; height: 36px; padding: 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-1); font: 13px var(--sans); }
   .p-foot input:focus { outline: 0; border-color: var(--primary); background: var(--background); }
   .p-foot .grow { flex: 1; }
+  .sibs { display: flex; flex-direction: column; gap: 2px; }
+  .sib { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 7px; background: none; font: 13px var(--sans); color: var(--text); text-align: left; cursor: pointer; }
+  .sib:hover { background: var(--surface-1); } .sib.on { background: var(--surface-1); font-weight: 600; }
+  .sib i { width: 6px; height: 6px; border-radius: 50%; flex: none; } .sib span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .sib small { font: 11px var(--mono); color: var(--text-faint); }
+  .fpop { position: absolute; z-index: 25; top: calc(100% + 6px); right: 0; width: 280px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); box-shadow: var(--shadow-md); display: flex; flex-direction: column; gap: 12px; animation: w-in .16s var(--ease); }
+  .fpop .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fpop .opt { padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--background); font: 12px var(--sans); color: var(--text-2); cursor: pointer; }
+  .fpop .opt[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
+  .fpop label { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+  .fpop .row { display: flex; justify-content: space-between; align-items: center; }
+  .fbtn { position: relative; }
+  .fbtn .dot { position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--primary); }
   .reason { font-size: 13px; padding: 10px 12px; border-radius: 10px; background: var(--surface-1); border: 1px solid var(--border); color: var(--text-2); }
   .empty { flex: 1; display: grid; place-items: center; padding: 40px; }
   .empty .in { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; max-width: 470px; }
@@ -115,6 +127,7 @@
   <div class="topbar-left"><div class="w-titles"><p class="w-label">Project · Tasks</p><h1>Tasks</h1></div></div>
   <label class="w-search"><span class="w-icon" data-wicon="search"></span><input id="q" type="search" placeholder="Find a task…" aria-label="Find a task" autocomplete="off"><span class="w-kbd">Ctrl K</span></label>
   <span class="spacer"></span>
+  <span class="fbtn"><button class="btn btn-secondary" id="filter" aria-haspopup="dialog" aria-expanded="false"><span class="w-icon"><svg viewBox="0 0 20 20" fill="none"><path d="M3.5 5h13M6 10h8M8.5 15h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>Filter</button></span>
   <button class="btn btn-primary" id="new"><span class="w-icon" data-wicon="plus"></span>New task</button>
 </header>
 <div class="tk-bar" id="bar" hidden></div>
@@ -143,12 +156,14 @@
   const LABEL = { ui: ["#E8EEFF", "#1F4FD1"], content: ["#F3E8FF", "#7A3BC4"], feature: ["#E6F4EC", "#17794A"], ops: ["#EBE8E2", "#3A3833"], perf: ["#FBF0DC", "#8A5A0B"], bug: ["#FBE7E4", "#A42C22"], docs: ["#E3F4F5", "#0B6E77"] };
   const PALETTE = Object.values(LABEL);
   const lblColor = (n) => LABEL[n.toLowerCase()] ?? PALETTE[[...n].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
-  const lbl = (n) => { const [bg, fg] = lblColor(n); return `<span class="lbl" style="background:${bg};color:${fg}">${esc(n)}</span>`; };
+  const dark = () => document.documentElement.dataset.theme === "dark";
+  const lbl = (n) => { const [bg, fg] = lblColor(n); return dark() ? `<span class="lbl" style="background:color-mix(in srgb, ${fg} 26%, var(--background));color:color-mix(in srgb, ${fg} 45%, #fff)">${esc(n)}</span>` : `<span class="lbl" style="background:${bg};color:${fg}">${esc(n)}</span>`; };
   const who = (w) => `<span class="who${w === "AI" ? " ai" : ""}" title="${esc(w || "you")}">${esc(w === "AI" ? "AI" : (w || "you").replace(/^@/, "").slice(0, 1))}</span>`;
   const sub = (t) => { const s = t.subtasks ?? []; return s.length ? `${s.filter((x) => x.done).length}/${s.length}` : ""; };
   const isLate = (d) => { const t = Date.parse(d); return !Number.isNaN(t) && t < Date.now() - 864e5; };
   const ago = (iso) => { const t = Date.parse(iso); if (Number.isNaN(t)) return ""; const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? "now" : m < 60 ? `${m} min` : m < 1440 ? new Date(t).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short" }); };
 
+  const more = { labels: new Set(), who: "", late: false };   // the Filter button's extra filters
   let board = null, stamp = -1, err = "", filter = "all", open = null, showSkipped = false, adding = null, editing = null, painted = false;
   const api = async (method, body) => {
     const res = await fetch(`/api/tasks?dir=${encodeURIComponent(dir)}`, { method, cache: "no-store", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -157,7 +172,7 @@
     return j;
   };
   async function act(body, quiet) {
-    try { const r = await api("POST", body); board = r.board; stamp = r.stamp; paint(); return r; }
+    try { const r = await api("POST", body); board = r.board; stamp = r.stamp; paint(); if (window.top !== window) window.parent.postMessage({ type: "wridge:tasks-changed" }, "*"); return r; }
     catch (e) { ui.toast(e.message, { kind: "error" }); refresh(); }
   }
   const tasks = () => board?.tasks ?? [];
@@ -167,6 +182,9 @@
     const term = $("#q").value.trim().toLowerCase();
     return tasks().filter((t) => {
       if (term && !`${t.title} ${t.description} ${(t.labels ?? []).join(" ")}`.toLowerCase().includes(term)) return false;
+      if (more.labels.size && !(t.labels ?? []).some((l) => more.labels.has(l))) return false;
+      if (more.who && (t.who || "you") !== more.who) return false;
+      if (more.late && !(t.due && isLate(t.due) && t.status !== "done")) return false;
       if (filter === "mine") return t.who !== "AI";
       if (filter === "ai") return t.by === "AI";
       if (filter.startsWith("from:")) return t.from === filter.slice(5);
@@ -206,6 +224,8 @@
     bar.innerHTML = [["all", "All"], ["mine", "Mine"], ["ai", "From AI"], ...batches.map((b) => [`from:${b}`, `${b} · ${tasks().filter((t) => t.from === b).length}`])]
       .map(([k, n]) => `<button class="fp" data-f="${esc(k)}" aria-pressed="${filter === k}">${esc(n)}</button>`).join("") + `<span class="spacer"></span><span class="file">docs/tasks/board.json · ${tasks().length} task${tasks().length === 1 ? "" : "s"}</span>`;
     bar.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => { filter = b.dataset.f; paint(); }));
+    const on = more.labels.size || more.who || more.late;
+    $(".fbtn .dot")?.remove(); if (on) $(".fbtn").insertAdjacentHTML("beforeend", '<span class="dot" aria-hidden="true"></span>');
     const vis = visible();
     const skipped = vis.filter((t) => t.status === "skipped");
     main.innerHTML = COLS.map(([st, name, dot]) => {
@@ -261,6 +281,30 @@
       nt.onblur = () => setTimeout(() => { if (adding && document.activeElement !== nt) { adding = null; paint(); } }, 150);
     }
   }
+  function filterPop() {
+    const host = $(".fbtn"), btn = $("#filter");
+    const old = host.querySelector(".fpop");
+    if (old) { old.remove(); btn.setAttribute("aria-expanded", "false"); return; }
+    const labels = [...new Set(tasks().flatMap((t) => t.labels ?? []))].sort();
+    const people = [...new Set(tasks().map((t) => t.who || "you"))].sort();
+    const pop = document.createElement("div");
+    pop.className = "fpop"; pop.setAttribute("role", "dialog"); pop.setAttribute("aria-label", "Filter tasks");
+    const draw = () => {
+      pop.innerHTML = `<p class="w-label">Labels</p><div class="opts">${labels.map((l) => `<button class="opt" data-l="${esc(l)}" aria-pressed="${more.labels.has(l)}">${esc(l)}</button>`).join("") || '<span class="md empty">No labels yet</span>'}</div>
+        <p class="w-label">Doing it</p><div class="opts"><button class="opt" data-w="" aria-pressed="${!more.who}">Anyone</button>${people.map((w) => `<button class="opt" data-w="${esc(w)}" aria-pressed="${more.who === w}">${esc(w)}</button>`).join("")}</div>
+        <label><input type="checkbox" id="late"${more.late ? " checked" : ""}> Overdue only</label>
+        <div class="row"><button class="btn btn-ghost" id="clear">Clear</button><button class="btn btn-secondary" id="done">Done</button></div>`;
+      pop.querySelectorAll("[data-l]").forEach((b) => (b.onclick = () => { more.labels.has(b.dataset.l) ? more.labels.delete(b.dataset.l) : more.labels.add(b.dataset.l); draw(); paint(); }));
+      pop.querySelectorAll("[data-w]").forEach((b) => (b.onclick = () => { more.who = b.dataset.w; draw(); paint(); }));
+      pop.querySelector("#late").onchange = (e) => { more.late = e.target.checked; paint(); };
+      pop.querySelector("#clear").onclick = () => { more.labels.clear(); more.who = ""; more.late = false; draw(); paint(); };
+      pop.querySelector("#done").onclick = () => filterPop();
+    };
+    draw();
+    host.append(pop); btn.setAttribute("aria-expanded", "true");
+  }
+  $("#filter").onclick = (e) => { e.stopPropagation(); filterPop(); };
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest(".fbtn")) { $(".fpop")?.remove(); $("#filter").setAttribute("aria-expanded", "false"); } });
   function startAdd(st) { adding = st; open = null; paint(); }
   $("#new").onclick = () => startAdd("todo");
   $("#q").oninput = () => paint();
@@ -297,8 +341,9 @@
         ${t.change ? `<div class="sec"><div class="sec-h"><p class="w-label">Suggested change</p><span class="spacer"></span>${t.change.where ? `<span class="where">${I.file.replace("<svg", '<svg width="13" height="13"')}${esc(t.change.where)}</span>` : ""}</div>
           <div class="code">${t.change.old.split("\n").map((l) => `<div class="m">- ${esc(l)}</div>`).join("")}${t.change.new.split("\n").map((l) => `<div class="p">+ ${esc(l)}</div>`).join("")}</div></div>` : ""}
         <div class="sec"><div class="sec-h"><p class="w-label">${t.change ? "Why" : "Description"}</p><span class="spacer"></span><button class="link" id="edit-desc">${editing === "desc" ? "Done" : "Edit"}</button></div>
-          ${editing === "desc" ? `<textarea class="edit" id="desc">${esc(t.description ?? "")}</textarea>` : `<div class="md${t.description ? "" : " empty"}" id="desc-view">${t.description ? md(t.description) : "Add a description — lists with - work"}</div>`}</div>
+          ${editing === "desc" ? `<textarea class="edit" id="desc">${esc(t.description ?? "")}</textarea>` : `<div class="md${t.description ? "" : " empty"}" id="desc-view">${t.description ? md(t.description) : t.change ? "Say why — the AI reads it" : "Add a description — lists with - work"}</div>`}</div>
         ${suggestion ? `<div class="banner info" style="margin:0"><div class="banner-text"><b>Accept → the AI makes this change, then ticks it done</b>Skip asks for a short reason, so the next check doesn't raise it again.</div></div>` : ""}
+        ${t.from ? (() => { const sib = tasks().filter((x) => x.from === t.from); return sib.length > 1 ? `<div class="sec"><p class="w-label">Same check · ${sib.length} found</p><div class="sibs">${sib.map((x) => `<button class="sib${x.id === t.id ? " on" : ""}" data-open="${esc(x.id)}"><i style="background:${({ todo: "var(--text-faint)", doing: "var(--primary)", review: "var(--warning)", done: "var(--success)", skipped: "var(--border-strong)" })[x.status]}"></i><span>${esc(x.title)}</span><small>${esc(x.status)}</small></button>`).join("")}</div></div>` : ""; })() : ""}
         <div class="sec"><div class="sec-h"><p class="w-label">Subtasks${subs.length ? ` · ${doneN}/${subs.length}` : ""}</p><span class="spacer"></span>${subs.length ? `<span class="prog"><i style="width:${(doneN / subs.length) * 100}%"></i></span>` : ""}</div>
           ${subs.map((x, i) => `<label class="sub${x.done ? " on" : ""}"><input type="checkbox" data-sub="${i + 1}"${x.done ? " checked" : ""}><span>${esc(x.text)}</span></label>`).join("")}
           <div class="addsub">${I.plus}<input id="newsub" placeholder="Add a subtask — Enter"></div></div>
@@ -326,6 +371,7 @@
       else { editing = "desc"; paintPanel(); $("#desc")?.focus(); }
     };
     $("#desc-view", p)?.addEventListener("click", (e) => { if (e.target.tagName !== "A") { editing = "desc"; paintPanel(); $("#desc")?.focus(); } });
+    p.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => { open = b.dataset.open; editing = null; paint(); }));
     p.querySelectorAll("[data-sub]").forEach((c) => (c.onchange = () => act({ action: "tick", id, subtask: Number(c.dataset.sub), done: c.checked })));
     $("#newsub", p).onkeydown = (e) => { if (e.key === "Enter" && e.target.value.trim()) act({ action: "update", id, set: { subtasks: [...subs, { text: e.target.value.trim(), done: false }] } }); };
     p.querySelectorAll("[data-link]").forEach((a) => (a.onclick = () => {

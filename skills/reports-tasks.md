@@ -59,7 +59,7 @@ Rules
 | `flow` | `steps: [{actor?, text, kind?}]` — left to right |
 | `text` | `text` (Markdown: paragraphs, `-` lists, `**bold**`, `` `code` ``, links) |
 | `image` | `src` (project-relative path or https), `caption?` |
-| `tasks` | `filter: {from?, label?, status?}` (or a string = from) — the board's tasks, live; nothing retyped |
+| `tasks` | `filter: {from?, label?, status?}` (or a string = from), `view?: "table"\|"board"\|"list"` — the board's tasks, live; nothing retyped |
 | `divider` | — |
 
 `kind` everywhere: `ok` (done, better), `warn` (wait, decide), `bad` (failed, worse), `info`, `neutral`.
@@ -72,7 +72,7 @@ The closest setting wins: `item.color` → `block.style` → `report.theme` → 
 - Tokens: `page card line soft title text muted faint accent ok warn bad info neutral before after series grid radius font mono width`. A color value may name another token (`"after": "accent"`).
 - `report.theme`: `{"accent": "#7A3BC4"}` or a saved theme by name `"theme": "flowklass"` (or `{"use": "flowklass", "ok": "#00AA00"}`).
 - Save a theme once with `theme name: "flowklass" theme: {...}` — then every report sends one word.
-- `block.style`: any token, plus the block's parts: stats `bar`; compare `before after`; chart `series[] grid area: "none"`; board `columns: [{dot, bg}]`; table header via `header`; callout `bg border text`; checklist `on`; flow `arrow`; chips `chip: {ok: {bg, dot, text}}`.
+- `block.style`: any token, plus the block's parts — stats `bar value`; compare `before after`; chart `series[] grid area: "none"`; board `columns: [{dot, bg}]`; table `head headText zebra rule total row`; timeline `dot` (a color, or `{ok, info, warn, bad}`) `line time`; callout `bg border text`; checklist `on`; flow `step border arrow actor`; chips `chip: {ok: {bg, dot, text}}`.
 
 ### Good reports
 - Lead with what changed or what's decided (`header` status + `stats`), details after.

@@ -30,7 +30,8 @@
   let httpOk = false;
   let projects = [];
   let project = store.get('wridge-project', '');
-  let brain = null;         // { notes, links, broken, trash }
+  let brain = null;
+  let openTasks = null;     // to do + doing + review on the Tasks board         // { notes, links, broken, trash }
   let logs = [];
   let prefs = { autoStartServer: true };
   let route = 'overview';
@@ -117,6 +118,7 @@
     st.dataset.tip = text;
     $('#sb-status-txt').textContent = text;
     $('#cnt-notes').textContent = brain ? brain.notes : '';
+    $('#cnt-tasks').textContent = openTasks || '';
     $('#cnt-trash').textContent = brain?.trash ? brain.trash : '';
     const p = projects.find((x) => x.dir === project);
     $('#proj-av').textContent = p ? base(p.dir).slice(0, 1) : '·';
@@ -356,6 +358,7 @@
     if (e.data?.type === 'wridge:reveal' && typeof e.data.path === 'string') { reveal(e.data.path); return; }
     // a page can't always reach the clipboard from its frame: the window copies for it
     if (e.data?.type === 'wridge:copy' && typeof e.data.text === 'string') { copy(e.data.text, { quiet: true }).then((ok) => e.source?.postMessage({ type: 'wridge:copied', id: e.data.id, ok }, API)); return; }
+    if (e.data?.type === 'wridge:tasks-changed') { loadBrain(); return; }
     if (e.data?.type !== 'wridge:path') return;
     const r = routeOf(e.data.path, e.data.search);
     if (!r) return;
@@ -754,6 +757,11 @@
       const g = await api(`/api/brain?dir=${encodeURIComponent(project)}`);
       brain = { notes: g.nodes.filter((n) => n.kind === 'note').length, links: g.edges.length, broken: g.nodes.filter((n) => n.kind === 'missing').length, trash: g.trash?.length ?? 0 };
     } catch { brain = null; }
+    // open tasks (to do, doing, review) on the project's board
+    try {
+      const t = await api(`/api/tasks?dir=${encodeURIComponent(project)}`);
+      openTasks = t.board.tasks.filter((x) => ['todo', 'doing', 'review'].includes(x.status)).length;
+    } catch { openTasks = null; }
     update();
   }
   let pollTimer = null, brainAt = 0;

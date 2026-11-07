@@ -53,11 +53,11 @@
   .wr .stats { display: flex; gap: 16px; }
   .wr .stats .card { flex: 1 1 0; gap: 10px; }
   .wr .stat-v { display: flex; align-items: baseline; gap: 6px; }
-  .wr .stat-v b { font-size: 44px; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; color: var(--vcol, var(--title)); }
+  .wr .stat-v b { font-size: 44px; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; color: var(--vcol, var(--sval, var(--title))); }
   .wr .stat-v span { font-size: 18px; font-weight: 500; color: var(--muted); }
   .wr .stat-f { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font: 11px var(--mono), monospace; color: var(--muted); }
   .wr .stat-bar { height: 4px; border-radius: 2px; background: var(--soft); overflow: hidden; }
-  .wr .stat-bar i { display: block; height: 100%; background: var(--vcol, var(--accent)); border-radius: 2px; }
+  .wr .stat-bar i { display: block; height: 100%; background: var(--vcol, var(--sbar, var(--accent))); border-radius: 2px; }
   /* compare */
   .wr .cmp { display: flex; flex-direction: column; gap: 8px; }
   .wr .cmp-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; font-weight: 500; color: var(--title); }
@@ -84,17 +84,17 @@
   .wr .bcard span { font-size: 13px; line-height: 1.5; color: var(--muted); }
   /* table */
   .wr .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .wr .tbl th { text-align: left; padding: 10px 16px; font: 500 11px var(--mono), monospace; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--page); white-space: nowrap; }
-  .wr .tbl.ink th { background: var(--title); color: var(--card); }
+  .wr .tbl th { text-align: left; padding: 10px 16px; font: 500 11px var(--mono), monospace; letter-spacing: .04em; text-transform: uppercase; color: var(--th-tx, var(--muted)); background: var(--th-bg, var(--page)); white-space: nowrap; }
+  .wr .tbl.ink th { background: var(--th-bg, var(--title)); color: var(--th-tx, var(--card)); }
   .wr .tbl.nohead thead { display: none; }
-  .wr .tbl td { padding: 13px 16px; border-top: 1px solid var(--soft); color: var(--text); vertical-align: middle; line-height: 1.5; }
+  .wr .tbl td { padding: 13px 16px; border-top: 1px solid var(--rule, var(--soft)); color: var(--text); vertical-align: middle; line-height: 1.5; background: var(--row, transparent); }
   .wr .tbl.compact td { padding: 8px 16px; }
-  .wr .tbl.zebra tbody tr.r:nth-child(even) td { background: color-mix(in srgb, var(--page) 60%, var(--card)); }
+  .wr .tbl.zebra tbody tr.r:nth-child(even) td { background: var(--zebra, color-mix(in srgb, var(--page) 60%, var(--card))); }
   .wr .tbl td.first { color: var(--title); font-weight: 500; }
   .wr .tbl td.num, .wr .tbl th.num { text-align: right; font-family: var(--mono), monospace; font-size: 12.5px; }
   .wr .tbl td.link { font-family: var(--mono), monospace; font-size: 12.5px; color: var(--accent); }
   .wr .tbl tr.group td { background: var(--page); font-size: 12px; font-weight: 600; padding-top: 6px; padding-bottom: 6px; }
-  .wr .tbl tr.total td { background: var(--page); font-weight: 600; color: var(--title); border-top: 1px solid var(--line); }
+  .wr .tbl tr.total td { background: var(--total, var(--page)); font-weight: 600; color: var(--title); border-top: 1px solid var(--line); }
   .wr .tbl .pbar { display: inline-flex; align-items: center; gap: 8px; font: 12px var(--mono), monospace; color: var(--title); }
   .wr .tbl .pbar span { width: 90px; height: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; display: inline-block; }
   .wr .tbl .pbar i { display: block; height: 100%; }
@@ -102,10 +102,10 @@
   /* timeline */
   .wr .tl { display: flex; flex-direction: column; }
   .wr .tl-i { display: grid; grid-template-columns: 48px 12px 1fr; gap: 12px; font-size: 13px; }
-  .wr .tl-i .tm { font: 11px/1.9 var(--mono), monospace; color: var(--faint); }
+  .wr .tl-i .tm { font: 11px/1.9 var(--mono), monospace; color: var(--tl-time, var(--faint)); }
   .wr .tl-i .rail { display: flex; flex-direction: column; align-items: center; padding-top: 6px; }
   .wr .tl-i .rail i { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-  .wr .tl-i .rail s { width: 1px; flex: 1; min-height: 14px; background: var(--line); margin: 4px 0; }
+  .wr .tl-i .rail s { width: 1px; flex: 1; min-height: 14px; background: var(--tl-line, var(--line)); margin: 4px 0; }
   .wr .tl-i p { padding-bottom: 14px; line-height: 1.6; }
   /* callout */
   .wr .co { border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 4px; background: var(--cbg); border: 1px solid var(--cbd); color: var(--ctx); font-size: 13px; line-height: 1.55; }
@@ -119,7 +119,7 @@
   .wr .ck-i small { font: 11px var(--mono), monospace; color: var(--faint); }
   /* flow */
   .wr .fl { display: flex; align-items: center; }
-  .wr .fl-s { flex: 1 1 0; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+  .wr .fl-s { flex: 1 1 0; min-width: 0; background: var(--fl-bg, var(--card)); border: 1px solid var(--fl-bd, var(--line)); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
   .wr .fl-s b { font-size: 14px; font-weight: 500; color: var(--title); }
   .wr .fl-a { flex: none; width: 34px; display: grid; place-items: center; color: var(--faint); }
   /* text */
@@ -129,6 +129,17 @@
   .wr .md a { color: var(--accent); }
   .wr .img img { width: 100%; border-radius: 10px; display: block; border: 1px solid var(--line); }
   .wr .img figcaption { font: 12px var(--font); color: var(--muted); margin-top: 8px; }
+  .wr .fl-s .label { color: var(--fl-actor, var(--muted)); }
+  /* tasks block: board and list views */
+  .wr .tb-cols { display: flex; gap: 12px; padding: 0 24px 24px; }
+  .wr .tb-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 10px; background: var(--page); border: 1px solid var(--soft); }
+  .wr .tb-col h4 { margin: 0; display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: var(--title); }
+  .wr .tb-col h4 i { width: 7px; height: 7px; border-radius: 50%; } .wr .tb-col h4 small { font: 11px var(--mono), monospace; color: var(--faint); font-weight: 400; }
+  .wr .tb-card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12.5px; font-weight: 500; color: var(--title); line-height: 1.45; }
+  .wr .tb-card small { display: block; margin-top: 4px; font: 11px var(--mono), monospace; color: var(--muted); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .wr .tb-list { display: flex; flex-direction: column; padding: 0 24px 16px; }
+  .wr .tb-li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--soft); font-size: 13px; color: var(--title); }
+  .wr .tb-li i { width: 8px; height: 8px; border-radius: 50%; flex: none; } .wr .tb-li span { flex: 1; min-width: 0; } .wr .tb-li small { font: 11px var(--mono), monospace; color: var(--muted); }
   .wr .ft { display: flex; justify-content: space-between; font: 11px var(--mono), monospace; letter-spacing: .04em; color: var(--faint); text-transform: uppercase; }
   `;
 
@@ -171,6 +182,13 @@
       for (const k of ["page", "card", "line", "soft", "title", "text", "muted", "faint", "accent", "ok", "warn", "bad", "radius"]) if (style[k] != null) out.push(`--${k}:${k === "radius" ? `${style[k]}px` : col(style[k], style)}`);
       return out.length ? ` style="${out.join(";")}"` : "";
     };
+    // a block's own parts (style.<part>) → CSS variables the block's CSS falls back from
+    const parts = (style, map) => {
+      if (!style) return "";
+      const out = Object.entries(map).filter(([k]) => style[k] != null && typeof style[k] !== "object").map(([k, v]) => `${v}:${col(style[k], style)}`);
+      return out.join(";");
+    };
+    const withParts = (style, map) => { const a = vars(style), b = parts(style, map); if (!b) return a; return a ? a.replace(/"$/, `;${b}"`) : ` style="${b}"`; };
     const series = (style) => (style?.series ?? theme0.series ?? []).map((c) => col(c, style));
 
     const B = {
@@ -183,7 +201,7 @@
         </div>`;
       },
       stats(b) {
-        return `<div class="stats"${vars(b.style)}>${(b.items ?? []).map((it) => {
+        return `<div class="stats"${withParts(b.style, { bar: "--sbar", value: "--sval" })}>${(b.items ?? []).map((it) => {
           const c = col(it.color, b.style);
           const d = it.delta ? chip(it.delta, it.kind ?? (/^[↓-]/.test(it.delta) ? "ok" : /^[↑+]/.test(it.delta) ? "ok" : "neutral"), b.style) : "";
           const bar = typeof it.bar === "number" ? `<div class="stat-bar"><i style="width:${Math.max(2, Math.min(100, it.bar * 100))}%"></i></div>` : "";
@@ -275,11 +293,12 @@
         const cls = ["tbl", b.compact ? "compact" : "", b.zebra ? "zebra" : "", header === "ink" ? "ink" : "", header === "none" ? "nohead" : ""].filter(Boolean).join(" ");
         const body = rows.map((r) => (typeof r === "string" ? `<tr class="group"><td colspan="${cols.length}">${esc(r)}</td></tr>` : `<tr class="r">${cols.map((c, i) => cell(c, r[i], i)).join("")}</tr>`)).join("");
         const total = b.total ? `<tr class="total">${cols.map((c, i) => `<td class="${c.kind === "num" ? "num" : ""}">${esc(b.total[i] ?? "")}</td>`).join("")}</tr>` : "";
-        return `<div class="card flush"${vars(b.style)}>${head(b)}<table class="${cls}"><thead><tr>${cols.map((c) => `<th class="${c.kind === "num" ? "num" : ""}">${esc(c.name)}</th>`).join("")}</tr></thead><tbody>${body}${total}</tbody></table></div>`;
+        return `<div class="card flush"${withParts(b.style, { head: "--th-bg", headText: "--th-tx", zebra: "--zebra", rule: "--rule", total: "--total", row: "--row" })}>${head(b)}<table class="${cls}"><thead><tr>${cols.map((c) => `<th class="${c.kind === "num" ? "num" : ""}">${esc(c.name)}</th>`).join("")}</tr></thead><tbody>${body}${total}</tbody></table></div>`;
       },
       timeline(b) {
         const it = b.items ?? [];
-        return `<div class="card"${vars(b.style)}>${head(b)}<div class="tl">${it.map((x, i) => `<div class="tl-i"><span class="tm">${esc(x.time ?? "")}</span><span class="rail"><i style="background:${col(x.color, b.style) ?? KIND(x.kind ?? "info", b.style).dot}"></i>${i < it.length - 1 ? "<s></s>" : ""}</span><p>${esc(x.text)}</p></div>`).join("")}</div></div>`;
+        const dot = (k) => { const d = b.style?.dot; return d == null ? null : typeof d === "object" ? col(d[k], b.style) : col(d, b.style); };
+        return `<div class="card"${withParts(b.style, { line: "--tl-line", time: "--tl-time" })}>${head(b)}<div class="tl">${it.map((x, i) => `<div class="tl-i"><span class="tm">${esc(x.time ?? "")}</span><span class="rail"><i style="background:${col(x.color, b.style) ?? dot(x.kind ?? "info") ?? KIND(x.kind ?? "info", b.style).dot}"></i>${i < it.length - 1 ? "<s></s>" : ""}</span><p>${esc(x.text)}</p></div>`).join("")}</div></div>`;
       },
       callout(b) {
         const c = KIND(b.kind ?? "info", b.style);
@@ -293,7 +312,7 @@
       flow(b) {
         const s = b.steps ?? [];
         const arrow = `<span class="fl-a"><svg width="28" height="12" viewBox="0 0 28 12"><path d="M2 6h22m-4-4 4 4-4 4" fill="none" stroke="${col(b.style?.arrow, b.style) ?? T("faint")}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
-        return `<div class="card"${vars(b.style)}>${head(b)}<div class="fl">${s.map((x, i) => `${i ? arrow : ""}<div class="fl-s"${x.kind ? ` style="border-color:${KIND(x.kind, b.style).line}"` : ""}>${x.actor ? lab(x.actor) : ""}<b>${esc(x.text)}</b></div>`).join("")}</div></div>`;
+        return `<div class="card"${withParts(b.style, { step: "--fl-bg", border: "--fl-bd", actor: "--fl-actor" })}>${head(b)}<div class="fl">${s.map((x, i) => `${i ? arrow : ""}<div class="fl-s"${x.kind ? ` style="border-color:${KIND(x.kind, b.style).line}"` : ""}>${x.actor ? lab(x.actor) : ""}<b>${esc(x.text)}</b></div>`).join("")}</div></div>`;
       },
       text(b) {
         return `<div class="card"${vars(b.style)}>${head(b)}<div class="md">${md(b.text)}</div></div>`;
@@ -310,6 +329,14 @@
         const title = b.title ?? (typeof f === "string" ? f : f.from ?? f.label ?? "Tasks");
         const badges = `<div style="display:flex;gap:8px">${chip(`${items.length} task${items.length === 1 ? "" : "s"}`, "neutral", b.style)}${count("done") ? chip(`${count("done")} done`, "ok", b.style) : ""}${count("review") ? chip(`${count("review")} to review`, "warn", b.style) : ""}</div>`;
         const where = (t) => t.change?.where || (t.links ?? [])[0] || "";
+        const dotOf = (s) => KIND(K[s]?.[1] ?? "neutral", b.style).dot;
+        if (b.view === "board") {
+          const cols = ["todo", "doing", "review", "done"].filter((s) => items.some((t) => t.status === s));
+          return `<div class="card flush"${vars(b.style)}>${head({ ...b, title }, badges)}<div class="tb-cols">${cols.map((s) => `<div class="tb-col"><h4><i style="background:${dotOf(s)}"></i>${K[s][0]}<small>${items.filter((t) => t.status === s).length}</small></h4>${items.filter((t) => t.status === s).map((t) => `<div class="tb-card">${esc(t.title)}${where(t) ? `<small>${esc(where(t))}</small>` : ""}</div>`).join("")}</div>`).join("") || '<p class="cap" style="padding:0 0 4px">No tasks match.</p>'}</div></div>`;
+        }
+        if (b.view === "list") {
+          return `<div class="card flush"${vars(b.style)}>${head({ ...b, title }, badges)}<div class="tb-list">${items.map((t) => `<div class="tb-li"><i style="background:${dotOf(t.status)}"></i><span>${esc(t.title)}</span><small>${esc(K[t.status]?.[0] ?? t.status)}</small></div>`).join("") || '<p class="cap">No tasks match.</p>'}</div></div>`;
+        }
         return `<div class="card flush"${vars(b.style)}>${head({ ...b, title }, badges)}<table class="tbl compact"><thead><tr><th>Task</th><th>Status</th><th>Where</th></tr></thead><tbody>${items.map((t) => `<tr class="r"><td class="first">${esc(t.title)}</td><td style="width:130px">${chip(...(K[t.status] ?? [t.status, "neutral"]), b.style)}</td><td class="link">${esc(where(t))}</td></tr>`).join("") || `<tr><td colspan="3" style="color:var(--muted)">No tasks match.</td></tr>`}</tbody></table></div>`;
       },
       divider() { return `<div class="rule"></div>`; },

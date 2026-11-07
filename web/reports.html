@@ -142,7 +142,10 @@
       data = await api(`/api/reports/get?${q({ dir, name })}`);
       const meta = list.reports.find((r) => r.name === name);
       $("#pv-title").textContent = data.report.title ?? name;
-      $("#pv-chip").innerHTML = "";
+      // the report's own status, or "Updated" when the AI just wrote it
+      const st = data.report.status, fresh = meta && Date.now() - meta.updated < 10 * 6e4;
+      const K = { ok: "ok", warn: "warn", bad: "bad" };
+      $("#pv-chip").innerHTML = st?.text ? `<span class="w-pill dot sans ${K[st.kind] ?? ""}">${esc(st.text)}</span>` : fresh ? '<span class="w-pill dot sans ok">Updated</span>' : "";
       $("#pv-file").textContent = `docs/reports/${name}.json${meta ? ` · ${when(meta.updated)}` : ""}`;
       wrReport.render($("#scale"), data, { fileUrl: (p) => `/api/reports/file?${q({ dir, path: p })}` });
       await document.fonts.ready;
