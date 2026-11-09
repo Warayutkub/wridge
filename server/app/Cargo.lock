@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "wridge-server"
-version = "1.7.5"
+version = "1.7.6"
 dependencies = [
  "anyhow",
  "axum",

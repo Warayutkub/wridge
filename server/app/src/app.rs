@@ -18,7 +18,7 @@ use crate::zod::{self, *};
 
 pub type Ctx = Arc<App>;
 
-pub const VERSION: &str = "1.7.5";
+pub const VERSION: &str = "1.7.6";
 
 pub struct Today {
     pub day: String,

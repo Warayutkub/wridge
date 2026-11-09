@@ -49,9 +49,24 @@ pub fn load(dir: &str) -> anyhow::Result<Value> {
     }
 }
 
+/// Keeps a wridge folder (docs/tasks, docs/reports) out of git without touching the
+/// project's own .gitignore: a `.gitignore` of `*` inside the folder ignores everything
+/// in it, itself included. Written only when missing, so a project that wants to share
+/// the folder empties the file (deleting it would only bring it back on the next save).
+pub fn keep_out_of_git(folder: &Path) -> anyhow::Result<()> {
+    std::fs::create_dir_all(folder)?;
+    let f = folder.join(".gitignore");
+    if !f.exists() {
+        std::fs::write(&f, "# made by wridge: keeps this folder out of git. To share it, empty this file (don't delete it).
+*
+")?;
+    }
+    Ok(())
+}
+
 pub fn save(dir: &str, board: &Value) -> anyhow::Result<()> {
     let path = board_path(dir);
-    std::fs::create_dir_all(path.parent().unwrap())?;
+    keep_out_of_git(path.parent().unwrap())?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_string_pretty(board)? + "\n")?;
     std::fs::rename(&tmp, &path)?;
@@ -475,5 +490,20 @@ mod tests {
         let b = load(d).unwrap();
         let order: Vec<&str> = b["tasks"].as_array().unwrap().iter().map(|t| t["id"].as_str().unwrap()).collect();
         assert_eq!(order, ["T-3", "T-1", "T-2"]);
+    }
+
+    #[test]
+    fn folder_stays_out_of_git() {
+        let d = std::env::temp_dir().join(format!("wr-gi-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        save(d.to_str().unwrap(), &json!({"version": 1, "next": 1, "tasks": []})).unwrap();
+        let gi = d.join("docs").join("tasks").join(".gitignore");
+        assert!(std::fs::read_to_string(&gi).unwrap().lines().any(|l| l == "*"));
+        // an emptied rule is the project's choice: left alone
+        std::fs::write(&gi, "").unwrap();
+        save(d.to_str().unwrap(), &json!({"version": 1, "next": 1, "tasks": []})).unwrap();
+        assert_eq!(std::fs::read_to_string(&gi).unwrap(), "");
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

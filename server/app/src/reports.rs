@@ -58,6 +58,10 @@ fn read_json(path: &Path) -> anyhow::Result<Value> {
 
 fn write_json(path: &Path, v: &Value) -> anyhow::Result<()> {
     std::fs::create_dir_all(path.parent().unwrap())?;
+    // the report folder (themes sit inside it) stays out of git
+    if let Some(r) = path.ancestors().find(|a| a.file_name().map(|n| n == "reports").unwrap_or(false)) {
+        tasks::keep_out_of_git(r)?;
+    }
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, serde_json::to_string_pretty(v)? + "\n")?;
     std::fs::rename(&tmp, path)?;
@@ -253,6 +257,7 @@ pub fn remove(dir: &str, name: &str) -> anyhow::Result<String> {
         bail!("no report {name}");
     }
     // into docs/reports/.trash/, not gone
+    tasks::keep_out_of_git(&reports_dir(dir))?;
     let trash = reports_dir(dir).join(".trash");
     std::fs::create_dir_all(&trash)?;
     let to = trash.join(format!("{name}-{}.json", chrono::Local::now().format("%Y%m%d-%H%M%S")));
@@ -356,6 +361,7 @@ pub async fn export(dir: &str, name: &str, format: &str, http_port: u16) -> anyh
     let dom = headless(vec!["--virtual-time-budget=8000".into(), format!("--window-size={width},900"), "--dump-dom".into(), url.clone()], |o| String::from_utf8_lossy(&o.stdout).contains("data-height=\"")).await?;
     let height: u64 = dom.split("data-height=\"").nth(1).and_then(|s| s.split('"').next()).and_then(|s| s.parse().ok()).ok_or_else(|| anyhow!("the report page didn't finish drawing"))?;
     let height = height.clamp(200, 30000);
+    tasks::keep_out_of_git(&reports_dir(dir))?;
     let out_dir = reports_dir(dir).join("exports");
     std::fs::create_dir_all(&out_dir)?;
     let (ext, flag) = if format == "pdf" { ("pdf", "--print-to-pdf") } else { ("png", "--screenshot") };

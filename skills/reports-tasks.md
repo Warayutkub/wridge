@@ -8,6 +8,7 @@ area: both
 Two tools, both files in the project (they travel with git), both shown in the wridge window:
 - `tasks` → **Tasks** board, `docs/tasks/board.json`. The person drags cards, ticks subtasks, writes notes, accepts or skips your suggestions — you see the same board.
 - `report` → **Reports**, `docs/reports/<name>.json`. You send content; wridge lays it out and exports PNG / PDF / a copied image. No Figma involved.
+- Both folders stay **out of git**: wridge puts a `.gitignore` of `*` inside each one. Don't commit them, and don't add them to the project's own `.gitignore` — it's already handled. A team that wants a shared board empties that file (deleting it only brings it back).
 
 Every call needs `projectDir` (the project this session works in). Results are short text — don't `get` what `list` already told you.
 
