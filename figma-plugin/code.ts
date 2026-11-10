@@ -697,7 +697,7 @@ function strokeSummary(node: SceneNode) {
   if (typeof g.strokeCap === 'string') out.cap = g.strokeCap; else if (g.strokeCap) out.cap = 'mixed';
   if (typeof g.strokeJoin === 'string') out.join = g.strokeJoin;
   const vw = g.variableWidthStrokeProperties;
-  if (vw && (vw.widthProfile !== 'UNIFORM' || ('variableWidthPoints' in vw && vw.variableWidthPoints.length))) out.width = vw;
+  if (vw && (vw.widthProfile !== 'UNIFORM' || (vw.widthProfile === 'CUSTOM' && vw.variableWidthPoints.length > 0))) out.width = vw;
   if (g.complexStrokeProperties && g.complexStrokeProperties.type !== 'BASIC') out.stroke = g.complexStrokeProperties;
   return out;
 }
