@@ -137,6 +137,8 @@ fn init_layout(app: &AppHandle) {
                     ("WRIDGE_APP_DIR".into(), r.join("server-app")),
                     ("WRIDGE_DART_DIR".into(), r.join("dart")),
                     ("WRIDGE_PROJECTS_FILE".into(), projects),
+                    // kept across updates: tools the person downloads (k6)
+                    ("WRIDGE_DATA_DIR".into(), data.clone()),
                 ],
                 work_dir: data,
             }

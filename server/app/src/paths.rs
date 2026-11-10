@@ -4,6 +4,8 @@
 //!   legacy-node/code-projects.json (the projects list, shared with the Node server) → `projects_file`
 //! `WRIDGE_ROOT` / `WRIDGE_APP_DIR` override both (a packaged app points them at its resources);
 //! `WRIDGE_PROJECTS_FILE` points the projects list elsewhere (tests use a temp copy).
+//! `WRIDGE_DATA_DIR` is the person's own folder that survives updates (the packaged app's data folder);
+//! without it, `app_dir`.
 
 use std::path::{Path, PathBuf};
 
@@ -14,6 +16,8 @@ pub struct Paths {
     pub guide: PathBuf,
     pub skills: PathBuf,
     pub app_dir: PathBuf,
+    /// Kept across updates: tools the person downloaded (`tools/k6`).
+    pub data_dir: PathBuf,
     pub vendor: PathBuf,
     pub folder_picker: PathBuf,
     pub log_file: PathBuf,
@@ -75,8 +79,13 @@ impl Paths {
             Ok(f) if !f.is_empty() => PathBuf::from(f),
             _ => root.join("legacy-node").join("code-projects.json"),
         };
+        let data_dir = match std::env::var("WRIDGE_DATA_DIR") {
+            Ok(d) if !d.is_empty() => PathBuf::from(d),
+            _ => app_dir.clone(),
+        };
         Paths {
             projects_file,
+            data_dir,
             web: root.join("web"),
             guide: root.join("AI_GUIDE.md"),
             skills: root.join("skills"),

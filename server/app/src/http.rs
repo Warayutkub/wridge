@@ -428,9 +428,16 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
     if path == "/api/github" || path.starts_with("/api/github/") {
         return github_route(app, req).await;
     }
-    // is k6 installed (Settings → Load testing)
+    // is k6 installed, and the copy the person downloads or removes there (Settings → Load testing)
     if get && path == "/api/loadtest/k6" {
         return Ok(json_response(200, &crate::loadtest::check()));
+    }
+    if req.method == Method::POST && (path == "/api/loadtest/k6/download" || path == "/api/loadtest/k6/remove") {
+        let r = if path.ends_with("download") { crate::loadtest::download() } else { crate::loadtest::remove() };
+        return Ok(match r {
+            Ok(v) => json_response(200, &v),
+            Err(e) => json_response(400, &json!({"error": e.to_string()})),
+        });
     }
     // Google Fonts a report asks for by name, kept on this computer after the first use (see fonts.rs)
     if get && path == "/api/fonts/css" {

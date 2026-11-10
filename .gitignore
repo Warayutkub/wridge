@@ -18,3 +18,4 @@ legacy-node/codegraph/dart/build/
 
 # Google Fonts a report used, kept by the server (server/app/fonts.rs)
 server/app/font-cache/
+server/app/tools/

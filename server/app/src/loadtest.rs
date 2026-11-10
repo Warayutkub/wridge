@@ -1,6 +1,8 @@
 //! `load_test`: runs k6 on a script in the project and turns the result into a report.
-//! k6 is installed by the person (not shipped: tens of MB, AGPL); wridge finds it on PATH or where
-//! winget/the installer puts it. A run starts in the background (tests can take minutes); `status`
+//! k6 isn't shipped (tens of MB, AGPL): wridge finds one the person installed (PATH, winget, the installer),
+//! or the copy the person downloaded from Settings → Load testing — the official release zip from Grafana's
+//! GitHub, checked against its published SHA-256, unpacked to `<data>/tools/k6/` (nothing installed;
+//! Remove deletes the folder). Only the person starts that download, never the AI. A run starts in the background (tests can take minutes); `status`
 //! answers progress and, when it ends, the numbers and the report written to docs/reports/.
 //! Guarded: only local or staging targets, ≤ MAX_VUS virtual users, ≤ MAX_MINUTES — more needs the
 //! person's yes (`confirmed`). The script reads the base URL from `__ENV.BASE_URL`.
@@ -12,6 +14,7 @@ use std::sync::{Mutex, OnceLock};
 
 use anyhow::{anyhow, bail};
 use serde_json::{json, Map, Value};
+use sha2::{Digest, Sha256};
 
 pub const MAX_VUS: u64 = 2000;
 pub const MAX_MINUTES: u64 = 30;
@@ -30,8 +33,37 @@ fn now() -> i64 {
 
 // ---------------------------------------------------------------- finding k6
 
+pub const DOCS: &str = "https://grafana.com/docs/k6/latest/set-up/install-k6/";
+/// What the AI tells the person when k6 is missing.
+pub const GET_K6: &str = "k6 isn't on this computer yet. Ask the person to open wridge → Settings → Load testing and press Download k6 (one file, about 30 MB from Grafana's GitHub, nothing installed), or to run `winget install k6`; then try again. Don't download or install it yourself.";
+
+fn exe_name() -> &'static str {
+    if cfg!(windows) { "k6.exe" } else { "k6" }
+}
+
+static TOOLS_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Where wridge keeps tools it downloaded (`<data>/tools`); set once when the server starts.
+pub fn set_tools_dir(dir: PathBuf) {
+    let _ = TOOLS_DIR.set(dir);
+}
+
+fn own_dir() -> Option<PathBuf> {
+    TOOLS_DIR.get().map(|d| d.join("k6"))
+}
+
+/// The copy downloaded from Settings, if there is one.
+fn own_k6() -> Option<PathBuf> {
+    own_dir().map(|d| d.join(exe_name())).filter(|p| p.is_file())
+}
+
+/// An installed k6 first (the person keeps it up to date), then wridge's own copy.
 pub fn find_k6() -> Option<PathBuf> {
-    let exe = if cfg!(windows) { "k6.exe" } else { "k6" };
+    installed_k6().or_else(own_k6)
+}
+
+fn installed_k6() -> Option<PathBuf> {
+    let exe = exe_name();
     if let Some(path) = std::env::var_os("PATH") {
         for d in std::env::split_paths(&path) {
             let p = d.join(exe);
@@ -60,16 +92,191 @@ fn quiet(cmd: &mut std::process::Command) {
 }
 
 pub fn check() -> Value {
-    match find_k6() {
+    let own = own_k6();
+    let mut v = match find_k6() {
         Some(p) => {
             let mut cmd = std::process::Command::new(&p);
             cmd.arg("version");
             quiet(&mut cmd);
             let version = cmd.output().ok().map(|o| String::from_utf8_lossy(&o.stdout).lines().next().unwrap_or("").trim().to_string()).unwrap_or_default();
-            json!({"found": true, "path": p.display().to_string(), "version": version})
+            json!({"found": true, "path": p.display().to_string(), "version": version, "own": own.as_ref() == Some(&p)})
         }
-        None => json!({"found": false, "install": "winget install k6", "docs": "https://grafana.com/docs/k6/latest/set-up/install-k6/"}),
+        None => json!({"found": false, "howToGet": GET_K6, "install": "winget install k6", "docs": DOCS}),
+    };
+    // an installed k6 wins, but a downloaded copy can still be removed
+    if let (Some(o), Some(false)) = (&own, v["own"].as_bool()) {
+        v["ownCopy"] = json!(o.display().to_string());
     }
+    v["canDownload"] = json!(asset_suffix().is_some());
+    v["download"] = fetch_state().lock().unwrap().clone();
+    v
+}
+
+// ---------------------------------------------------------------- downloading k6 (Settings → Load testing)
+
+const RELEASES: &str = "https://api.github.com/repos/grafana/k6/releases/latest";
+const ASSETS: &str = "https://github.com/grafana/k6/releases/download/";
+const MAX_ZIP: usize = 200 << 20;
+
+fn asset_suffix() -> Option<&'static str> {
+    match (std::env::consts::OS, std::env::consts::ARCH) {
+        ("windows", "x86_64") => Some("-windows-amd64.zip"),
+        ("macos", "aarch64") => Some("-macos-arm64.zip"),
+        ("macos", "x86_64") => Some("-macos-amd64.zip"),
+        _ => None,
+    }
+}
+
+/// `{state: idle | downloading | checking | done | failed, got, total, version, error}`
+fn fetch_state() -> &'static Mutex<Value> {
+    static F: OnceLock<Mutex<Value>> = OnceLock::new();
+    F.get_or_init(|| Mutex::new(json!({"state": "idle"})))
+}
+
+fn set_fetch(f: impl FnOnce(&mut Map<String, Value>)) {
+    if let Some(m) = fetch_state().lock().unwrap().as_object_mut() {
+        f(m);
+    }
+}
+
+/// Starts the download in the background (the page polls `check()`); a second press while one runs is ignored.
+pub fn download() -> anyhow::Result<Value> {
+    let dir = own_dir().ok_or_else(|| anyhow!("wridge has no folder for downloaded tools"))?;
+    {
+        let mut f = fetch_state().lock().unwrap();
+        if matches!(f["state"].as_str(), Some("downloading" | "checking")) {
+            return Ok(f.clone());
+        }
+        *f = json!({"state": "downloading", "got": 0, "total": 0});
+    }
+    tokio::spawn(async move {
+        let r = fetch_k6(&dir).await;
+        set_fetch(|m| match r {
+            Ok(version) => {
+                m.insert("state".into(), json!("done"));
+                m.insert("version".into(), json!(version));
+            }
+            Err(e) => {
+                m.insert("state".into(), json!("failed"));
+                m.insert("error".into(), json!(e.to_string()));
+            }
+        });
+    });
+    Ok(fetch_state().lock().unwrap().clone())
+}
+
+async fn fetch_k6(dir: &Path) -> anyhow::Result<String> {
+    let suffix = asset_suffix().ok_or_else(|| anyhow!("wridge downloads k6 for Windows and macOS only — install it from {DOCS}"))?;
+    // tests point WRIDGE_K6_RELEASES at a fake release (tools/loadtest/fake-k6-release.mjs)
+    let (api, allowed) = match std::env::var("WRIDGE_K6_RELEASES") {
+        Ok(u) if !u.is_empty() => (u, String::new()),
+        _ => (RELEASES.to_string(), ASSETS.to_string()),
+    };
+    let client = reqwest::Client::builder()
+        .user_agent(concat!("wridge/", env!("CARGO_PKG_VERSION")))
+        .connect_timeout(std::time::Duration::from_secs(15))
+        .build()?;
+    let net = |e: reqwest::Error| anyhow!("couldn't download from GitHub ({e}) — check the internet connection and try again");
+    let rel: Value = serde_json::from_str(&client.get(&api).header("Accept", "application/vnd.github+json").send().await.map_err(net)?.error_for_status().map_err(net)?.text().await.map_err(net)?)?;
+    let version = rel["tag_name"].as_str().unwrap_or("").to_string();
+    let assets = rel["assets"].as_array().cloned().unwrap_or_default();
+    let pick = |end: &str| {
+        assets.iter().find(|a| a["name"].as_str().is_some_and(|n| n.ends_with(end))).and_then(|a| Some((a["name"].as_str()?.to_string(), a["browser_download_url"].as_str()?.to_string())))
+    };
+    let (zip_name, zip_url) = pick(suffix).ok_or_else(|| anyhow!("k6 {version} has no {} download", suffix.trim_start_matches('-')))?;
+    let (_, sums_url) = pick("-checksums.txt").ok_or_else(|| anyhow!("k6 {version} has no checksums file, so the download can't be checked"))?;
+    for u in [&zip_url, &sums_url] {
+        if !u.starts_with(&allowed) {
+            bail!("unexpected download address {u}");
+        }
+    }
+    let sums = client.get(&sums_url).send().await.map_err(net)?.error_for_status().map_err(net)?.text().await.map_err(net)?;
+    let want = expected_sum(&sums, &zip_name).ok_or_else(|| anyhow!("{zip_name} isn't in k6's checksums file"))?;
+
+    let mut resp = client.get(&zip_url).send().await.map_err(net)?.error_for_status().map_err(net)?;
+    let total = resp.content_length().unwrap_or(0);
+    set_fetch(|m| {
+        m.insert("total".into(), json!(total));
+        m.insert("version".into(), json!(version));
+    });
+    let mut zip = Vec::with_capacity(total.min(MAX_ZIP as u64) as usize);
+    let mut hash = Sha256::new();
+    while let Some(chunk) = resp.chunk().await.map_err(net)? {
+        hash.update(&chunk);
+        zip.extend_from_slice(&chunk);
+        if zip.len() > MAX_ZIP {
+            bail!("the download is far bigger than k6 should be — stopped");
+        }
+        let got = zip.len();
+        set_fetch(|m| {
+            m.insert("got".into(), json!(got));
+        });
+    }
+    set_fetch(|m| {
+        m.insert("state".into(), json!("checking"));
+    });
+    let got: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    if got != want {
+        bail!("the download doesn't match the checksum k6 published, so it wasn't kept — try again later");
+    }
+    let dir = dir.to_path_buf();
+    tokio::task::spawn_blocking(move || unpack(&zip, &dir)).await??;
+    Ok(version)
+}
+
+/// The SHA-256 a `sha256sum`-style file lists for `name`.
+fn expected_sum(sums: &str, name: &str) -> Option<String> {
+    sums.lines().find_map(|l| {
+        let mut it = l.split_whitespace();
+        let (h, n) = (it.next()?, it.next()?);
+        (n.trim_start_matches('*') == name && h.len() == 64).then(|| h.to_ascii_lowercase())
+    })
+}
+
+/// Takes k6 (and its licence) out of the release zip into `dir`.
+fn unpack(zip: &[u8], dir: &Path) -> anyhow::Result<()> {
+    let mut ar = zip::ZipArchive::new(std::io::Cursor::new(zip)).map_err(|e| anyhow!("the download isn't a readable zip ({e})"))?;
+    let base = |n: &str| n.replace('\\', "/").rsplit('/').next().unwrap_or("").to_string();
+    let names: Vec<String> = ar.file_names().filter_map(|n| n.ok().map(|c| c.into_owned())).collect();
+    let exe = names.iter().find(|n| base(n) == exe_name()).ok_or_else(|| anyhow!("k6 isn't in the download"))?;
+    std::fs::create_dir_all(dir)?;
+    let part = dir.join(format!("{}.part", exe_name()));
+    {
+        let mut from = ar.by_name(exe)?;
+        let mut to = std::fs::File::create(&part)?;
+        std::io::copy(&mut from, &mut to)?;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&part, std::fs::Permissions::from_mode(0o755))?;
+    }
+    let fin = dir.join(exe_name());
+    if fin.exists() {
+        std::fs::remove_file(&fin).map_err(|e| anyhow!("couldn't replace k6 ({e}) — is a load test still running?"))?;
+    }
+    std::fs::rename(&part, &fin)?;
+    if let Some(lic) = names.iter().find(|n| base(n).to_ascii_uppercase().starts_with("LICENSE")) {
+        let mut from = ar.by_name(lic)?;
+        let mut to = std::fs::File::create(dir.join("LICENSE.md"))?;
+        std::io::copy(&mut from, &mut to)?;
+    }
+    Ok(())
+}
+
+/// Deletes the downloaded copy (only wridge's own folder — never an installed k6).
+pub fn remove() -> anyhow::Result<Value> {
+    if runs().lock().unwrap().values().any(|r| r.state == "running") {
+        bail!("a load test is running — stop it first");
+    }
+    if matches!(fetch_state().lock().unwrap()["state"].as_str(), Some("downloading" | "checking")) {
+        bail!("k6 is still downloading");
+    }
+    if let Some(dir) = own_dir().filter(|d| d.exists()) {
+        std::fs::remove_dir_all(&dir).map_err(|e| anyhow!("couldn't remove k6 ({e})"))?;
+    }
+    *fetch_state().lock().unwrap() = json!({"state": "idle"});
+    Ok(check())
 }
 
 // ---------------------------------------------------------------- where it may run
@@ -183,7 +390,7 @@ fn script_path(dir: &str, script: &str) -> anyhow::Result<PathBuf> {
 
 pub async fn start(dir: &str, script: &str, target: &str, confirmed: bool) -> anyhow::Result<Value> {
     crate::tasks::check_dir(dir)?;
-    let k6 = find_k6().ok_or_else(|| anyhow!("k6 isn't installed. Ask the person to run `winget install k6` (or see https://grafana.com/docs/k6/latest/set-up/install-k6/), then try again."))?;
+    let k6 = find_k6().ok_or_else(|| anyhow!(GET_K6))?;
     let path = script_path(dir, script)?;
     let host = host_of(target).ok_or_else(|| anyhow!("target must be a full URL, e.g. http://localhost:3000"))?;
     // where the traffic goes: the target, plus any address written into the script
@@ -573,6 +780,32 @@ mod tests {
         assert_eq!(secs("2h0m0s"), 7200.0);
         assert_eq!(secs("500ms"), 0.5);
         assert_eq!(script_hosts("http.get(`${BASE}/x`); http.get('https://api.example.com/a'); const u = \"http://localhost:3000\""), vec!["api.example.com", "localhost"]);
+    }
+
+    #[test]
+    fn checksums_and_unpacking() {
+        let sums = "e6540ad879fe7ad01ddfe2288d54ef842848a7c31efff1d92a9e07be80e702bc  k6-v2.3.0-linux-amd64.deb\n112276D495E5741C968E2BC09EA6196099C1275BD6DB9EE0875D173C7148CE43 *k6-v2.3.0-windows-amd64.zip\n";
+        assert_eq!(expected_sum(sums, "k6-v2.3.0-windows-amd64.zip").as_deref(), Some("112276d495e5741c968e2bc09ea6196099c1275bd6db9ee0875d173c7148ce43"));
+        assert_eq!(expected_sum(sums, "k6-v2.3.0-windows-amd64.msi"), None);
+
+        let mut w = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let opts = zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
+        w.start_file("k6-v9.9.9-windows-amd64/README.md", opts).unwrap();
+        w.write_all(b"readme").unwrap();
+        w.start_file(format!("k6-v9.9.9-windows-amd64/{}", exe_name()), opts).unwrap();
+        w.write_all(b"the k6 program").unwrap();
+        w.start_file("k6-v9.9.9-windows-amd64/LICENSE.md", opts).unwrap();
+        w.write_all(b"AGPL").unwrap();
+        let zip = w.finish().unwrap().into_inner();
+        let dir = std::env::temp_dir().join(format!("wr-k6-unpack-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        unpack(&zip, &dir).unwrap();
+        assert_eq!(std::fs::read(dir.join(exe_name())).unwrap(), b"the k6 program");
+        assert_eq!(std::fs::read(dir.join("LICENSE.md")).unwrap(), b"AGPL");
+        assert!(!dir.join(format!("{}.part", exe_name())).exists());
+        unpack(&zip, &dir).unwrap(); // again: replaces the old copy
+        assert!(unpack(b"not a zip", &dir).unwrap_err().to_string().contains("readable zip"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

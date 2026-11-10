@@ -1843,7 +1843,7 @@ pub fn define_tools() -> Vec<Tool> {
 
     d.custom(
         "load_test",
-        "Load-test the project with k6 (the person installs it once; action check tells how). The script (tests/load/<flow>.js, written per get_skill(\"scale-traffic\")) takes the base URL from __ENV.BASE_URL. run starts it in the background and answers at once with a run id; status shows progress and, once k6 ends, the numbers and a report it wrote to wridge → Reports (add your findings to that report after). stop ends a run. Guarded: only local or staging targets, at most 2000 virtual users and 30 minutes — anything beyond needs confirmed: true after the person agreed. Before every run, tell the person the four limits from the skill.",
+        "Load-test the project with k6 (the person gets it once — Download k6 in wridge Settings, or an install; action check tells how; never download it yourself). The script (tests/load/<flow>.js, written per get_skill(\"scale-traffic\")) takes the base URL from __ENV.BASE_URL. run starts it in the background and answers at once with a run id; status shows progress and, once k6 ends, the numbers and a report it wrote to wridge → Reports (add your findings to that report after). stop ends a run. Guarded: only local or staging targets, at most 2000 virtual users and 30 minutes — anything beyond needs confirmed: true after the person agreed. Before every run, tell the person the four limits from the skill.",
         shape()
             .f("projectDir", string().describe("Absolute path of the project"))
             .f("action", enumeration(&["check", "run", "status", "stop"]).default(json!("run")))

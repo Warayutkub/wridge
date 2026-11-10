@@ -158,6 +158,7 @@ pub async fn run() {
     let http_port = port("WARA_HTTP_PORT", 3156);
     let paths = Paths::discover();
     paths.use_dart_dir();
+    crate::loadtest::set_tools_dir(paths.data_dir.join("tools"));
     let app: Arc<App> = App::new(paths, ws_port, http_port);
     watch_parent(app.clone());
     app.github.spawn_poller();

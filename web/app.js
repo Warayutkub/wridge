@@ -592,7 +592,7 @@
       ${sec('AI', logoTile('logo-claude', 22), 'Connect an AI', 'Claude Code and other MCP clients talk to wridge over Streamable HTTP.',
         `${claudeCard()}<p>Or by hand — Claude Code</p>${copyf(`claude mcp add --transport http --scope user wridge ${S?.mcpUrl ?? `${API}/mcp`}`)}<p>Any MCP client</p>${copyf(S?.mcpUrl ?? `${API}/mcp`)}`)}
       ${sec('GitHub', `<span class="tile lg">${ic('github')}</span>`, 'GitHub', 'Read-only. wridge sees only the repos you picked on GitHub.', '<div id="gh-set" class="gh-set"><p>Loading…</p></div>')}
-      ${sec('Load testing', `<span class="tile lg">${ic('activity')}</span>`, 'Load testing', 'The load_test tool runs k6 on your computer. k6 isn’t shipped with wridge — install it once.', '<div id="k6-set"><p>Loading…</p></div>')}
+      ${sec('Load testing', `<span class="tile lg">${ic('activity')}</span>`, 'Load testing', 'The load_test tool runs k6 on your computer. k6 isn’t shipped with wridge — download it once here, or install it yourself.', '<div id="k6-set"><p>Loading…</p></div>')}
       ${sec('Startup', `<span class="tile lg">${ic('startup')}</span>`, 'Startup', 'wridge lives in the tray. Closing the window keeps the server running.',
         `<div class="tgl-row"><div class="grow"><b>Start with Windows</b><small>Opens quietly in the tray when you sign in.</small></div><button class="tgl" role="switch" id="autostart" aria-checked="false" aria-label="Start with Windows"${T ? '' : ' disabled'}></button></div>
          <div class="tgl-row"><div class="grow"><b>Start the server when wridge opens</b><small>Turn off to start it by hand.</small></div><button class="tgl" role="switch" aria-checked="${prefs.autoStartServer}" aria-label="Start the server when wridge opens" data-act="auto-server"${T ? '' : ' disabled'}></button></div>`)}
@@ -619,22 +619,61 @@
     }
   }
 
-  // Settings → Load testing: is k6 installed, and how to get it
+  // Settings → Load testing: is k6 there; download wridge's own copy (official zip, checksum checked) or remove it
+  let k6Poll = 0, k6WasBusy = false;
   async function paintK6Settings(copyf) {
     const box = $('#k6-set');
+    clearTimeout(k6Poll);
     if (!box) return;
     if (!serverUp()) { box.innerHTML = '<p>Start the server to check for k6.</p>'; return; }
     let k;
     try { k = await api('/api/loadtest/k6'); } catch { box.innerHTML = '<p>Load tests need the Rust engine (Settings → Server).</p>'; return; }
     if (!$('#k6-set')) return;
-    box.innerHTML = k.found
-      ? `<div class="row"><span class="pill" data-s="connected">installed</span><span class="mono" style="font-size:12px;color:var(--text-muted)">${esc(k.version || 'k6')}</span></div>${copyf(k.path)}
-         <p class="mono" style="font-size:11px;color:var(--text-faint);margin:0">Ask your AI for a load test — it writes the script, runs it against your local or staging server, and puts the result in Reports.</p>`
-      : `<div class="row"><span class="pill" data-s="off">not installed</span></div><p>Install it with one command in a terminal, then check again:</p>${copyf(k.install)}
-         <p>Other ways to install</p>${copyf(k.docs)}
-         <div class="row"><button class="btn btn-secondary" data-k6="again">${ic('restart')}Check again</button></div>`;
+    const d = k.download ?? {};
+    const busy = d.state === 'downloading' || d.state === 'checking';
+    const mb = (n) => (n / 1048576).toFixed(1);
+    const hint = '<p class="mono k6-note">Ask your AI for a load test — it writes the script, runs it against your local or staging server, and puts the result in Reports.</p>';
+    const removeBtn = (label) => `<button class="btn btn-secondary" data-k6="remove">${ic('trash')}${label}</button>`;
+    if (busy) {
+      const pct = d.total ? Math.min(100, (d.got / d.total) * 100) : 0;
+      const text = d.state === 'checking' ? 'Checking the download against k6’s published checksum…' : d.total ? `Downloading k6 ${esc(d.version || '')} — ${mb(d.got)} of ${mb(d.total)} MB` : 'Asking GitHub for the latest k6…';
+      const bar = box.querySelector('.k6-bar i');
+      if (bar) { bar.style.width = `${pct}%`; box.querySelector('.k6-prog').textContent = text; }
+      else box.innerHTML = `<div class="row"><span class="pill" data-s="waiting">downloading</span></div><div class="k6-bar" role="progressbar" aria-label="Downloading k6" aria-valuemin="0" aria-valuemax="100"><i style="width:${pct}%"></i></div><p class="k6-prog">${text}</p>`;
+      box.querySelector('.k6-bar')?.setAttribute('aria-valuenow', String(Math.round(pct)));
+      k6WasBusy = true;
+      k6Poll = setTimeout(() => paintK6Settings(copyf), 400);
+      return;
+    }
+    if (k.found) {
+      box.innerHTML = `<div class="row"><span class="pill" data-s="connected">${k.own ? 'ready' : 'installed'}</span><span class="mono" style="font-size:12px;color:var(--text-muted)">${esc(k.version || 'k6')}</span></div>${copyf(k.path)}${hint}
+        ${k.own ? `<p class="k6-note">Downloaded by wridge from Grafana’s GitHub (AGPL-3.0 licence next to it). Nothing was installed — remove it any time.</p><div class="row">${removeBtn('Remove k6')}</div>` : ''}
+        ${k.ownCopy ? `<p class="k6-note">wridge also keeps a downloaded copy you no longer need — the installed k6 is used.</p><div class="row">${removeBtn('Remove the downloaded copy')}</div>` : ''}`;
+    } else {
+      box.innerHTML = `<div class="row"><span class="pill" data-s="off">not installed</span></div>
+        ${d.state === 'failed' ? `<p class="k6-err">${esc((d.error || 'the download failed').replace(/^./, (c) => c.toUpperCase()))}</p>` : ''}
+        ${k.canDownload ? `<p>Download k6 — one file, about 30 MB from Grafana’s GitHub, checked against its published checksum. Nothing is installed; remove it here any time.</p>
+          <div class="row"><button class="btn btn-primary" data-k6="download">${ic('download')}${d.state === 'failed' ? 'Try again' : 'Download k6'}</button></div>
+          <p>Or install it yourself in a terminal, then check again</p>` : '<p>Install it with one command in a terminal, then check again:</p>'}
+        ${copyf(k.install)}<p>Other ways to install</p>${copyf(k.docs)}
+        <div class="row"><button class="btn btn-secondary" data-k6="again">${ic('restart')}Check again</button></div>`;
+    }
     bindActions(box);
     box.querySelector('[data-k6="again"]')?.addEventListener('click', () => paintK6Settings(copyf));
+    box.querySelector('[data-k6="download"]')?.addEventListener('click', async (e) => {
+      e.currentTarget.classList.add('is-loading');
+      try { await api('/api/loadtest/k6/download', { method: 'POST' }); }
+      catch (err) { toast(`Couldn’t start the download — ${err.message}`, { kind: 'error' }); }
+      paintK6Settings(copyf);
+    });
+    box.querySelectorAll('[data-k6="remove"]').forEach((b) => b.addEventListener('click', async () => {
+      b.classList.add('is-loading');
+      try { await api('/api/loadtest/k6/remove', { method: 'POST' }); toast('k6 removed'); }
+      catch (err) { toast(`Couldn’t remove k6 — ${err.message}`, { kind: 'error' }); }
+      paintK6Settings(copyf);
+    }));
+    if (k6WasBusy && d.state === 'done') toast(`k6 ${d.version || ''} is ready`.replace('  ', ' '));
+    k6WasBusy = false;
   }
 
   // Settings → GitHub: who is signed in, and which Windows notifications to show (docs/flows/github.md)

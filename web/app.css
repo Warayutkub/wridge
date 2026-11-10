@@ -244,6 +244,14 @@ body { background: var(--surface); overflow: hidden; }
 .copyf { display: flex; align-items: center; gap: 8px; padding: 5px 5px 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); }
 .copyf code { flex: 1; min-width: 0; font: 12px var(--mono); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .copyf .btn { padding: 5px 12px; font-size: 12px; }
+/* Settings → Load testing */
+.k6-bar { height: 6px; border-radius: 99px; background: var(--border); overflow: hidden; }
+.k6-bar i { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width .35s cubic-bezier(.2,.8,.2,1); }
+.k6-prog { font: 12px var(--mono); color: var(--text-muted); margin: 0; }
+.k6-note { font-size: 11px; color: var(--text-faint); margin: 0; }
+.k6-note + .k6-note { margin-top: 6px; }
+.k6-err { color: var(--danger-text); margin: 0; }
+@media (prefers-reduced-motion: reduce) { .k6-bar i { transition: none; } }
 /* Claude Code one-click setup */
 .cc-card { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); animation: cc-in .32s var(--ease) both; }
 .cc-card.done { border-color: color-mix(in srgb, var(--primary) 35%, var(--border)); }

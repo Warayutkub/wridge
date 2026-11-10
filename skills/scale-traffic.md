@@ -40,7 +40,7 @@ area: code
 - Real-time updates at scale (queue position, live seat map): `realtime`.
 
 ## 6. Load testing with k6 — traffic as scenarios
-Scripts in `tests/load/<flow>.js`, taking the server address from `__ENV.BASE_URL` (never hard-code it). Run them with the **`load_test`** tool: `action: "check"` (is k6 installed? if not, tell the user `winget install k6` and wait), then `action: "run"` with `script` and `target` — it refuses non-local/non-staging targets and runs above 2,000 virtual users or 30 minutes unless the user agreed (`confirmed: true`), starts k6 in the background and answers with a run id; `action: "status"` shows progress, and when k6 ends it returns the numbers and writes the report (§7) itself. Results and raw files go to `tests/load/out/` (kept out of git). Without wridge: `k6 run -e BASE_URL=… tests/load/<flow>.js`.
+Scripts in `tests/load/<flow>.js`, taking the server address from `__ENV.BASE_URL` (never hard-code it). Run them with the **`load_test`** tool: `action: "check"` (is k6 there? if not, ask the user to press **Download k6** in wridge → Settings → Load testing — one file, about 30 MB, nothing installed — or to run `winget install k6`, and wait; never download or install it yourself), then `action: "run"` with `script` and `target` — it refuses non-local/non-staging targets and runs above 2,000 virtual users or 30 minutes unless the user agreed (`confirmed: true`), starts k6 in the background and answers with a run id; `action: "status"` shows progress, and when k6 ends it returns the numbers and writes the report (§7) itself. Results and raw files go to `tests/load/out/` (kept out of git). Without wridge: `k6 run -e BASE_URL=… tests/load/<flow>.js`.
 
 | Scenario | k6 executor | Use for |
 |---|---|---|
