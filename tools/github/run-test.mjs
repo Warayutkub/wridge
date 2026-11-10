@@ -1,4 +1,5 @@
-// Check the GitHub page by hand: node tools/github/run-test.mjs, then open http://127.0.0.1:4756/app#/github
+// Check the window pages by hand (GitHub, Tasks, Reports): node tools/github/run-test.mjs, then open
+// http://127.0.0.1:4756/github, /tasks?dir=<project> or /reports?dir=<project> (/app only works inside the wridge window)
 // (build the debug server first: cargo build --manifest-path server/app/Cargo.toml)
 // fake GitHub (4710) + the debug wridge server on 4755/4756 pointed at it (memory store, no browser opening)
 import { spawn } from "node:child_process";
