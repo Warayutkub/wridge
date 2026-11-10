@@ -481,7 +481,7 @@ async function runTool(t, args, source) {
 
 function createMcpServer(profile) {
   const tools = profileTools(profile);
-  const server = new McpServer({ name: "wridge", version: "1.8.1" }, { instructions: instructions(tools, profile) });
+  const server = new McpServer({ name: "wridge", version: "1.8.2" }, { instructions: instructions(tools, profile) });
   for (const t of tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.inputSchema }, (args) =>
       runTool(t, args, "MCP"),
@@ -1024,7 +1024,7 @@ const http = createServer(async (req, res) => {
         refreshFileName();
         if (state.today.day !== new Date().toDateString()) state.today = newDay();
         return json(res, 200, {
-          version: "1.8.1",
+          version: "1.8.2",
           fileName: state.fileName,
           openFiles: openFiles(),
           today: state.today,

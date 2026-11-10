@@ -64,6 +64,7 @@
   .rp-trash.open > button .chev { transform: rotate(180deg); }
   .rp-trash ul { list-style: none; margin: 4px 0 0; padding: 0; display: none; flex-direction: column; gap: 2px; }
   .rp-trash.open ul { display: flex; }
+  .rp-list.calm .rp-item, .rp-trash.calm li { animation: none; }
   .rp-trash li { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: 6px; animation: w-in .2s var(--ease) both; }
   .rp-trash li:hover { background: var(--surface-2); }
   .rp-trash li div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -116,10 +117,12 @@
     const body = $("#body");
     const has = list?.reports?.length;
     for (const id of ["copy", "png", "pdf"]) $("#" + id).hidden = !current || !has;
-    if (!dir) { body.innerHTML = `<div class="rp-empty"><div class="in"><h2>Pick a project first</h2><p>Reports live in the project's docs/reports/ folder.</p></div></div>`; return; }
-    if (err && !list) { body.innerHTML = `<div class="rp-empty"><div class="in">${ui.emptyIcon("alert")}<h2>Couldn’t read the reports</h2><p>${esc(err)}</p></div></div>`; return; }
-    if (!list) { body.innerHTML = `<div class="rp-empty"><span class="spinner"></span></div>`; return; }
+    if (!dir) { body.dataset.state = ""; body.innerHTML = `<div class="rp-empty"><div class="in"><h2>Pick a project first</h2><p>Reports live in the project's docs/reports/ folder.</p></div></div>`; return; }
+    if (err && !list) { body.dataset.state = ""; body.innerHTML = `<div class="rp-empty"><div class="in">${ui.emptyIcon("alert")}<h2>Couldn’t read the reports</h2><p>${esc(err)}</p></div></div>`; return; }
+    if (!list) { body.dataset.state = ""; body.innerHTML = `<div class="rp-empty"><span class="spinner"></span></div>`; return; }
     if (!has) {
+      if (body.dataset.state === "empty") return paintTrash();
+      body.dataset.state = "empty";
       body.innerHTML = `<div class="rp-empty"><div class="in w-fade-in"><span class="tile"><span class="w-icon">${REPORT_ICON}</span></span><h2>No reports yet</h2><p>Ask your AI for one — it writes the blocks, wridge lays them out. No Figma needed; reports live in docs/reports/ next to your code.</p>
         <div class="prompt"><small>TRY</small><span>“สรุปงานวันนี้เป็น report”</span><button class="btn btn-secondary" id="copy-prompt">Copy</button></div></div></div>`;
       $("#copy-prompt").onclick = async () => ((await ui.copy("สรุปงานวันนี้เป็น report")) ? ui.toast("Copied — paste it to your AI") : ui.toast("Couldn’t copy", { kind: "error" }));
@@ -128,6 +131,7 @@
     }
     const term = $("#q").value.trim().toLowerCase();
     const shown = list.reports.filter((r) => !term || `${r.title} ${r.name}`.toLowerCase().includes(term));
+    body.dataset.state = "list";
     if (!body.querySelector(".rp-list")) {
       body.innerHTML = `<nav class="rp-list" aria-label="Reports"></nav><section class="rp-pv"><div class="rp-pv-head"><b id="pv-title"></b><span id="pv-chip"></span><span class="spacer"></span><span class="file" id="pv-file"></span><button class="btn btn-ghost rp-del" id="pv-del" title="Move to trash — you can bring it back"><span class="w-icon">${ui.icon("trash")}</span>Delete</button></div>
         <div class="rp-canvas" id="canvas"><div class="rp-paper" id="paper"><div class="rp-scale" id="scale"></div></div></div>
@@ -138,24 +142,36 @@
       $("#pv-del").onclick = () => removeReport(current);
       new ResizeObserver(() => { if (!zoom) layout(); }).observe($("#canvas"));
     }
-    $(".rp-list").innerHTML = shown.length ? groups(shown).map(([g, items]) => `<p class="w-label">${esc(g)}</p>${items.map((r, i) => `<button class="rp-item" data-name="${esc(r.name)}" aria-current="${r.name === current}" style="animation-delay:${i * 20}ms"><b>${esc(r.title)}</b><small>${esc(when(r.updated))} · ${r.blocks} block${r.blocks === 1 ? "" : "s"}</small></button>`).join("")}`).join("") : `<p class="rp-none">No report matches “${esc(term)}”.</p>`;
-    $(".rp-list").querySelectorAll("[data-name]").forEach((b) => (b.onclick = () => open(b.dataset.name)));
+    // the page checks for new reports every few seconds: redraw the list only when what it shows changed,
+    // and play the entrance only the first time (otherwise it visibly "pops" on every check)
+    const nav = $(".rp-list");
+    const html = shown.length ? groups(shown).map(([g, items]) => `<p class="w-label">${esc(g)}</p>${items.map((r, i) => `<button class="rp-item" data-name="${esc(r.name)}" aria-current="${r.name === current}" style="animation-delay:${i * 20}ms"><b>${esc(r.title)}</b><small>${esc(when(r.updated))} · ${r.blocks} block${r.blocks === 1 ? "" : "s"}</small></button>`).join("")}`).join("") : `<p class="rp-none">No report matches “${esc(term)}”.</p>`;
+    if (nav.dataset.html !== html) {
+      nav.classList.toggle("calm", nav.dataset.html !== undefined);
+      [...nav.children].filter((c) => !c.classList.contains("rp-trash")).forEach((c) => c.remove());
+      nav.insertAdjacentHTML("afterbegin", html);
+      nav.dataset.html = html;
+      nav.querySelectorAll("[data-name]").forEach((b) => (b.onclick = () => open(b.dataset.name)));
+    }
     paintTrash();
   }
 
   // deleted reports wait in docs/reports/.trash/ — listed at the bottom, one click brings one back
   let trash = [], trashOpen = false;
-  function paintTrash() {
+  function paintTrash(opening = false) {
     // under the list, or under "No reports yet" when the last one was deleted
     const nav = $(".rp-list") ?? $(".rp-empty .in");
     if (!nav) return;
-    nav.querySelector(".rp-trash")?.remove();
+    const key = JSON.stringify([trash.map((t) => t.file), trashOpen]), had = nav.querySelector(".rp-trash");
+    if (had && had.dataset.key === key) return;
+    had?.remove();
     if (!trash.length) return;
     const box = document.createElement("div");
-    box.className = `rp-trash${trashOpen ? " open" : ""}`;
+    box.className = `rp-trash${trashOpen ? " open" : ""}${opening ? "" : " calm"}`;
+    box.dataset.key = key;
     box.innerHTML = `<button aria-expanded="${trashOpen}"><span class="w-icon">${ui.icon("trash")}</span>Deleted · ${trash.length}<span class="w-icon chev">${ui.icon("chevrondown")}</span></button>
       <ul>${trash.map((t) => `<li><div><b>${esc(t.title)}</b><small>deleted ${esc(when(t.removed))}</small></div><button class="btn btn-secondary" data-file="${esc(t.file)}">Restore</button></li>`).join("")}</ul>`;
-    box.firstElementChild.onclick = () => { trashOpen = !trashOpen; paintTrash(); };
+    box.firstElementChild.onclick = () => { trashOpen = !trashOpen; paintTrash(trashOpen); };
     box.querySelectorAll("[data-file]").forEach((b) => (b.onclick = () => restoreReport(b.dataset.file, b)));
     nav.append(box);
   }
