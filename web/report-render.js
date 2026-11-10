@@ -669,14 +669,22 @@
       + `;--radius:${theme.radius ?? 14}px;--font:"${theme.font ?? "IBM Plex Sans Thai"}";--mono:"${theme.mono ?? "IBM Plex Mono"}";width:${theme.width ?? 1440}px;`
       + ["--s:1", ...(function () { const o = []; if (+theme.scale > 0) o.push(`--s:${+theme.scale}`); for (const [k, v] of Object.entries(theme.sizes ?? {})) if (+v > 0) o.push(`--fs-${k}:${+v}px`); for (const [k, v] of Object.entries(theme.weights ?? {})) if (+v > 0) o.push(`--fw-${k}:${+v}`); return o; })()].join(";");
     if (theme.density === "compact") root.classList.add("compact");
-    // fonts other than IBM Plex: load them from Google Fonts by name (the report and every block's style.font)
+    // fonts other than IBM Plex (which ships with wridge): by name, through the server's font cache (fetched from
+    // Google Fonts once, then kept on this computer — so exports work offline); straight from Google if that fails
     const fams = new Set([theme.font, theme.mono]);
     for (const row of r.rows ?? []) for (const blk of Array.isArray(row) ? row : [row]) { fams.add(blk?.style?.font); fams.add(blk?.style?.mono); }
     const want = [...fams].filter((f) => f && !/^IBM Plex (Sans Thai|Mono)$/i.test(f) && !/^(system-ui|sans-serif|serif|monospace)$/i.test(f));
     root.fontsLoaded = Promise.all(want.map((f) => {
       const id = `wr-font-${f.replace(/\W+/g, "-")}`;
       if (document.getElementById(id)) return Promise.resolve();
-      return new Promise((ok) => { const l = document.createElement("link"); l.id = id; l.rel = "stylesheet"; l.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@300;400;500;600;700&display=block`; l.onload = l.onerror = () => ok(); document.head.append(l); });
+      const google = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(f).replace(/%20/g, "+")}:wght@300;400;500;600;700&display=block`;
+      const cached = `/api/fonts/css?family=${encodeURIComponent(f)}`;
+      return new Promise((ok) => {
+        const l = document.createElement("link"); l.id = id; l.rel = "stylesheet"; l.href = cached;
+        l.onload = () => ok();
+        l.onerror = () => { l.onerror = () => ok(); l.onload = () => ok(); l.href = google; };
+        document.head.append(l);
+      });
     })).then(() => document.fonts.ready);
     const one = (b) => { try { const out = (B[b?.type] ?? (() => `<div class="co" style="--cbg:#FBE7E4;--cbd:#F0C8C2;--ctx:#A42C22">Unknown block “${esc(b?.type)}”</div>`))(b ?? {}, ctx); return b?.style?.density === "compact" ? out.replace(/^<div class="card/, '<div class="card compact') : out; } catch (e) { return `<div class="co" style="--cbg:#FBE7E4;--cbd:#F0C8C2;--ctx:#A42C22">Couldn't draw a ${esc(b?.type)} block: ${esc(e.message)}</div>`; } };
     const rows = r.rows ?? [];

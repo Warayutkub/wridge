@@ -53,6 +53,7 @@ const PAGES = {
   "/": ["dashboard.html", "text/html"],
   "/graph": ["graph.html", "text/html"],
   "/ui.css": ["ui.css", "text/css"],
+  "/fonts.css": ["fonts.css", "text/css"],
   "/ui.js": ["ui.js", "text/javascript"],
   "/code": ["code.html", "text/html"],
   "/data": ["data.html", "text/html"],
@@ -481,7 +482,7 @@ async function runTool(t, args, source) {
 
 function createMcpServer(profile) {
   const tools = profileTools(profile);
-  const server = new McpServer({ name: "wridge", version: "1.8.2" }, { instructions: instructions(tools, profile) });
+  const server = new McpServer({ name: "wridge", version: "1.8.3" }, { instructions: instructions(tools, profile) });
   for (const t of tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.inputSchema }, (args) =>
       runTool(t, args, "MCP"),
@@ -569,6 +570,14 @@ const http = createServer(async (req, res) => {
       const file = join(WEB, "lottie", `${lottieName}.json`);
       if (!existsSync(file)) return json(res, 404, { error: "No such animation" });
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
+      return res.end(readFileSync(file));
+    }
+    // IBM Plex Sans Thai and IBM Plex Mono, shipped with the app (web/fonts/), so pages work offline
+    const font = req.method === "GET" && /^\/fonts\/([a-z0-9-]+)\.woff2$/.exec(pathname)?.[1];
+    if (font) {
+      const file = join(WEB, "fonts", `${font}.woff2`);
+      if (!existsSync(file)) return json(res, 404, { error: "No such font" });
+      res.writeHead(200, { "Content-Type": "font/woff2", "Cache-Control": "max-age=31536000" });
       return res.end(readFileSync(file));
     }
     // The user's sticker set (web/stickers/<mood>.png) for empty / error / waiting states.
@@ -1024,7 +1033,7 @@ const http = createServer(async (req, res) => {
         refreshFileName();
         if (state.today.day !== new Date().toDateString()) state.today = newDay();
         return json(res, 200, {
-          version: "1.8.2",
+          version: "1.8.3",
           fileName: state.fileName,
           openFiles: openFiles(),
           today: state.today,

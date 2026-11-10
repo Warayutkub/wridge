@@ -95,7 +95,7 @@ The closest setting wins: `item.color` → `block.style` → `report.theme` → 
 - **Block background:** `style: {card: "#FFF7E6", line: "#F0D9A8"}` — set `title` / `text` too when the background is dark.
 
 ### Type and density — only when asked
-- `font` / `mono`: any Google Fonts family by name (`"Kanit"`, `"Sarabun"`, `"Noto Sans Thai"`) — wridge loads it for the window and the export. Thai text needs a font with Thai.
+- `font` / `mono`: any Google Fonts family by name (`"Kanit"`, `"Sarabun"`, `"Noto Sans Thai"`) — wridge fetches it once and keeps it on this computer, so the window and exports work offline afterwards (IBM Plex Sans Thai and Mono ship with wridge). Thai text needs a font with Thai.
 - `scale`: every text size at once (`1.15` = 15% bigger). `sizes: {title, subtitle, heading, number, body, label}` in px, `weights: {title, heading, number, body, label}` (300–700).
 - `density: "compact"`: tighter spacing, shorter reports.
 - All of them go in `report.theme` (whole report) or `block.style` (one block).

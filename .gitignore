@@ -15,3 +15,6 @@ server/parity-projects.json
 # Dart parser build output (dart pub get + dart compile exe)
 legacy-node/codegraph/dart/.dart_tool/
 legacy-node/codegraph/dart/build/
+
+# Google Fonts a report used, kept by the server (server/app/fonts.rs)
+server/app/font-cache/

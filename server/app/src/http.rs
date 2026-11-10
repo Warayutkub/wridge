@@ -36,6 +36,7 @@ pub const PAGES: &[(&str, &str, &str)] = &[
     ("/", "dashboard.html", "text/html"),
     ("/graph", "graph.html", "text/html"),
     ("/ui.css", "ui.css", "text/css"),
+    ("/fonts.css", "fonts.css", "text/css"),
     ("/ui.js", "ui.js", "text/javascript"),
     ("/code", "code.html", "text/html"),
     ("/data", "data.html", "text/html"),
@@ -391,6 +392,14 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
             }
             return Ok(bytes_response("application/json; charset=utf-8", "no-cache", read_file(&file)?));
         }
+        // IBM Plex Sans Thai and IBM Plex Mono, shipped with the app (web/fonts/), so pages and exports work offline
+        if let Some(name) = file_re("fonts", "woff2") {
+            let file = app.paths.web.join("fonts").join(format!("{name}.woff2"));
+            if !file.exists() {
+                return Ok(error_json(404, "No such font"));
+            }
+            return Ok(bytes_response("font/woff2", "max-age=31536000", read_file(&file)?));
+        }
         // The user's sticker set (web/stickers/<mood>.png) for empty / error / waiting states.
         if let Some(name) = file_re("stickers", "png") {
             let file = app.paths.web.join("stickers").join(format!("{name}.png"));
@@ -411,6 +420,21 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
 
     if path == "/api/github" || path.starts_with("/api/github/") {
         return github_route(app, req).await;
+    }
+    // Google Fonts a report asks for by name, kept on this computer after the first use (see fonts.rs)
+    if get && path == "/api/fonts/css" {
+        let family = req.param("family").unwrap_or_default();
+        return Ok(match crate::fonts::css(&app.paths.app_dir, &family).await {
+            Ok(css) => bytes_response("text/css; charset=utf-8", "max-age=86400", css.into_bytes()),
+            Err(e) => error_json(404, &e.to_string()),
+        });
+    }
+    if get && path == "/api/fonts/file" {
+        let name = req.param("name").unwrap_or_default();
+        return Ok(match crate::fonts::file(&app.paths.app_dir, &name) {
+            Ok((bytes, kind)) => bytes_response(kind, "max-age=31536000", bytes),
+            Err(e) => error_json(404, &e.to_string()),
+        });
     }
     if path == "/api/tasks" || path == "/api/tasks/wait" || path == "/api/reports" || path.starts_with("/api/reports/") {
         return work_route(app, req).await;
