@@ -304,9 +304,9 @@
   // ---- Side menu shared by every page (Figma "Brain · Prototype"): brain / design / code groups, the
   // project picker, and a status light. Each page's own top bar stays as its toolbar; its old nav is hidden.
   const NAV = [
-    { label: 'Brain', items: [['/tasks', 'Tasks'], ['/brain', 'Notes'], ['/brain?view=graph', 'Graph'], ['/brain?view=trash', 'Trash']] },
-    { label: 'Design', items: [['/graph', 'Design map'], ['/motion', 'Motion'], ['/pdf', 'PDF'], ['/reports', 'Reports']] },
-    { label: 'Code', code: true, items: [['/code', 'Code graph'], ['/data', 'Data'], ['/flows', 'Flows'], ['/github', 'GitHub']] },
+    { label: 'Project', items: [['/tasks', 'Tasks'], ['/brain', 'Notes'], ['/reports', 'Reports'], ['/github', 'GitHub']] },
+    { label: 'Figma', items: [['/graph', 'Design map'], ['/motion', 'Motion'], ['/pdf', 'PDF']] },
+    { label: 'Code', code: true, items: [['/code', 'Code graph'], ['/data', 'Data'], ['/flows', 'Flows']] },
   ];
   const projectStore = { get: () => { try { return localStorage.getItem('code-project'); } catch { return null; } }, set: (v) => { try { localStorage.setItem('code-project', v); } catch { /* storage blocked */ } } };
   const here = () => {
@@ -349,6 +349,7 @@
     icons(side);
   }
   function setActive(href) {
+    if (href.startsWith('/brain?view=')) href = '/brain'; // Graph and Trash are tabs of Notes
     document.querySelectorAll('.side-item').forEach((a) => {
       if (a.dataset.href === href) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');

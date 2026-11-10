@@ -19,6 +19,12 @@
 
   /* ---------- Notes: list | reader | rail ---------- */
   .nl { width: 272px; flex: none; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border-right: 1px solid var(--border); }
+  .vtabs { display: flex; }
+  .vtabs button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background .15s, color .15s; }
+  .vtabs button:not([aria-pressed="true"]):hover { color: var(--text); }
+  .vt-n { font: 500 11px var(--mono); color: var(--text-faint); }
+  .w-toolbar .vtabs { width: 240px; flex: none; }
+  .vt-row { margin-top: 12px; width: 288px; }
   .nl-top { flex: none; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 12px; }
   .nl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .nl-head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
@@ -322,6 +328,15 @@
     ui.nav.setActive(mode === 'notes' ? '/brain' : `/brain?view=${mode}`);
   }
 
+  // List · Graph · Trash: one page, three views (the sidebar has only Notes)
+  const tabs = () => `<div class="seg vtabs" role="tablist" aria-label="View">${[['notes', 'List'], ['graph', 'Graph'], ['trash', 'Trash']].map(([m, l]) => `<button role="tab" data-view="${m}" aria-pressed="${mode === m}" aria-selected="${mode === m}">${l}${m === 'trash' && G?.trash?.length ? `<span class="vt-n">${G.trash.length}</span>` : ''}</button>`).join('')}</div>`;
+  view.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-view]');
+    if (!b || b.dataset.view === mode) return;
+    mode = b.dataset.view;
+    render();
+  });
+
   function state(icon, title, body, button, onClick, mood) {
     view.innerHTML = `<div class="center w-fade-in"><div class="w-empty">${ui.emptyIcon(icon, '', mood)}<h2>${esc(title)}</h2>${body ? `<p>${esc(body)}</p>` : ''}${button ? `<button class="btn btn-primary" id="state-btn">${esc(button)}</button>` : ''}</div></div>`;
     if (button) $('state-btn').onclick = onClick;
@@ -373,6 +388,7 @@
     view.innerHTML = `<aside class="nl" id="list" aria-label="Notes"></aside><section class="rd" id="note" aria-live="polite"></section><aside class="rr" id="links" aria-label="Links of this note"></aside>`;
     $('list').innerHTML = `<div class="nl-top">
         <div class="nl-head"><h1>Notes</h1><button class="btn btn-secondary nl-new" id="new">${I('plus')}New</button></div>
+        ${tabs()}
         <label class="w-search">${I('search')}<input id="q" type="search" placeholder="Find a note…" aria-label="Find a note" autocomplete="off" spellcheck="false" value="${esc(query)}"><span class="w-kbd">Ctrl K</span></label>
       </div>
       <nav class="tree" id="tree" aria-label="Notes by folder"></nav>
@@ -1028,7 +1044,7 @@
       return { ...t, orig, live, name: noteName(orig).split('/').pop(), folder: folderOf(orig) };
     });
     view.innerHTML = `<section class="tv w-fade-in">
-        <header class="w-head"><div class="w-titles"><p class="w-label">Brain · ${esc(project())}</p><h1>Trash</h1>
+        <header class="w-head"><div class="w-titles"><p class="w-label">Brain · ${esc(project())}</p><h1>Trash</h1><div class="vt-row">${tabs()}</div>
           <p class="w-sub">Deleted notes, and the old text of notes that were rewritten. Nothing here is gone until you empty it.</p></div>
           ${items.length ? `<div class="w-actions"><button class="btn btn-danger" id="empty">Empty trash</button></div>` : ''}</header>
         <div class="w-body">
@@ -1089,7 +1105,7 @@
     const pills = [...FG.own.map(([f, c]) => ({ key: f, label: f, c, color: FG.colors.get(f) })), ...(FG.other ? [{ key: '·other', label: 'other folders', c: FG.other, color: OTHER_C }] : [])];
     const dot = (c) => `<i style="background:${c}"></i>`;
     view.innerHTML = `<section class="gv w-fade-in">
-        <header class="w-toolbar"><div class="w-titles"><p class="w-label">Brain · ${esc(project())}</p><h1>Graph</h1></div>
+        <header class="w-toolbar"><div class="w-titles"><p class="w-label">Brain · ${esc(project())}</p><h1>Graph</h1></div>${tabs()}
           <div class="w-controls"><div class="gsearch"><label class="w-search">${I('search')}<input id="gq" type="search" placeholder="Find a note…" aria-label="Find a note in the graph" autocomplete="off" spellcheck="false"><span class="w-kbd">Ctrl K</span></label><div class="gres" id="gres" hidden role="listbox" aria-label="Matching notes"></div></div>
             ${pills.length ? `<div class="gpills${gFolders.size ? ' some' : ''}" role="group" aria-label="Show folders">${pills.map((p) => `<button class="gpill" data-f="${esc(p.key)}" aria-pressed="${gFolders.has(p.key)}" title="Show only ${esc(p.label)} (click again to show all)">${dot(p.color)}${esc(p.label)}</button>`).join('')}</div>` : ''}</div>
           <button class="btn btn-secondary gv-fit" id="fit" title="Fit the whole graph">${I('graph')}Fit</button></header>

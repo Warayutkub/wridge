@@ -119,7 +119,6 @@
     $('#sb-status-txt').textContent = text;
     $('#cnt-notes').textContent = brain ? brain.notes : '';
     $('#cnt-tasks').textContent = openTasks || '';
-    $('#cnt-trash').textContent = brain?.trash ? brain.trash : '';
     const p = projects.find((x) => x.dir === project);
     $('#proj-av').textContent = p ? base(p.dir).slice(0, 1) : '·';
     $('#proj-name').textContent = p ? base(p.dir) : projects.length ? 'Pick a project' : 'No project';
@@ -128,8 +127,10 @@
     paintFigma();
     $('#sb-ver').textContent = appVersion || http?.version || '';
     // a book or a game the code graph cannot read: hide the code pages (unless you are on one)
-    $('#grp-code').hidden = Boolean(p && !p.codeFiles && !['code', 'data', 'flows', 'github'].includes(route));
-    $$('.sb-item').forEach((a) => (a.dataset.route === route ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+    $('#grp-code').hidden = Boolean(p && !p.codeFiles && !['code', 'data', 'flows'].includes(route));
+    // Graph and Trash are tabs of Notes now
+    const here = ['graph', 'trash'].includes(route) ? 'notes' : route;
+    $$('.sb-item').forEach((a) => (a.dataset.route === here ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   }
 
   // ---------- Figma file picker: what this window shows (its own session, so no AI moves) ----------
