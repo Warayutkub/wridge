@@ -1,7 +1,7 @@
 // Light-only window matching the "Plugin/Window" frame in the wara-bridge Figma file.
 figma.showUI(__html__, { width: 300, height: 236, themeColors: false });
 // The version goes up with wridge; fileKey (private plugin API) lets the wridge window remember a file across renames.
-const PLUGIN_VERSION = '1.10.1';
+const PLUGIN_VERSION = '1.10.2';
 figma.ui.postMessage({ type: 'hello', fileName: figma.root.name, editorType: figma.editorType, fileKey: figma.fileKey ?? null, version: PLUGIN_VERSION });
 
 type Command = { id: string; command: string; params: Record<string, unknown> };
@@ -1485,8 +1485,8 @@ function variableValue(value: VariableValue, names: Map<string, string>): unknow
   return value;
 }
 
-// ---------- Foundations page (works on the free plan: no variables/styles needed) ----------
-// A page named "Foundations" holds plain layers whose names are token names:
+// ---------- Foundations (works on the free plan: no variables/styles needed) ----------
+// A page, section or frame named "Foundations" holds plain layers whose names are token names:
 //   Colors/Light, Colors/Dark (or just Colors) → swatches' fill per mode
 //   Spacing → swatch width · Radius → corner radius · Typography → text layers · Shadows → drop shadows
 
@@ -1524,23 +1524,42 @@ function leafShapes(root: BaseNode & ChildrenMixin): SceneNode[] {
 
 const stripPrefix = (token: string, re: RegExp) => token.replace(re, '') || token;
 
-// "Foundations", also with a suffix added out of habit ("Foundations · Draft").
-const FOUNDATIONS_NAME = /^foundations?(\s+[·\-–]\s+.*)?$/i;
+// "Foundations" as people actually name it: "Foundation", "Design Foundations", "🎨 Foundations",
+// "Buki / Foundations", "Foundations · Draft", "Foundations — Buki", "Foundations (v2)", "Foundations: colors".
+// Not "Foundations card" — anything after the word needs a separator.
+const FOUNDATIONS_NAME = /^[^\p{L}\p{N}]*(?:[^/·|:–—]+\s*[/·|:–—]\s*)?(?:(?:design|brand|ui|visual)\s+)?foundations?(?:\s*[·|:–—(/-].*)?$/iu;
 
-// A page named "Foundations", or — so free-plan files needn't spend one of their 3 pages —
-// a top-level section/frame named "Foundations" on any page.
+const isFoundationsHolder = (n: BaseNode): n is (SectionNode | FrameNode) =>
+  (n.type === 'SECTION' || n.type === 'FRAME') && FOUNDATIONS_NAME.test(n.name.trim());
+
+// A page named "Foundations"; else — so free-plan files needn't spend one of their 3 pages — a section or
+// frame named "Foundations" on any page: top level first, then inside sections/frames/groups (a
+// "Design system" section holding it), up to 3 levels down. Never inside components or instances.
 async function findFoundations(): Promise<(BaseNode & ChildrenMixin) | null> {
   const page = figma.root.children.find((p) => FOUNDATIONS_NAME.test(p.name.trim()));
   if (page) {
     await page.loadAsync();
     return page;
   }
+  let level: SceneNode[] = [];
   for (const p of figma.root.children) {
     await p.loadAsync();
-    const holder = p.children.find((n) => (n.type === 'SECTION' || n.type === 'FRAME') && FOUNDATIONS_NAME.test(n.name.trim()));
-    if (holder && 'findAll' in holder) return holder;
+    level.push(...p.children);
+  }
+  for (let depth = 0; depth < 4 && level.length; depth++) {
+    const hit = level.find(isFoundationsHolder);
+    if (hit) return hit;
+    level = level.flatMap((n) => (n.type === 'SECTION' || n.type === 'FRAME' || n.type === 'GROUP' ? [...n.children] : []));
   }
   return null;
+}
+
+// Where the Foundations are, in words: page "Foundations" · section "Foundations — Buki" on page "Design".
+function foundationsWhere(holder: BaseNode): string {
+  if (holder.type === 'PAGE') return `page "${holder.name}"`;
+  let page: BaseNode | null = holder.parent;
+  while (page && page.type !== 'PAGE') page = page.parent;
+  return `${holder.type === 'SECTION' ? 'section' : 'frame'} "${holder.name}" (${holder.id}) on page "${page?.name ?? '?'}"`;
 }
 
 async function readFoundations(): Promise<(TokenData & { page: string }) | null> {
@@ -1619,7 +1638,7 @@ async function readFoundations(): Promise<(TokenData & { page: string }) | null>
     data.collections.push({ name: 'Foundations Scale', defaultMode: 'Value', modes: ['Value'] });
     data.variables.push(...scale);
   }
-  return { page: page.name, ...data };
+  return { page: foundationsWhere(page), ...data };
 }
 
 // Values actually used in a design, most frequent first — the raw material for naming tokens
@@ -2728,7 +2747,7 @@ const handlers: Record<string, (p: P) => Promise<unknown>> = {
   async get_tokens(p) {
     const source = has(p, 'source') ? str(p.source) : 'auto';
     const foundations = source === 'file' ? null : await readFoundations();
-    if (source === 'foundations' && !foundations) throw new Error('No page named "Foundations" in this file');
+    if (source === 'foundations' && !foundations) throw new Error('No Foundations in this file: get_tokens reads a page, section or frame named "Foundations" (also "Design Foundations", "Foundations · Draft", nested up to 3 levels). Rename the one you have, or use source "file".');
     const file = source === 'foundations' ? null : ((await handlers.get_file_tokens({})) as TokenData & { file: string });
     const parts: TokenData[] = [];
     if (foundations) parts.push(foundations);
@@ -2736,7 +2755,7 @@ const handlers: Record<string, (p: P) => Promise<unknown>> = {
     const merge = (key: keyof TokenData) => parts.flatMap((d) => d[key]);
     return {
       file: figma.root.name,
-      sources: [foundations && `page:${foundations.page}`, file && 'variables+styles'].filter(Boolean),
+      sources: [foundations && `foundations: ${foundations.page}`, file && 'variables+styles'].filter(Boolean),
       collections: merge('collections'),
       variables: merge('variables'),
       paintStyles: merge('paintStyles'),
@@ -3087,7 +3106,7 @@ const handlers: Record<string, (p: P) => Promise<unknown>> = {
     }
     return {
       file: figma.root.name,
-      foundations: (await findFoundations()) !== null,
+      foundations: await findFoundations().then((f) => (f ? foundationsWhere(f) : false)),
       pages: graphs.map((g) => ({
         id: g.id,
         name: g.name,

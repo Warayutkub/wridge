@@ -1,6 +1,6 @@
 ---
 name: design-direction
-description: When a file has no Foundations page yet — a new product (propose a direction, brainstorm, build Foundations) or an existing code project being brought into Figma (derive Foundations and components from the code). Colors with light/dark, type, spacing, radius, shadows, base components.
+description: When a file has no Foundations yet — a new product (propose a direction, brainstorm, build Foundations) or an existing code project being brought into Figma (derive Foundations and components from the code). Colors with light/dark, type, spacing, radius, shadows, base components.
 area: design
 ---
 # Design direction & Foundations
@@ -8,7 +8,7 @@ area: design
 Each system deserves its own taste. Never impose one house style; derive it from the product, then agree on it with the user before designing screens.
 
 ## 0. Check first
-`get_document_info` → is there a page named **Foundations**? If yes: read it (`get_tokens {format:"json"}` and `get_node` on its sections) and follow it — don't re-propose. If no and the product already exists in code: follow **Existing product** below. If no and it is new: continue at 1.
+`design_map` → its first line says where the **Foundations** are (`Foundations: page "…"` or `section/frame "…" on page "…"` — found anywhere, nested too) or `none`. If found: read it (`get_tokens {format:"json"}` and `get_node` on its sections) and follow it — don't re-propose. If no and the product already exists in code: follow **Existing product** below. If no and it is new: continue at 1.
 
 ## Existing product — the code is the source of truth
 Goal: a Figma base that matches what ships, so new work can be designed first. No new direction; the direction is in the code. Load `code-graph`.
@@ -72,7 +72,7 @@ Create a **section named `Foundations`** (or a page with that name if the file h
 - Use the same swatch names in Light and Dark. A swatch can be a frame named `primary` containing a rectangle + label text (the frame name is used when the rectangle has a default name).
 - Add a `Brief` text frame with the agreed direction (personality, do/don't) so later sessions keep the taste.
 - Then base components on the same page (or a `Components` page): Button (primary/secondary/ghost × default/hover/pressed/disabled/loading), Input (+ error), Card, Tag, Nav item — **plus the feedback set**: Dialog, Bottom sheet, Toast, Banner, Skeleton, Spinner, EmptyState (specs in `interaction-patterns`) — built from these values.
-- If the file's plan supports it and the user wants Figma-native tokens, mirror colors into variables with `create_variable_collection` / `create_variables` (modes Light/Dark); otherwise the Foundations page alone is enough.
+- If the file's plan supports it and the user wants Figma-native tokens, mirror colors into variables with `create_variable_collection` / `create_variables` (modes Light/Dark); otherwise the Foundations alone are enough.
 - Build it with `run_batch`; verify with `export_node_image`; then `get_tokens {format: "json"}` to confirm every token was picked up.
 
 ## 7. Then design

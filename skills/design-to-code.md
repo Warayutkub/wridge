@@ -9,7 +9,7 @@ Then load the platform skill: `code-react-next`, `code-html-css`, or `code-flutt
 
 ## Workflow
 0. **Approved only:** `design_map` → the screens' `status` must be `approved` (section `"<Flow> · Approved"`). Draft / review / no section → stop and ask the user to review the design first (show images, list states). Code built from an unapproved design gets redone.
-1. **Tokens (first time per project, or when the design system changes):** `get_tokens` with the platform format (`tailwind` / `css` / `dart`) and `outFile` inside the project. Keep the returned `map` — it translates token names in design context to code identifiers.
+1. **Tokens (first time per project, or when the design system changes):** `get_tokens` with the platform format (`tailwind` / `css` / `dart`) and `outFile` inside the project. It reads Foundations from a page, section or frame named "Foundations" (nested too; `sources` says which one) plus variables/styles — never copy values into a token file by hand; if it finds none, say so and ask before writing tokens yourself. Keep the returned `map` — it translates token names in design context to code identifiers.
 2. **Read the design:** `get_design_context` with `projectDir`.
    - Responsive page: pass `breakpoints: {base: <mobile frame>, md: <tablet>, lg: <desktop>}` (only the ones that exist).
    - Big pages: read section by section (`nodeId` of each section) rather than one huge call.

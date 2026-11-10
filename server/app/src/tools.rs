@@ -318,12 +318,16 @@ pub fn render_design_map(map: &Value, max_screens: usize) -> String {
     let components = arr(map.get("components"));
     let screens: usize = pages.iter().map(|p| arr(p.get("screens")).len()).sum();
     let mut lines = vec![format!(
-        "File \"{}\" · {} page(s) · {} screens · {} components in use · Foundations page: {}",
+        "File \"{}\" · {} page(s) · {} screens · {} components in use · Foundations: {}",
         t(map.get("file")),
         pages.len(),
         screens,
         components.len(),
-        if truthy(map.get("foundations")) { "yes" } else { "no" }
+        match map.get("foundations") {
+            Some(Value::String(w)) if !w.is_empty() => w.clone(),
+            Some(Value::Bool(true)) => "yes".into(),
+            _ => "none (get_tokens reads a page, section or frame named \"Foundations\")".into(),
+        }
     )];
     let all: Vec<Value> = pages.iter().flat_map(|p| arr(p.get("screens"))).collect();
     let count = |st: &str| all.iter().filter(|s| s.get("status") == Some(&Value::String(st.into()))).count();
@@ -1103,10 +1107,10 @@ pub fn define_tools() -> Vec<Tool> {
 
     d.custom(
         "get_tokens",
-        "Build a token file (Tailwind v4 @theme, CSS variables, Flutter Dart constants, or JSON) from the file's Foundations page (layers named as tokens — works on the free plan) and/or its variables and styles. Returns the content and a map from design-context token names to code identifiers; writes it when outFile is given.",
+        "Build a token file (Tailwind v4 @theme, CSS variables, Flutter Dart constants, or JSON) from the file's Foundations — a page, or a section/frame on any page (nested too), named \"Foundations\" (layers named as tokens — works on the free plan) and/or its variables and styles. Returns the content and a map from design-context token names to code identifiers; writes it when outFile is given.",
         shape()
             .f("format", enumeration(&["tailwind", "css", "dart", "json"]).default(json!("tailwind")).describe("tailwind = Tailwind v4 @theme, css = CSS variables, dart = Flutter constants"))
-            .f("source", enumeration(&["auto", "foundations", "file"]).default(json!("auto")).describe("auto = Foundations page + variables/styles"))
+            .f("source", enumeration(&["auto", "foundations", "file"]).default(json!("auto")).describe("auto = Foundations + variables/styles"))
             .f("outFile", string().optional().describe("Absolute path to write, e.g. C:/code/app/app/tokens.css"))
             .build(),
         handler(|ctx: Ctx, args: Value| async move {
@@ -2578,7 +2582,7 @@ mod tests {
         let got = render_design_map(&map, 1);
         assert_eq!(
             got,
-            "File \"utils\" · 1 page(s) · 2 screens · 1 components in use · Foundations page: yes\nPrototype work only (sections \"<Flow> · Prototype · Draft / In review / Approved\"; old \"<Flow> · <Status>\" and loose frames count too): 1 approved · 0 in review · 0 draft · 1 without a review section (not approved)\n\n## Page \"App\" (0:1) — 2 screens\nFlows: Main → 1:1\n- Home (1:1) 375×812 · APPROVED · uses Button×2, Card · → Detail\n… 1 more screens (pass pageId or maxScreens)\n\n## Breakpoint sets\n- Home: base 1:1, md 1:2\n\n## Components (instances / screens)\nButton 2/1\n\nUnused local components: Tag, Chip\n\n## Other work (not in the design graph)\n- Pitch [slides]"
+            "File \"utils\" · 1 page(s) · 2 screens · 1 components in use · Foundations: yes\nPrototype work only (sections \"<Flow> · Prototype · Draft / In review / Approved\"; old \"<Flow> · <Status>\" and loose frames count too): 1 approved · 0 in review · 0 draft · 1 without a review section (not approved)\n\n## Page \"App\" (0:1) — 2 screens\nFlows: Main → 1:1\n- Home (1:1) 375×812 · APPROVED · uses Button×2, Card · → Detail\n… 1 more screens (pass pageId or maxScreens)\n\n## Breakpoint sets\n- Home: base 1:1, md 1:2\n\n## Components (instances / screens)\nButton 2/1\n\nUnused local components: Tag, Chip\n\n## Other work (not in the design graph)\n- Pitch [slides]"
         );
     }
 }

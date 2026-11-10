@@ -131,7 +131,7 @@ const listWithMore = (items, max, fmt) =>
 function renderDesignMap(map, maxScreens) {
   const screens = map.pages.reduce((n, p) => n + p.screens.length, 0);
   const lines = [
-    `File "${map.file}" · ${map.pages.length} page(s) · ${screens} screens · ${map.components.length} components in use · Foundations page: ${map.foundations ? "yes" : "no"}`,
+    `File "${map.file}" · ${map.pages.length} page(s) · ${screens} screens · ${map.components.length} components in use · Foundations: ${typeof map.foundations === "string" && map.foundations ? map.foundations : map.foundations ? "yes" : 'none (get_tokens reads a page, section or frame named "Foundations")'}`,
   ];
   const all = map.pages.flatMap((p) => p.screens);
   const count = (st) => all.filter((s) => s.status === st).length;
@@ -626,10 +626,10 @@ export function defineTools(send) {
 
   tool(
     "get_tokens",
-    "Build a token file (Tailwind v4 @theme, CSS variables, Flutter Dart constants, or JSON) from the file's Foundations page (layers named as tokens — works on the free plan) and/or its variables and styles. Returns the content and a map from design-context token names to code identifiers; writes it when outFile is given.",
+    "Build a token file (Tailwind v4 @theme, CSS variables, Flutter Dart constants, or JSON) from the file's Foundations — a page, or a section/frame on any page (nested too), named \"Foundations\" (layers named as tokens — works on the free plan) and/or its variables and styles. Returns the content and a map from design-context token names to code identifiers; writes it when outFile is given.",
     {
       format: z.enum(["tailwind", "css", "dart", "json"]).default("tailwind").describe("tailwind = Tailwind v4 @theme, css = CSS variables, dart = Flutter constants"),
-      source: z.enum(["auto", "foundations", "file"]).default("auto").describe("auto = Foundations page + variables/styles"),
+      source: z.enum(["auto", "foundations", "file"]).default("auto").describe("auto = Foundations + variables/styles"),
       outFile: z.string().optional().describe("Absolute path to write, e.g. C:/code/app/app/tokens.css"),
     },
     async ({ format, source, outFile }) => {
