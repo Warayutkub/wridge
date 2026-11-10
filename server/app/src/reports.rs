@@ -265,6 +265,48 @@ pub fn remove(dir: &str, name: &str) -> anyhow::Result<String> {
     Ok(format!("moved to docs/reports/.trash/{}", to.file_name().unwrap().to_string_lossy()))
 }
 
+/// Reports in docs/reports/.trash/, newest first: what the Reports page can bring back.
+pub fn trash(dir: &str) -> anyhow::Result<Value> {
+    tasks::check_dir(dir)?;
+    let mut out = vec![];
+    for e in std::fs::read_dir(reports_dir(dir).join(".trash")).into_iter().flatten().flatten() {
+        let p = e.path();
+        if p.extension().and_then(|x| x.to_str()) != Some("json") {
+            continue;
+        }
+        let file = p.file_name().unwrap().to_string_lossy().to_string();
+        // <name>-YYYYMMDD-HHMMSS.json
+        let stem = p.file_stem().unwrap().to_string_lossy().to_string();
+        let name = stem.rsplitn(3, '-').nth(2).unwrap_or(&stem).to_string();
+        let title = read_json(&p).ok().and_then(|v| v.get("title").and_then(Value::as_str).map(str::to_string)).unwrap_or_else(|| name.clone());
+        out.push(json!({"file": file, "name": name, "title": title, "removed": modified(&p)}));
+    }
+    out.sort_by(|a, b| b["removed"].as_u64().cmp(&a["removed"].as_u64()));
+    Ok(json!({"trash": out}))
+}
+
+/// Brings a report back from .trash under its old name (or "<name>-restored" when that name is taken again).
+pub fn restore(dir: &str, file: &str) -> anyhow::Result<String> {
+    tasks::check_dir(dir)?;
+    if file.is_empty() || file.contains(['/', '\\']) || file.contains("..") || !file.ends_with(".json") {
+        bail!("restore needs the file name from the trash list");
+    }
+    let from = reports_dir(dir).join(".trash").join(file);
+    if !from.is_file() {
+        bail!("{file} isn't in the trash");
+    }
+    let stem = file.trim_end_matches(".json");
+    let name = stem.rsplitn(3, '-').nth(2).unwrap_or(stem).to_string();
+    let mut to_name = name.clone();
+    let mut n = 1;
+    while reports_dir(dir).join(format!("{to_name}.json")).exists() {
+        to_name = if n == 1 { format!("{name}-restored") } else { format!("{name}-restored-{n}") };
+        n += 1;
+    }
+    std::fs::rename(&from, reports_dir(dir).join(format!("{to_name}.json")))?;
+    Ok(to_name)
+}
+
 pub fn save_theme(dir: &str, name: &str, theme: &Value) -> anyhow::Result<String> {
     tasks::check_dir(dir)?;
     let o = theme.as_object().ok_or_else(|| anyhow!("theme is an object of tokens, e.g. {{\"accent\": \"#7A3BC4\"}}"))?;
@@ -478,7 +520,12 @@ mod tests {
         assert_eq!(l["reports"][0]["name"], "phase-1-github");
         assert_eq!(l["themes"][0], "brand");
         assert!(remove(d, "phase-1-github").unwrap().contains(".trash"));
-        assert_eq!(list(d).unwrap()["reports"].as_array().unwrap().len(), 0);
+        let t = trash(d).unwrap();
+        let file = t["trash"][0]["file"].as_str().unwrap().to_string();
+        assert_eq!(t["trash"][0]["name"], "phase-1-github");
+        assert_eq!(restore(d, &file).unwrap(), "phase-1-github");
+        assert!(restore(d, "../x.json").is_err());
+        assert_eq!(list(d).unwrap()["reports"].as_array().unwrap().len(), 1, "restored");
     }
 
     #[test]

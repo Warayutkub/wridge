@@ -295,6 +295,12 @@ async fn work_route(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
             let name = b.get("name").and_then(Value::as_str).unwrap_or("").to_string();
             Ok(crate::reports::remove(&dir, &name).map(|m| json_response(200, &json!({"message": m}))).unwrap_or_else(fail))
         }
+        (false, "/api/reports/trash") => Ok(crate::reports::trash(&dir).map(|v| json_response(200, &v)).unwrap_or_else(fail)),
+        (true, "/api/reports/restore") => {
+            let b = req.json(BODY_LIMIT).await?;
+            let file = b.get("file").and_then(Value::as_str).unwrap_or("").to_string();
+            Ok(crate::reports::restore(&dir, &file).map(|n| json_response(200, &json!({"name": n}))).unwrap_or_else(fail))
+        }
         _ => Ok(error_json(404, "not found")),
     }
 }
