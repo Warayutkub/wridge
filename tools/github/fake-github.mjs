@@ -1,5 +1,6 @@
 // A fake GitHub for checking the wridge GitHub page by hand. Port 4710.
 import http from "node:http";
+import { graphql } from "./fake-graphql.mjs";
 const T0 = Date.now();
 const iso = (s) => new Date(T0 + s * 1000).toISOString();
 let polls = 0, installed = false;
@@ -48,6 +49,7 @@ http.createServer((req, res) => {
     if (p === "/login/device/code") { polls = 0; return send(res, 200, { device_code: "dev", user_code: "WDGE-7Q4K", verification_uri: "https://github.com/login/device", expires_in: 900, interval: 2 }); }
     if (p === "/login/oauth/access_token") { if (body.includes("refresh_token=")) return send(res, 200, { access_token: "tok", expires_in: 28800, refresh_token: "ref" }); return send(res, 200, ++polls < 4 ? { error: "authorization_pending" } : { access_token: "tok", expires_in: 28800, refresh_token: "ref", refresh_token_expires_in: 15000000 }); }
     if (p === "/user") return send(res, 200, { login: "Warayutkub" });
+    if (p === "/graphql" && req.method === "POST") return send(res, 200, graphql(body));
     if (p === "/user/installations") { if (!installed) { installed = true; return send(res, 200, { installations: [] }); } return send(res, 200, { installations: [{ id: 1 }] }); }
     if (p === "/user/installations/1/repositories") return send(res, 200, { repositories: [
       { full_name: "Warayutkub/wridge", name: "wridge", owner: { login: "Warayutkub" }, private: false, html_url: "https://github.com/Warayutkub/wridge" },

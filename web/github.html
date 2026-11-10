@@ -168,6 +168,86 @@
   .skel-row .skel { height: 10px; margin-bottom: 8px; width: 40%; }
   .skel-row .skel + .skel { width: 25%; }
   .empty-pane { padding: 40px 24px; }
+
+  /* phase 2 tabs (Figma "wridge GitHub · Prototype": Overview, Pull requests, Branches, Commits, Issues, Releases) */
+  .pane { display: flex; flex-direction: column; gap: 14px; padding: 18px 24px 32px; }
+  .bar2 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .bar2 .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .legend { font: 11px var(--mono); color: var(--text-faint); }
+  .list > .w-label { margin: 0; padding: 11px 14px 9px; border-bottom: 1px solid var(--surface-2); }
+  .list > .w-label a, .list > .w-label button { float: right; border: 0; background: none; padding: 0; font: 500 12px var(--sans); text-transform: none; letter-spacing: 0; color: var(--primary); cursor: pointer; }
+  .run .ico { width: 16px; height: 16px; flex: none; color: var(--text-muted); }
+  .run .ico svg { width: 16px; height: 16px; }
+  .run .side { flex: none; display: flex; align-items: center; gap: 12px; }
+  .cmt { display: inline-flex; align-items: center; gap: 4px; min-width: 30px; font: 11.5px var(--mono); color: var(--text-muted); }
+  .cmt svg { width: 13px; height: 13px; }
+  .diff { min-width: 74px; text-align: right; font: 11.5px var(--mono); }
+  .diff .a { color: var(--success-text); } .diff .d { color: var(--danger-text); }
+  .sha { display: inline-flex; align-items: center; gap: 4px; }
+  .sha code { padding: 2px 7px; border-radius: 6px; background: var(--surface-2); font: 11px var(--mono); color: var(--text-2); }
+  .sha button { display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; }
+  .sha button:hover { background: var(--surface-2); color: var(--text); }
+  .sha .w-icon { width: 13px; height: 13px; }
+  .ab { display: inline-flex; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--text-muted); }
+  .ab > span { width: 42px; height: 4px; display: flex; }
+  .ab .l { justify-content: flex-end; border-right: 1.5px solid var(--text-faint); }
+  .ab .l i { background: var(--text-faint); border-radius: 2px 0 0 2px; }
+  .ab .r i { background: var(--primary); border-radius: 0 2px 2px 0; }
+  .ab small { width: 22px; font-size: 11px; } .ab small:first-child { text-align: right; }
+  .prn { font: 500 12px var(--mono); color: var(--primary); border: 0; background: none; padding: 0; cursor: pointer; }
+  .lb { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border: 1px solid var(--border); border-radius: 999px; font: 11.5px var(--sans); color: var(--text-2); white-space: nowrap; }
+  .lb i { width: 7px; height: 7px; border-radius: 50%; }
+  .av.round { border-radius: 50%; background: var(--primary-soft); color: var(--primary); }
+  .st.k-none { border: 1.5px solid var(--border-strong); }
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .stat { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--background); text-align: left; font: inherit; color: inherit; cursor: pointer; transition: border-color .15s var(--ease); }
+  .stat:hover { border-color: var(--border-strong); }
+  .stat b { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+  .stat small { font-size: 12px; color: var(--text-muted); }
+  .stat small.warn { color: var(--warning-text); }
+  .cols { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+  .cols > div { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .live { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; }
+  .live .top { display: flex; align-items: center; gap: 8px; font: 11.5px var(--mono); color: var(--text-muted); }
+  .live .top .k-run-t { color: var(--warning-text); } .live .top small { margin-left: auto; }
+  .live h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .live .jobs { padding: 0; overflow: hidden; }
+  .live .job { flex: 1 1 0; min-width: 0; max-width: none; padding: 0 8px; }
+  .live .wire { flex-basis: 14px; }
+  .need { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border: 0; border-top: 1px solid var(--surface-2); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .need:hover { background: var(--surface-1); }
+  .need .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .need b { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .need small { font: 11px var(--mono); color: var(--text-muted); }
+  .need .ico { width: 16px; height: 16px; flex: none; color: var(--text-muted); } .need .ico svg { width: 16px; height: 16px; }
+  .relcard { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .relcard .h { display: flex; align-items: center; gap: 8px; } .relcard .h b { font-size: 15px; font-weight: 600; }
+  .relcard small { font: 11px var(--mono); color: var(--text-muted); }
+  .pr-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: -6px; font: 11.5px var(--mono); color: var(--text-muted); }
+  .pr-meta code { font: 500 12px var(--mono); color: var(--text); }
+  .body { padding: 10px 14px 14px; font-size: 13px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; }
+  .row2 { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--surface-2); font-size: 13px; }
+  .row2 .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row2 small { font: 11px var(--mono); color: var(--text-2); }
+  .row2 .sub { display: block; font: 11px var(--mono); color: var(--text-muted); }
+  .row2 .file { font: 12px var(--mono); }
+  .foot2 { padding: 9px 14px 11px; border-top: 1px solid var(--surface-2); font: 11px var(--mono); color: var(--text-faint); }
+  .rel { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+  .rel .h { display: flex; align-items: center; gap: 10px; }
+  .rel .h .w-icon { width: 16px; height: 16px; color: var(--text-muted); } .rel .h .w-icon svg { width: 16px; height: 16px; }
+  .rel .h b { font-size: 16px; font-weight: 600; }
+  .rel .h small { margin-left: auto; font: 11px var(--mono); color: var(--text-faint); }
+  .notes { font-size: 13px; line-height: 1.65; color: var(--text-2); }
+  .notes p { margin: 0; } .notes ul { margin: 0; padding-left: 18px; }
+  .asset { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 7px; background: var(--surface-1); color: var(--text); font: 12px var(--mono); text-align: left; cursor: pointer; }
+  .asset:hover { background: var(--surface-2); }
+  .asset .w-icon { width: 14px; height: 14px; color: var(--text-muted); }
+  .asset small { margin-left: auto; color: var(--text-faint); }
+  .sel { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--background); }
+  .sel .w-icon { width: 13px; height: 13px; color: var(--text-muted); }
+  .sel select { border: 0; outline: 0; background: transparent; color: var(--text-2); font: 11.5px var(--mono); cursor: pointer; max-width: 200px; }
+  .more { padding: 4px 2px; font: 11px var(--mono); color: var(--text-faint); }
+  @media (max-width: 980px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cols { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
 <body>
@@ -210,6 +290,13 @@
   const shownOnce = new Set();   // repos whose run list has slid in already
   const params = () => new URLSearchParams(location.search);
   const runId = () => Number(params().get('run')) || 0;
+  // phase 2: which tab, which pull request, and each tab's answers (key → data) so switching back is instant
+  const tab = () => params().get('tab') || (runId() ? 'actions' : 'overview');
+  const prNo = () => Number(params().get('pr')) || 0;
+  let ov = null, ovRun = null;   // overview of the repo; the run it shows big (with its jobs)
+  const tabData = {}, tabErr = {};
+  const seen = new Set();        // lists that slid in once already
+  let prState = 'open', prMine = false, brFilter = 'all', cmBranch = '', isState = 'open', isMine = false, isLabel = '';
 
   async function api(path, opts = {}) {
     const res = await fetch('/api/github' + path, { cache: 'no-store', ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) } });
@@ -223,7 +310,9 @@
   function setUrl(next, push) {
     const q = new URLSearchParams();
     if (next.repo) q.set('repo', next.repo);
+    if (next.tab && next.tab !== 'overview') q.set('tab', next.tab);
     if (next.run) q.set('run', next.run);
+    if (next.pr) q.set('pr', next.pr);
     const url = `${location.pathname}${q.size ? `?${q}` : ''}`;
     if (url !== location.pathname + location.search) history[push ? 'pushState' : 'replaceState'](null, '', url);
   }
@@ -268,17 +357,20 @@
     tabs.hidden = !(ready && repo);
     if (!tabs.hidden) {
       const nRun = runs?.runs?.filter((r) => r.status !== 'completed').length ?? 0;
-      const T = [['Overview', 'overview'], ['Actions', 'actions'], ['Pull requests', 'link'], ['Branches', 'branch'], ['Commits', 'activity'], ['Issues', 'clock'], ['Releases', 'external']];
-      tabs.innerHTML = T.map(([t, i]) => t === 'Actions'
-        ? `<button class="tab" role="tab" aria-selected="true">${ic(i)}${t}${nRun ? `<span class="n">${nRun}</span>` : ''}</button>`
-        : `<button class="tab" role="tab" aria-selected="false" aria-disabled="true" title="Coming in the next update">${ic(i)}${t}<span class="soon">soon</span></button>`).join('');
+      const R = ov?.data?.repository;
+      const n = { actions: nRun, pulls: R?.pullRequests?.totalCount, branches: R?.refs?.totalCount, issues: R?.issues?.totalCount };
+      const T = [['overview', 'Overview', ic('overview')], ['actions', 'Actions', ic('actions')], ['pulls', 'Pull requests', gi('pr')], ['branches', 'Branches', ic('branch')], ['commits', 'Commits', gi('commit')], ['issues', 'Issues', gi('issue')], ['releases', 'Releases', gi('tag')]];
+      tabs.innerHTML = T.map(([k, t, i]) => `<button class="tab" role="tab" data-tab="${k}" aria-selected="${tab() === k}">${i}${t}${n[k] ? `<span class="n">${n[k]}</span>` : ''}</button>`).join('');
+      tabs.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => goTab(b.dataset.tab)));
     }
   }
   $('#acct').onclick = () => ui.go('settings');
   $('#open-gh').onclick = () => {
     const r = repos?.find((x) => x.fullName === repo);
-    const run = detail?.run;
-    open(runId() && run?.url ? run.url : r?.url ?? `https://github.com/${repo}`);
+    const run = detail?.run, base = r?.url ?? `https://github.com/${repo}`;
+    const t = tab(), pr = tabData[`pull:${repo}:${prNo()}`]?.data?.repository?.pullRequest;
+    open(t === 'actions' ? (runId() && run?.url ? run.url : `${base}/actions`) : t === 'pulls' ? (prNo() && pr?.url ? pr.url : `${base}/pulls`)
+      : t === 'branches' ? `${base}/branches` : t === 'commits' ? `${base}/commits/${encodeURIComponent(cmBranch || defBranch())}` : t === 'issues' ? `${base}/issues` : t === 'releases' ? `${base}/releases` : base);
   };
 
   // ---------- repo switcher ----------
@@ -326,8 +418,8 @@
     if (r === repo && !runId()) return;
     repo = r;
     try { localStorage.setItem('wridge-gh-repo', r); } catch { /* storage blocked */ }
-    runs = null; runsErr = ''; detail = null; wfPick = ''; branchPick = ''; filter = 'all';
-    setUrl({ repo: r }, push);
+    runs = null; runsErr = ''; detail = null; wfPick = ''; branchPick = ''; filter = 'all'; ov = null; ovRun = null; cmBranch = ''; isLabel = '';
+    setUrl({ repo: r, tab: tab() === 'actions' || !prNo() ? tab() : 'pulls' }, push);
     paint();
     refresh();
   }
@@ -356,6 +448,41 @@
     } catch (e) { if (detailFor !== id) detail = { error: e.message }; }
   }
 
+  // ---------- phase 2 loading ----------
+  const defBranch = () => ov?.data?.repository?.defaultBranchRef?.name ?? repos?.find((x) => x.fullName === repo)?.defaultBranch ?? 'main';
+  async function loadOverview() {
+    if (!repo) return;
+    try { const o = await api(`/repo/${repo}/overview`); if (o.repo === repo) ov = o; } catch { /* the tabs just show no counts */ }
+  }
+  // the overview's big run: the one running, else the newest; its jobs come from the run detail
+  async function loadOvRun() {
+    const r = runs?.runs?.find((x) => x.status !== 'completed') ?? runs?.runs?.[0];
+    if (!r) { ovRun = null; return; }
+    if (ovRun?.run?.id === r.id && ovRun.run.status === 'completed' && r.status === 'completed') return;
+    try { ovRun = await api(`/repo/${repo}/runs/${r.id}`); } catch { ovRun = { run: r, jobs: [] }; }
+  }
+  function tabKey() {
+    const t = tab(), R = `/repo/${repo}`, enc = encodeURIComponent;
+    if (t === 'pulls') return prNo() ? [`pull:${repo}:${prNo()}`, `${R}/pulls/${prNo()}`] : [`pulls:${repo}:${prState}`, `${R}/pulls?state=${prState}`];
+    if (t === 'branches') return [`br:${repo}`, `${R}/branches?base=${enc(defBranch())}`];
+    if (t === 'commits') return [`cm:${repo}:${cmBranch || defBranch()}`, `${R}/commits?branch=${enc(cmBranch || defBranch())}`];
+    if (t === 'issues') return [`is:${repo}:${isState}`, `${R}/issues?state=${isState}`];
+    if (t === 'releases') return [`rel:${repo}`, `${R}/releases`];
+    return null;
+  }
+  async function loadTab() {
+    if (!repo) return;
+    if (tab() === 'overview') return loadOvRun();
+    const k = tabKey();
+    if (!k) return;
+    try { tabData[k[0]] = await api(k[1]); delete tabErr[k[0]]; } catch (e) { tabErr[k[0]] = e.message; }
+  }
+  function goTab(t, extra = {}) {
+    setUrl({ repo, tab: t, ...extra }, true);
+    paint();
+    loadTab().then(paint);
+  }
+
   // one loop: fast while something runs or signs in, slow otherwise; paused while hidden (unless running)
   async function refresh() {
     clearTimeout(timer);
@@ -372,6 +499,7 @@
       if (repo) {
         await loadRuns();
         if (runId()) await loadDetail(runId());
+        await Promise.all([loadOverview(), loadTab()]);
       }
     }
     paint();
@@ -380,7 +508,7 @@
     // a hidden page (or one WebView2 wrongly calls hidden) still checks, just less often
     timer = setTimeout(refresh, document.hidden && !running ? Math.max(ms, 60000) : ms);
   }
-  addEventListener('popstate', () => { const r = params().get('repo'); if (r && r !== repo) { repo = r; runs = null; } detail = null; paint(); refresh(); });
+  addEventListener('popstate', () => { const r = params().get('repo'); if (r && r !== repo) { repo = r; runs = null; ov = null; } detail = null; paint(); refresh(); });
 
   // ---------- views ----------
   function paint() {
@@ -396,7 +524,9 @@
       : s === 'offline' ? `<div class="banner warn"><span class="w-icon">${ui.icon('cloudoff')}</span><div class="banner-text"><b>Can’t reach GitHub</b>Showing what wridge saw last — trying again by itself.</div></div>` : '';
     // keep the log where the reader left it (a repaint every few seconds must not jump); a new log opens at its first error
     const prevLog = $('#log'), prev = prevLog ? { job: Number(prevLog.dataset.job), top: prevLog.scrollTop } : null;
-    c.innerHTML = banner + (runId() ? viewDetail() : viewRuns());
+    const t = tab();
+    c.innerHTML = banner + (t === 'actions' ? (runId() ? viewDetail() : viewRuns()) : t === 'pulls' ? (prNo() ? viewPull() : viewPulls()) : t === 'branches' ? viewBranches()
+      : t === 'commits' ? viewCommits() : t === 'issues' ? viewIssues() : t === 'releases' ? viewReleases() : viewOverview());
     wire(c);
     const log = $('#log');
     if (log) {
@@ -404,7 +534,8 @@
       else { const e = log.querySelector('.e'); if (e) log.scrollTop = Math.max(0, e.offsetTop - log.clientHeight / 2); }
     }
     // rows slide in once per repo, not on every refresh
-    if (runs && !runId()) shownOnce.add(repo);
+    if (runs && !runId() && t === 'actions') shownOnce.add(repo);
+    c.querySelectorAll('[data-seen]').forEach((el) => seen.add(el.dataset.seen));
   }
 
   function gateSignIn() {
@@ -513,14 +644,263 @@
     </div>`;
   }
 
+  // ---------- phase 2 views ----------
+  // GitHub's marks, drawn like Figma "wridge GitHub · Components" (16 px, 1.5 stroke)
+  const GI = {
+    pr: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="4" cy="3.5" r="1.6"/><circle cx="4" cy="12.5" r="1.6"/><circle cx="12" cy="12.5" r="1.6"/><path d="M4 5.1v5.8M12 10.9V7a2.5 2.5 0 0 0-2.5-2.5H7m1.6-1.6L7 4.5l1.6 1.6"/></svg>',
+    merge: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="4" cy="3.5" r="1.6"/><circle cx="4" cy="12.5" r="1.6"/><circle cx="12" cy="8" r="1.6"/><path d="M4 5.1v5.8M4 5.1c0 2 2 2.9 4 2.9h2.4"/></svg>',
+    commit: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.6"/><path d="M1.5 8h3.9M10.6 8h3.9"/></svg>',
+    issue: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="6.2"/><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    issueDone: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="m5.4 8.2 1.8 1.8 3.4-3.6"/></svg>',
+    tag: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M1.8 2.8v4.4l6.9 6.9 5.4-5.4-6.9-6.9H2.8a1 1 0 0 0-1 1Z"/><circle cx="5" cy="5" r="1" fill="currentColor" stroke="none"/></svg>',
+    comment: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z"/></svg>',
+    file: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M4 1.8h5l3 3v9.4H4z"/><path d="M9 1.8v3h3"/></svg>',
+  };
+  const gi = (n) => `<span class="w-icon">${GI[n]}</span>`;
+  // a status rollup (SUCCESS · FAILURE · PENDING …) or a check run as one of the run marks
+  const rollKind = (s) => ({ SUCCESS: 'ok', FAILURE: 'bad', ERROR: 'bad', PENDING: 'run', EXPECTED: 'queued' })[s] ?? 'none';
+  const markR = (s) => { const k = rollKind(s); return `<span class="st k-${k}" aria-label="${k === 'ok' ? 'Checks passed' : k === 'bad' ? 'Checks failed' : k === 'run' ? 'Checks running' : 'No checks'}">${k === 'ok' ? CHECK : k === 'bad' ? CROSS : ''}</span>`; };
+  const checkRun = (c) => (c.__typename === 'StatusContext' ? { status: c.state === 'PENDING' ? 'in_progress' : 'completed', conclusion: c.state === 'SUCCESS' ? 'success' : c.state === 'PENDING' ? null : 'failure' } : { status: (c.status ?? '').toLowerCase(), conclusion: c.conclusion?.toLowerCase() ?? null });
+  const rollOf = (pr) => pr?.commits?.nodes?.[0]?.commit?.statusCheckRollup?.state ?? null;
+  const me = () => st?.login ?? '';
+  const who = (u) => u?.login ?? u?.user?.login ?? u?.name ?? 'ghost';
+  const avatar = (login, title) => `<span class="av sm round" title="${esc(title ?? '@' + login)}">${esc((login || '·').slice(0, 1))}</span>`;
+  const size = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : b >= 1024 ? `${Math.round(b / 1024)} KB` : `${b} B`);
+  const day = (t) => { const d = new Date(t), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1); return d.toDateString() === now.toDateString() ? 'Today' : d.toDateString() === y.toDateString() ? 'Yesterday' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+  const shortDate = (t) => new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const calm = (k) => (seen.has(k) ? ' calm' : '');
+  const anim = (i) => `style="animation-delay:${Math.min(i, 8) * 18}ms"`;
+  const skeleton = (rows = 5) => `<div class="pane"><div class="list">${'<div class="skel-row"><div class="skel"></div><div class="skel"></div></div>'.repeat(rows)}</div></div>`;
+  const failed = (msg) => `<div class="empty-pane w-empty">${ui.emptyIcon('alert')}<h2>Couldn’t load this from GitHub</h2><p>${esc(msg)}</p><button class="btn btn-secondary" data-act="retab">Try again</button></div>`;
+  const emptyPane = (icon, title, text, button = '') => `<div class="empty-pane w-empty"><span class="w-tile">${gi(icon)}</span><h2>${esc(title)}</h2><p>${text}</p>${button}</div>`;
+  const sha = (oid, short) => `<span class="sha"><code>${esc(short)}</code><button data-copy="${esc(oid)}" title="Copy the full SHA" aria-label="Copy the SHA">${ic('copy')}</button></span>`;
+  // release notes / PR text: plain Markdown lines → paragraphs and bullet lists (no HTML from GitHub is trusted)
+  function notes(md) {
+    const out = []; let list = [];
+    const flush = () => { if (list.length) out.push(`<ul>${list.join('')}</ul>`); list = []; };
+    for (const raw of String(md ?? '').split(/\r?\n/)) {
+      const l = esc(raw.trim()).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
+      if (!l) { flush(); continue; }
+      if (/^[-*] /.test(raw.trim())) list.push(`<li>${l.slice(2)}</li>`); else { flush(); out.push(`<p>${l.replace(/^#+\s*/, '')}</p>`); }
+    }
+    flush();
+    return out.join('');
+  }
+  const get = () => { const k = tabKey(); return k ? { key: k[0], data: tabData[k[0]], err: tabErr[k[0]] } : {}; };
+
+  function viewOverview() {
+    const R = ov?.data?.repository;
+    if (!ov) return `<div class="pane"><div class="stats">${'<div class="stat"><div class="skel" style="width:50%"></div><div class="skel" style="width:30%;height:20px"></div></div>'.repeat(4)}</div></div>`;
+    const all = runs?.runs ?? [];
+    const running = all.filter((r) => ['run', 'queued'].includes(kind(r)));
+    const reviewN = ov.data.review?.issueCount ?? 0;
+    const active = (R?.refs?.nodes ?? []).filter((b) => b.target?.committedDate && Date.now() - Date.parse(b.target.committedDate) < 7 * 864e5).length;
+    const stat = (label, n, note, goto, warn) => `<button class="stat" data-goto="${goto}"><p class="w-label">${label}</p><b>${n ?? '–'}</b><small class="${warn ? 'warn' : ''}">${note}</small></button>`;
+    const big = ovRun?.run ? ovRun.run : null, jobs = ovRun?.jobs ?? [];
+    const liveCard = big ? `<div class="panel live" data-run="${big.id}"><div class="top">${mark(big)}<span class="${kind(big) === 'run' ? 'k-run-t' : ''}">${esc(big.workflow)} #${big.number} · ${esc(big.branch ?? '')}</span><small>${esc(dur(runSecs(big)))}</small></div>
+      <h3>${esc(big.title || big.workflow)}</h3>
+      ${jobs.length ? `<div class="jobs">${jobs.map((j, i) => `${i ? '<span class="wire" aria-hidden="true"></span>' : ''}<span class="job k-${kind(j)}">${mark(j)}<span class="nm">${esc(j.name)}</span><small>${esc(kind(j) === 'queued' ? '' : dur(j.startedAt ? secs(j.startedAt, j.completedAt) : null))}</small></span>`).join('')}</div>` : ''}</div>` : '';
+    const recent = all.slice(0, 3);
+    const mine = all.filter((r) => kind(r) === 'bad' && r.actor === me() && Date.now() - Date.parse(r.updatedAt) < 2 * 864e5).slice(0, 2);
+    const needs = [
+      ...(ov.data.review?.nodes ?? []).map((p) => `<button class="need" data-pr="${p.number}">${gi('pr')}<span class="txt"><b>Review #${p.number} ${esc(p.title)}</b><small>@${esc(who(p.author))} asked you · ${esc(ago(p.createdAt))}</small></span></button>`),
+      ...mine.map((r) => `<button class="need" data-run="${r.id}">${mark(r)}<span class="txt"><b>${esc(r.workflow)} failed</b><small>${esc(r.branch ?? '')} · your run · ${esc(ago(r.updatedAt))}</small></span></button>`),
+      ...(ov.data.assigned?.nodes ?? []).slice(0, 3).map((i) => `<button class="need" data-goto="issues">${gi('issue')}<span class="txt"><b>#${i.number} ${esc(i.title)}</b><small>assigned to you · ${esc(ago(i.updatedAt))}</small></span></button>`),
+    ];
+    const rel = R?.latestRelease;
+    return `<div class="pane">
+      <div class="stats">
+        ${stat('Running now', running.length, running[0] ? `${esc(running[0].workflow)} on ${esc(running[0].branch ?? '')} · ${esc(dur(runSecs(running[0])))}` : 'nothing running', 'actions', running.length)}
+        ${stat('Pull requests', R?.pullRequests?.totalCount, reviewN ? `${reviewN} wait${reviewN === 1 ? 's' : ''} for your review` : 'none waits for you', 'pulls', reviewN)}
+        ${stat('Branches', R?.refs?.totalCount, `${active} active this week`, 'branches')}
+        ${stat('Issues', R?.issues?.totalCount, `${R?.newIssues?.totalCount ?? 0} new this week`, 'issues')}
+      </div>
+      <div class="cols">
+        <div>${liveCard}
+          <div class="list${calm('ov-runs:' + repo)}" data-seen="ov-runs:${esc(repo)}"><p class="w-label">Recent runs<button data-goto="actions">See all</button></p>
+            ${recent.length ? recent.map((r, i) => `<button class="run" data-run="${r.id}" ${anim(i)}>${mark(r)}<span class="txt"><span class="t">${esc(r.title || r.workflow)}</span><span class="m">${esc(r.workflow)} #${r.number} · ${esc(r.branch ?? '')} · ${esc(r.sha ?? '')} · @${esc(r.actor ?? '')}</span></span><span class="when">${esc(dur(runSecs(r)))}<small>${esc(ago(r.updatedAt))}</small></span></button>`).join('') : '<div class="foot2">No workflow runs in this repo.</div>'}
+          </div></div>
+        <div>
+          <div class="list"><p class="w-label">Needs you · ${needs.length}</p>${needs.join('') || '<div class="foot2">Nothing waits for you here.</div>'}</div>
+          ${rel ? `<div class="list"><p class="w-label">Latest release</p><div class="relcard"><div class="h">${gi('tag')}<b>${esc(rel.tagName)}</b><span class="w-pill dot sans ok">Latest</span></div>
+            <small>${esc(shortDate(rel.createdAt))} · @${esc(who(rel.author))}${rel.releaseAssets?.nodes?.[0] ? ` · ${esc(rel.releaseAssets.nodes[0].name)} ${esc(size(rel.releaseAssets.nodes[0].size))}` : ''}</small></div></div>` : ''}
+        </div>
+      </div></div>`;
+  }
+
+  // a pull request's state as a pill: draft, merged, closed, or what the review says
+  function prPill(p) {
+    if (p.state === 'MERGED') return '<span class="w-pill dot sans accent">Merged</span>';
+    if (p.state === 'CLOSED') return '<span class="w-pill dot sans">Closed</span>';
+    if (p.isDraft) return '<span class="w-pill dot sans">Draft</span>';
+    if (p.reviewRequests?.nodes?.some((r) => r.requestedReviewer?.login === me())) return '<span class="w-pill dot sans warn">Review requested</span>';
+    if (p.reviewDecision === 'CHANGES_REQUESTED') return '<span class="w-pill dot sans bad">Changes requested</span>';
+    if (p.reviewDecision === 'APPROVED') return '<span class="w-pill dot sans ok">Approved</span>';
+    return '';
+  }
+  const prRow = (p, i) => `<button class="run" data-pr="${p.number}" ${anim(i)}><span class="ico">${GI[p.state === 'MERGED' ? 'merge' : 'pr']}</span>
+    <span class="txt"><span class="t">${esc(p.title)}</span><span class="m">#${p.number} · ${esc(p.headRefName)} → ${esc(p.baseRefName)} · @${esc(who(p.author))} · ${p.state === 'MERGED' ? `merged ${esc(ago(p.mergedAt))}${p.mergedBy ? ` by @${esc(who(p.mergedBy))}` : ''}` : p.state === 'CLOSED' ? `closed ${esc(ago(p.closedAt))}` : `${p.isDraft ? 'draft · ' : ''}opened ${esc(ago(p.createdAt))}`}</span></span>
+    <span class="side">${prPill(p)}${markR(rollOf(p))}<span class="cmt">${GI.comment}${p.comments?.totalCount ?? 0}</span><span class="diff"><span class="a">+${p.additions ?? 0}</span> <span class="d">−${p.deletions ?? 0}</span></span></span></button>`;
+
+  function viewPulls() {
+    const { key, data, err } = get();
+    if (!data) return err ? failed(err) : skeleton();
+    const R = data.data.repository, waiting = (p) => p.reviewRequests?.nodes?.some((r) => r.requestedReviewer?.login === me());
+    let list = R.list?.nodes ?? [];
+    const nWait = prState === 'open' ? list.filter(waiting).length : 0;
+    if (prMine && prState === 'open') list = list.filter(waiting);
+    const pill = (k, label, n) => `<button class="fpill" data-prstate="${k}" aria-pressed="${prState === k}">${label} <small>${n ?? 0}</small></button>`;
+    const bar = `<div class="bar2">${pill('open', 'Open', R.open?.totalCount)}${pill('merged', 'Merged', R.merged?.totalCount)}${pill('closed', 'Closed', R.closed?.totalCount)}
+      ${prState === 'open' ? `<div class="right"><button class="fpill" data-act="prmine" aria-pressed="${prMine}">Waiting for me <small>${nWait}</small></button></div>` : ''}</div>`;
+    if (!list.length && !(prState === 'open' && R.recent?.nodes?.length && !prMine)) {
+      const t = prState === 'open' ? (prMine ? 'Nothing waits for your review' : 'No open pull requests') : `No ${prState} pull requests`;
+      return `<div class="pane">${bar}</div>${emptyPane('pr', t, prState === 'open' && !prMine ? `When someone opens one in ${esc(repo)}, it shows up here with its checks and reviews.` : '', prState === 'open' && R.merged?.totalCount ? `<button class="btn btn-secondary" data-prstate="merged">See merged · ${R.merged.totalCount}</button>` : '')}`;
+    }
+    const label = prState === 'open' ? 'Open' : prState === 'merged' ? 'Merged' : 'Closed';
+    return `<div class="pane">${bar}
+      ${list.length ? `<div class="list${calm(key)}" data-seen="${esc(key)}"><p class="w-label">${label} · ${list.length}</p>${list.map(prRow).join('')}</div>` : `<div class="list"><div class="foot2">No open pull requests.</div></div>`}
+      ${prState === 'open' && !prMine && R.recent?.nodes?.length ? `<div class="list${calm(key + ':recent')}" data-seen="${esc(key)}:recent"><p class="w-label">Recently merged<button data-prstate="merged">See all ${R.merged?.totalCount ?? ''}</button></p>${R.recent.nodes.slice(0, 3).map(prRow).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  function viewPull() {
+    const back = `<button class="back" data-act="prback">${ic('arrowleft')}Pull requests</button>`;
+    const { data, err } = get();
+    if (!data) return `<div class="detail">${back}${err ? `<div class="banner bad" style="margin:0"><div class="banner-text">${esc(err)}</div></div>` : '<div class="panel" style="height:220px"><div class="skel-row"><div class="skel"></div><div class="skel"></div></div></div>'}</div>`;
+    const p = data.data.repository.pullRequest;
+    const state = p.merged ? '<span class="w-pill dot sans accent">Merged</span>' : p.state === 'CLOSED' ? '<span class="w-pill dot sans">Closed</span>' : p.isDraft ? '<span class="w-pill dot sans">Draft</span>' : '<span class="w-pill dot sans ok">Open</span>';
+    const conflicts = p.state === 'OPEN' ? (p.mergeable === 'CONFLICTING' ? '<span class="w-pill dot sans bad">Conflicts</span>' : p.mergeable === 'MERGEABLE' ? '<span class="w-pill dot sans ok">No conflicts</span>' : '') : '';
+    const checks = p.checks?.nodes?.[0]?.commit?.statusCheckRollup?.contexts?.nodes ?? [];
+    const passed = checks.filter((c) => kind(checkRun(c)) === 'ok').length;
+    const commits = p.commits?.nodes ?? [];
+    const reviewers = [
+      ...(p.reviewRequests?.nodes ?? []).map((r) => ({ login: r.requestedReviewer?.login ?? r.requestedReviewer?.name, state: 'REQUESTED' })),
+      ...(p.latestReviews?.nodes ?? []).map((r) => ({ login: who(r.author), state: r.state })),
+    ].filter((r) => r.login);
+    const revPill = (s) => ({ REQUESTED: '<span class="w-pill dot sans warn">Requested</span>', APPROVED: '<span class="w-pill dot sans ok">Approved</span>', CHANGES_REQUESTED: '<span class="w-pill dot sans bad">Changes</span>', COMMENTED: '<span class="w-pill dot sans">Commented</span>' })[s] ?? `<span class="w-pill dot sans">${esc(s.toLowerCase())}</span>`;
+    const files = p.files?.nodes ?? [];
+    const shown = files.slice(0, 6), rest = files.slice(6);
+    const restA = rest.reduce((a, f) => a + f.additions, 0), restD = rest.reduce((a, f) => a + f.deletions, 0);
+    const moreFiles = (p.files?.totalCount ?? files.length) - shown.length;
+    return `<div class="detail">${back}
+      <div class="d-head"><h2>${esc(p.title)} <span style="color:var(--text-faint);font-weight:400">#${p.number}</span></h2><button class="btn btn-secondary" data-act="openpr">${ic('external')}Open PR on GitHub</button></div>
+      <div class="pr-meta">${state}<code>${esc(p.headRefName)} → ${esc(p.baseRefName)}</code><span>@${esc(who(p.author))} ${p.merged ? 'merged' : 'wants to merge'} ${p.commits?.totalCount ?? commits.length} commit${(p.commits?.totalCount ?? 0) === 1 ? '' : 's'} · opened ${esc(ago(p.createdAt))}</span>${conflicts}</div>
+      <div class="cols">
+        <div>
+          ${p.bodyText?.trim() ? `<div class="panel"><div class="panel-head"><p class="w-label">Description</p></div><div class="body">${esc(p.bodyText.trim())}</div></div>` : ''}
+          <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Checks · ${checks.length ? `${passed} passed${checks.length - passed ? ` · ${checks.length - passed} not` : ''}` : 'none'}</p></div>
+            ${checks.map((c) => { const k = checkRun(c); const nm = c.__typename === 'StatusContext' ? c.context : `${c.checkSuite?.workflowRun?.workflow?.name ? c.checkSuite.workflowRun.workflow.name + ' / ' : ''}${c.name}`; return `<div class="row2 ${kind(k) === 'bad' ? 'k-bad' : ''}">${mark(k)}<span class="nm">${esc(nm)}</span><small>${esc(c.startedAt ? dur(secs(c.startedAt, c.completedAt)) : '')}</small></div>`; }).join('') || '<div class="foot2">This pull request has no checks.</div>'}</div>
+          <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Commits · ${p.commits?.totalCount ?? commits.length}</p><button class="prn" data-act="prcommits">See all</button></div>
+            ${commits.slice().reverse().slice(0, 6).map(({ commit: c }) => `<div class="row2">${markR(c.statusCheckRollup?.state)}<span class="nm">${esc(c.messageHeadline)}<span class="sub">@${esc(who(c.author))} · ${esc(ago(c.committedDate))}</span></span>${sha(c.oid, c.abbreviatedOid)}</div>`).join('')}</div>
+        </div>
+        <div>
+          <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Reviewers</p></div>
+            ${reviewers.map((r) => `<div class="row2">${avatar(r.login)}<span class="nm">@${esc(r.login)}${r.login === me() ? ' (you)' : ''}</span>${revPill(r.state)}</div>`).join('') || '<div class="foot2">No reviewers asked yet.</div>'}</div>
+          <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Changes · ${p.changedFiles ?? files.length} files</p></div>
+            ${shown.map((f) => `<div class="row2"><span class="nm file">${esc(f.path)}</span><span class="diff"><span class="a">+${f.additions}</span> <span class="d">−${f.deletions}</span></span></div>`).join('')}
+            ${moreFiles > 0 ? `<div class="foot2">+ ${moreFiles} more file${moreFiles === 1 ? '' : 's'} · <span style="color:var(--success-text)">+${p.additions}</span> <span style="color:var(--danger-text)">−${p.deletions}</span> in total</div>` : ''}</div>
+        </div>
+      </div></div>`;
+  }
+
+  function viewBranches() {
+    const { key, data, err } = get();
+    if (!data) return err ? failed(err) : skeleton();
+    const R = data.data.repository, def = R.defaultBranchRef?.name ?? data.base;
+    const all = (R.refs?.nodes ?? []).filter((b) => b.name !== def);
+    const stale = (b) => !b.target?.committedDate || Date.now() - Date.parse(b.target.committedDate) > 30 * 864e5;
+    const mine = (b) => who(b.target?.author) === me();
+    const pick = all.filter((b) => brFilter === 'all' || (brFilter === 'mine' ? mine(b) : stale(b)));
+    const w = (n) => (n ? Math.min(42, 4 + Math.log2(n + 1) * 8) : 0);
+    // compare(headRef: default) on a branch: aheadBy = commits the default branch has that this one doesn't
+    const ab = (b) => { const behind = b.compare?.aheadBy ?? 0, ahead = b.compare?.behindBy ?? 0; return `<span class="ab" title="${behind} behind ${esc(def)} · ${ahead} ahead"><small>${behind}</small><span class="l"><i style="width:${w(behind)}px"></i></span><span class="r"><i style="width:${w(ahead)}px"></i></span><small>${ahead}</small></span>`; };
+    const row = (b, i) => { const pr = b.associatedPullRequests?.nodes?.[0]?.number; return `<div class="run" data-branch="${esc(b.name)}" ${anim(i)} role="button" tabindex="0">${ic('branch')}<span class="txt"><span class="t" style="font-family:var(--mono);font-weight:500">${esc(b.name)}</span><span class="m">${esc(b.target?.messageHeadline ?? '')} · @${esc(who(b.target?.author))} · ${esc(ago(b.target?.committedDate))}</span></span>
+      <span class="side">${b.name === def ? '' : ab(b)}${pr ? `<button class="prn" data-pr="${pr}">#${pr}</button>` : ''}${stale(b) && b.name !== def ? '<span class="st k-off" aria-label="Stale">' + SLASH + '</span>' : markR(b.target?.statusCheckRollup?.state)}</span></div>`; };
+    const active = pick.filter((b) => !stale(b)), old = pick.filter(stale);
+    const pill = (k, label, n) => `<button class="fpill" data-brf="${k}" aria-pressed="${brFilter === k}">${label} <small>${n}</small></button>`;
+    const defRef = { name: def, target: R.defaultBranchRef?.target };
+    return `<div class="pane"><div class="bar2">${pill('all', 'All', all.length + 1)}${pill('mine', 'Mine', all.filter(mine).length)}${pill('stale', 'Stale', all.filter(stale).length)}<div class="right legend">behind ${esc(def)} | ahead of ${esc(def)}</div></div>
+      ${brFilter === 'all' ? `<div class="list${calm(key + ':d')}" data-seen="${esc(key)}:d"><p class="w-label">Default branch</p>${row(defRef, 0)}</div>` : ''}
+      ${active.length ? `<div class="list${calm(key + ':a' + brFilter)}" data-seen="${esc(key)}:a${brFilter}"><p class="w-label">Active · ${active.length}</p>${active.map(row).join('')}</div>` : ''}
+      ${old.length ? `<div class="list${calm(key + ':s' + brFilter)}" data-seen="${esc(key)}:s${brFilter}"><p class="w-label">Stale · no commits for 30 days · ${old.length}</p>${old.map(row).join('')}</div>` : ''}
+      ${!active.length && !old.length && brFilter !== 'all' ? `<div class="list"><div class="foot2">${brFilter === 'mine' ? 'No branches of yours here.' : 'No stale branches.'}</div></div>` : ''}
+    </div>`;
+  }
+
+  function viewCommits() {
+    const { key, data, err } = get();
+    const branchSel = (names) => `<label class="sel">${ic('branch')}<select id="cm-branch" aria-label="Branch">${names.map((n) => `<option${n === (cmBranch || defBranch()) ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>`;
+    if (!data) return err ? failed(err) : skeleton();
+    const R = data.data.repository, hist = R.ref?.target?.history;
+    const names = (R.refs?.nodes ?? []).map((b) => b.name);
+    if (!names.includes(cmBranch || defBranch())) names.unshift(cmBranch || defBranch());
+    const list = hist?.nodes ?? [];
+    const groups = [];
+    for (const c of list) { const d = day(c.committedDate); const g = groups.at(-1); if (g?.day === d) g.items.push(c); else groups.push({ day: d, items: [c] }); }
+    return `<div class="pane"><div class="bar2">${branchSel(names)}<div class="right legend">${hist?.totalCount ?? list.length} commits</div></div>
+      ${groups.map((g, gi2) => `<div class="list${calm(key + ':' + gi2)}" data-seen="${esc(key)}:${gi2}"><p class="w-label">${esc(g.day)}</p>${g.items.map((c, i) => `<div class="run" data-open="${esc(c.url)}" role="button" tabindex="0" ${anim(i)}>${markR(c.statusCheckRollup?.state)}<span class="txt"><span class="t">${esc(c.messageHeadline)}</span><span class="m">@${esc(who(c.author))} committed ${esc(ago(c.committedDate))}</span></span><span class="side">${sha(c.oid, c.abbreviatedOid)}</span></div>`).join('')}</div>`).join('') || '<div class="list"><div class="foot2">No commits on this branch.</div></div>'}
+    </div>`;
+  }
+
+  function viewIssues() {
+    const { key, data, err } = get();
+    if (!data) return err ? failed(err) : skeleton();
+    const R = data.data.repository;
+    let list = R.list?.nodes ?? [];
+    const labels = [...new Set(list.flatMap((i) => i.labels?.nodes?.map((l) => l.name) ?? []))].sort();
+    const assignedMe = (i) => i.assignees?.nodes?.some((a) => a.login === me());
+    const nMine = list.filter(assignedMe).length;
+    if (isMine) list = list.filter(assignedMe);
+    if (isLabel) list = list.filter((i) => i.labels?.nodes?.some((l) => l.name === isLabel));
+    const pill = (k, label, n) => `<button class="fpill" data-isstate="${k}" aria-pressed="${isState === k}">${label} <small>${n ?? 0}</small></button>`;
+    const bar = `<div class="bar2">${pill('open', 'Open', R.open?.totalCount)}${pill('closed', 'Closed', R.closed?.totalCount)}
+      <div class="right"><button class="fpill" data-act="ismine" aria-pressed="${isMine}">Assigned to me <small>${nMine}</small></button>
+      ${labels.length ? `<label class="sel">${gi('tag')}<select id="is-label" aria-label="Label"><option value="">label</option>${labels.map((l) => `<option${l === isLabel ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>` : ''}</div></div>`;
+    if (!(R.list?.nodes ?? []).length) return `<div class="pane">${bar}</div>${emptyPane('issue', isState === 'open' ? 'No open issues' : 'No closed issues', isState === 'open' ? `Issues opened in ${esc(repo)} show up here with their labels and who has them.` : '')}`;
+    const row = (i, n) => `<div class="run" data-open="${esc(i.url)}" role="button" tabindex="0" ${anim(n)}><span class="ico">${GI[isState === 'closed' ? 'issueDone' : 'issue']}</span><span class="txt"><span class="t">${esc(i.title)}</span><span class="m">#${i.number} · ${isState === 'closed' ? `closed ${esc(ago(i.closedAt))}` : `opened ${esc(ago(i.createdAt))}`} by @${esc(who(i.author))}</span></span>
+      <span class="side">${(i.labels?.nodes ?? []).slice(0, 3).map((l) => `<span class="lb"><i style="background:#${esc(l.color)}"></i>${esc(l.name)}</span>`).join('')}${(i.assignees?.nodes ?? []).slice(0, 1).map((a) => avatar(a.login)).join('') || '<span class="av sm round" style="visibility:hidden"></span>'}<span class="cmt">${GI.comment}${i.comments?.totalCount ?? 0}</span></span></div>`;
+    const total = isState === 'open' ? R.open?.totalCount : R.closed?.totalCount;
+    return `<div class="pane">${bar}
+      ${list.length ? `<div class="list${calm(key + isMine + isLabel)}" data-seen="${esc(key + isMine + isLabel)}">${list.map(row).join('')}</div>` : '<div class="list"><div class="foot2">No issue matches.</div></div>'}
+      ${(R.list?.nodes ?? []).length < (total ?? 0) ? `<p class="more">Showing the newest ${R.list.nodes.length} of ${total} · the rest are on GitHub</p>` : ''}
+    </div>`;
+  }
+
+  function viewReleases() {
+    const { key, data, err } = get();
+    if (!data) return err ? failed(err) : skeleton(3);
+    const list = data.data.repository.releases?.nodes ?? [];
+    if (!list.length) return emptyPane('tag', 'No releases yet', `When ${esc(repo)} publishes a release, its notes and files show up here.`);
+    return `<div class="pane${calm(key)}" data-seen="${esc(key)}">${list.map((r) => {
+      const pill = r.isDraft ? '<span class="w-pill dot sans">Draft</span>' : r.isPrerelease ? '<span class="w-pill dot sans warn">Pre-release</span>' : r.isLatest ? '<span class="w-pill dot sans ok">Latest</span>' : '';
+      const files = r.releaseAssets?.nodes ?? [];
+      return `<div class="panel rel"><div class="h">${gi('tag')}<b>${esc(r.tagName)}</b>${pill}<small>${esc(shortDate(r.createdAt))} · @${esc(who(r.author))}${r.tagCommit?.abbreviatedOid ? ` · ${esc(r.tagCommit.abbreviatedOid)}` : ''}</small></div>
+        ${r.description?.trim() ? `<div class="notes">${notes(r.description)}</div>` : ''}
+        <p class="w-label">Files · ${files.length + 1}</p>
+        ${files.map((f) => `<button class="asset" data-open="${esc(f.downloadUrl)}">${gi('file')}${esc(f.name)}<small>${esc(size(f.size))} · ${f.downloadCount} download${f.downloadCount === 1 ? '' : 's'}</small></button>`).join('')}
+        <button class="asset" data-open="https://github.com/${esc(repo)}/archive/refs/tags/${esc(encodeURIComponent(r.tagName))}.zip">${gi('file')}Source code (zip)</button>
+      </div>`; }).join('')}</div>`;
+  }
+
   // ---------- actions ----------
   function wire(c) {
     c.querySelectorAll('[data-act]').forEach((b) => (b.onclick = () => act(b.dataset.act, b)));
     c.querySelectorAll('[data-wf]').forEach((b) => (b.onclick = () => { wfPick = b.dataset.wf; paint(); }));
     c.querySelectorAll('[data-f]').forEach((b) => (b.onclick = () => { filter = b.dataset.f; paint(); }));
     const br = c.querySelector('#branch'); if (br) br.onchange = () => { branchPick = br.value; paint(); };
-    c.querySelectorAll('[data-run]').forEach((b) => (b.onclick = () => { setUrl({ repo, run: b.dataset.run }, true); detail = null; pickedJob = null; paint(); loadDetail(runId()).then(paint); }));
+    c.querySelectorAll('[data-run]').forEach((b) => (b.onclick = () => { setUrl({ repo, tab: 'actions', run: b.dataset.run }, true); detail = null; pickedJob = null; paint(); loadDetail(runId()).then(paint); }));
     c.querySelectorAll('[data-job]').forEach((b) => (b.onclick = () => { pickedJob = Number(b.dataset.job); loadDetail(runId()).then(paint); paint(); }));
+    // phase 2
+    c.querySelectorAll('[data-goto]').forEach((b) => (b.onclick = () => goTab(b.dataset.goto)));
+    c.querySelectorAll('[data-pr]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); goTab('pulls', { pr: b.dataset.pr }); }));
+    c.querySelectorAll('[data-prstate]').forEach((b) => (b.onclick = () => { prState = b.dataset.prstate; prMine = false; goTab('pulls'); }));
+    c.querySelectorAll('[data-brf]').forEach((b) => (b.onclick = () => { brFilter = b.dataset.brf; paint(); }));
+    c.querySelectorAll('[data-isstate]').forEach((b) => (b.onclick = () => { isState = b.dataset.isstate; isMine = false; isLabel = ''; goTab('issues'); }));
+    c.querySelectorAll('[data-open]').forEach((b) => { const go = () => open(b.dataset.open); b.onclick = go; b.onkeydown = (e) => { if (e.key === 'Enter') go(); }; });
+    c.querySelectorAll('[data-branch]').forEach((b) => { const go = () => { cmBranch = b.dataset.branch; goTab('commits'); }; b.onclick = go; b.onkeydown = (e) => { if (e.key === 'Enter') go(); }; });
+    c.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = async (e) => { e.stopPropagation(); (await ui.copy(b.dataset.copy)) ? ui.toast('SHA copied') : ui.toast('Couldn’t copy', { kind: 'error' }); }));
+    const cb = c.querySelector('#cm-branch'); if (cb) cb.onchange = () => { cmBranch = cb.value; goTab('commits'); };
+    const il = c.querySelector('#is-label'); if (il) il.onchange = () => { isLabel = il.value; paint(); };
   }
   async function act(a, el) {
     if (a === 'signin') {
@@ -538,7 +918,13 @@
     else if (a === 'cancel') { await post('/signin/cancel').catch(() => {}); refresh(); }
     else if (a === 'install') open(st.installUrl);
     else if (a === 'retry') { runsErr = ''; paint(); refresh(); }
-    else if (a === 'back') { setUrl({ repo }, true); detail = null; paint(); refresh(); }
+    else if (a === 'back') { setUrl({ repo, tab: 'actions' }, true); detail = null; paint(); refresh(); }
+    else if (a === 'retab') { const k = tabKey(); if (k) delete tabErr[k[0]]; paint(); loadTab().then(paint); }
+    else if (a === 'prback') goTab('pulls');
+    else if (a === 'prmine') { prMine = !prMine; paint(); }
+    else if (a === 'ismine') { isMine = !isMine; paint(); }
+    else if (a === 'openpr') open(tabData[`pull:${repo}:${prNo()}`]?.data?.repository?.pullRequest?.url);
+    else if (a === 'prcommits') { cmBranch = tabData[`pull:${repo}:${prNo()}`]?.data?.repository?.pullRequest?.headRefName ?? ''; goTab('commits'); }
     else if (a === 'openrun') open(detail?.run?.url);
     else if (a === 'copylog') {
       const l = logs.get(pickedJob);
@@ -548,7 +934,7 @@
   // the code countdown ticks every second without asking the server
   setInterval(() => { if (st?.state === 'signing_in' && st.signin?.expiresIn > 0) { st.signin.expiresIn--; const s = $('.wait small'); if (s) s.textContent = `expires in ${Math.floor(st.signin.expiresIn / 60)}:${String(st.signin.expiresIn % 60).padStart(2, '0')}`; } }, 1000);
   // the window tells us the run to open (tray notification)
-  addEventListener('message', (e) => { if (e.source === window.parent && e.data?.type === 'wridge:github-open' && e.data.repo) { repo = e.data.repo; runs = null; setUrl({ repo, run: e.data.run }, true); detail = null; paint(); refresh(); } });
+  addEventListener('message', (e) => { if (e.source === window.parent && e.data?.type === 'wridge:github-open' && e.data.repo) { repo = e.data.repo; runs = null; setUrl({ repo, tab: 'actions', run: e.data.run }, true); detail = null; paint(); refresh(); } });
 
   repo = params().get('repo') ?? '';
   paint();

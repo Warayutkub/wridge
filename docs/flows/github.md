@@ -38,7 +38,7 @@ entry: screen /github · route POST /api/github/signin · poller every 5 s
 
 ## Phases
 1. Sign-in + Actions: device flow, keyring, repo switcher, Actions list, run detail, failed log tail, toast + tray dot, Settings → GitHub. Then a build to try.
-2. Other tabs: Overview, Pull requests (+ detail), Branches, Commits, Issues, Releases; offline / expired screens.
+2. Other tabs: Overview, Pull requests (+ detail), Branches, Commits, Issues, Releases; offline / expired screens. **Built in 1.9.0.**
 3. AI tool `github` (read-only: status, runs, run, pulls, failing), All-repos view, pins, motion.
 
 ## Data per screen
@@ -48,8 +48,14 @@ entry: screen /github · route POST /api/github/signin · poller every 5 s
 | Actions list | `/repos/{o}/{r}/actions/runs?per_page=30` | 5 s while a run is going, else 60 s |
 | Run detail | `/actions/runs/{id}` + `/jobs` | 5 s while running |
 | Failed log | `/actions/jobs/{id}/logs` (after the job ends) | once |
-| Pull requests (phase 2) | `/pulls`, `/reviews`, `/files`, `/check-runs` | 60 s |
-| Branches, Commits, Issues, Releases (phase 2) | `/branches`, `/commits`, `/issues`, `/releases` | 1–10 min |
+| Overview (phase 2) | GraphQL `Overview` (counts, latest release, `review-requested:@me`, `assignee:@me`) + the Actions list | with the page loop |
+| Pull requests (phase 2) | GraphQL `Pulls` (open / merged / closed counts, the list, recently merged; review state and check rollup per PR) | with the page loop |
+| Pull request detail | GraphQL `Pull` (body, checks, commits, reviewers, files) | with the page loop |
+| Branches | GraphQL `Branches` (each branch's last commit, ahead/behind the default branch via `Ref.compare`, its open PR) | with the page loop |
+| Commits | GraphQL `Commits` (history of one branch, 40 newest; branch list for the picker) | with the page loop |
+| Issues, Releases | GraphQL `Issues` (50 newest, labels, assignees), `Releases` (15 newest, assets) | with the page loop |
+
+Phase 2 reads through GraphQL (`POST /graphql`): one query per tab instead of a REST call per PR or branch. The last answer of each query is kept, so offline the tab still shows what it saw. Endpoints: `/api/github/repo/{o}/{r}/overview`, `/pulls?state=open|merged|closed`, `/pulls/{n}`, `/branches?base=`, `/commits?branch=`, `/issues?state=open|closed`, `/releases`. The fake GitHub answers them by operation name (`tools/github/fake-graphql.mjs`).
 
 ## Tests
 A fake GitHub (axum on a random port): device flow, refresh, ETag/304, notifications; the window checked in the browser against it.

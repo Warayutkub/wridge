@@ -357,6 +357,13 @@ async fn github_route(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
                 ["runs"] => return Ok(ok(gh.runs(&repo).await)),
                 ["runs", n] if id(n).is_some() => return Ok(ok(gh.run(&repo, id(n).unwrap()).await)),
                 ["jobs", n, "log"] if id(n).is_some() => return Ok(ok(gh.log(&repo, id(n).unwrap()).await)),
+                ["overview"] => return Ok(ok(gh.overview(&repo).await)),
+                ["pulls"] => return Ok(ok(gh.pulls(&repo, &req.param("state").unwrap_or_default()).await)),
+                ["pulls", n] if id(n).is_some() => return Ok(ok(gh.pull(&repo, id(n).unwrap()).await)),
+                ["branches"] => return Ok(ok(gh.branches(&repo, &req.param("base").unwrap_or_default()).await)),
+                ["commits"] => return Ok(ok(gh.commits(&repo, &req.param("branch").unwrap_or_default()).await)),
+                ["issues"] => return Ok(ok(gh.issues(&repo, &req.param("state").unwrap_or_default()).await)),
+                ["releases"] => return Ok(ok(gh.releases(&repo).await)),
                 _ => {}
             }
         }

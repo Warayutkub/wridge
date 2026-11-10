@@ -161,6 +161,102 @@ fn form(pairs: &[(&str, &str)]) -> String {
     s.finish()
 }
 
+// ---------------------------------------------------------------- GraphQL (phase 2: PRs, branches, commits, issues, releases)
+// One query per tab: what REST needs dozens of calls for (review state, checks, ahead/behind) comes back in one.
+
+const PR_FIELDS: &str = "number title isDraft state createdAt mergedAt closedAt url author { login } mergedBy { login } headRefName baseRefName additions deletions comments { totalCount } reviewDecision reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } ... on Team { name } } } } commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }";
+
+const Q_OVERVIEW: &str = "query Overview($owner: String!, $name: String!, $since: DateTime!, $reviewQ: String!, $assignedQ: String!) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef { name }
+    pullRequests(states: OPEN) { totalCount }
+    refs(refPrefix: \"refs/heads/\", first: 100) { totalCount nodes { target { ... on Commit { committedDate } } } }
+    issues(states: OPEN) { totalCount }
+    newIssues: issues(states: OPEN, filterBy: { since: $since }) { totalCount }
+    latestRelease { name tagName createdAt url author { login } releaseAssets(first: 1) { nodes { name size } } }
+  }
+  review: search(query: $reviewQ, type: ISSUE, first: 5) { issueCount nodes { ... on PullRequest { number title createdAt author { login } } } }
+  assigned: search(query: $assignedQ, type: ISSUE, first: 5) { issueCount nodes { ... on Issue { number title updatedAt } } }
+}";
+
+const Q_PULL: &str = "query Pull($owner: String!, $name: String!, $n: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $n) {
+      number title state isDraft merged mergeable url createdAt author { login } headRefName baseRefName bodyText additions deletions changedFiles
+      commits(last: 20) { totalCount nodes { commit { oid abbreviatedOid messageHeadline committedDate url author { name user { login } } statusCheckRollup { state } } } }
+      checks: commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 40) { nodes {
+        __typename
+        ... on CheckRun { name status conclusion startedAt completedAt detailsUrl checkSuite { workflowRun { workflow { name } } } }
+        ... on StatusContext { context state targetUrl }
+      } } } } } }
+      reviewRequests(first: 10) { nodes { requestedReviewer { ... on User { login } ... on Team { name } } } }
+      latestReviews(first: 10) { nodes { author { login } state } }
+      files(first: 30) { totalCount nodes { path additions deletions } }
+    }
+  }
+}";
+
+const Q_BRANCHES: &str = "query Branches($owner: String!, $name: String!, $base: String!) {
+  repository(owner: $owner, name: $name) {
+    defaultBranchRef { name target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } } }
+    refs(refPrefix: \"refs/heads/\", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount nodes {
+      name
+      target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } }
+      compare(headRef: $base) { aheadBy behindBy }
+      associatedPullRequests(first: 1, states: OPEN) { nodes { number } }
+    } }
+  }
+}";
+
+const Q_COMMITS: &str = "query Commits($owner: String!, $name: String!, $ref: String!) {
+  repository(owner: $owner, name: $name) {
+    refs(refPrefix: \"refs/heads/\", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { nodes { name } }
+    ref(qualifiedName: $ref) { name target { ... on Commit { history(first: 40) { totalCount nodes {
+      oid abbreviatedOid messageHeadline committedDate url author { name user { login } } statusCheckRollup { state }
+    } } } } }
+  }
+}";
+
+const Q_ISSUES: &str = "query Issues($owner: String!, $name: String!, $states: [IssueState!]) {
+  repository(owner: $owner, name: $name) {
+    open: issues(states: OPEN) { totalCount }
+    closed: issues(states: CLOSED) { totalCount }
+    list: issues(states: $states, first: 50, orderBy: { field: CREATED_AT, direction: DESC }) { nodes {
+      number title createdAt closedAt url author { login } comments { totalCount }
+      labels(first: 6) { nodes { name color } } assignees(first: 3) { nodes { login } }
+    } }
+  }
+}";
+
+const Q_RELEASES: &str = "query Releases($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    releases(first: 15, orderBy: { field: CREATED_AT, direction: DESC }) { totalCount nodes {
+      name tagName isPrerelease isLatest isDraft createdAt url author { login } description tagCommit { abbreviatedOid }
+      releaseAssets(first: 10) { nodes { name size downloadCount downloadUrl } }
+    } }
+  }
+}";
+
+fn pulls_query() -> String {
+    format!("query Pulls($owner: String!, $name: String!, $states: [PullRequestState!]) {{
+  repository(owner: $owner, name: $name) {{
+    open: pullRequests(states: OPEN) {{ totalCount }}
+    merged: pullRequests(states: MERGED) {{ totalCount }}
+    closed: pullRequests(states: CLOSED) {{ totalCount }}
+    list: pullRequests(states: $states, first: 40, orderBy: {{ field: UPDATED_AT, direction: DESC }}) {{ nodes {{ {PR_FIELDS} }} }}
+    recent: pullRequests(states: MERGED, first: 5, orderBy: {{ field: UPDATED_AT, direction: DESC }}) {{ nodes {{ {PR_FIELDS} }} }}
+  }}
+}}")
+}
+
+fn owner_name(repo: &str) -> anyhow::Result<(String, String)> {
+    if !valid_repo(repo) {
+        bail!("not a repo: {repo}");
+    }
+    let (o, n) = repo.split_once('/').unwrap();
+    Ok((o.to_string(), n.to_string()))
+}
+
 /// "owner/name" with GitHub's characters only.
 pub fn valid_repo(r: &str) -> bool {
     let mut parts = r.split('/');
@@ -552,6 +648,112 @@ impl GitHub {
         }
         let text = res.text().await.unwrap_or_default();
         Ok(log_tail(&text))
+    }
+
+    // ---------------------------------------------------------------- phase 2: one GraphQL query per tab
+
+    /// A GraphQL query. Its last answer is kept, so a dropped connection still shows what was seen before.
+    async fn graphql(&self, key: &str, query: &str, vars: Value) -> anyhow::Result<Value> {
+        let url = format!("{}/graphql", self.cfg.api);
+        let ck = format!("graphql:{key}:{vars}");
+        let mut tried_refresh = false;
+        loop {
+            let token = self.token().await?;
+            let sent = self.http.post(&url).bearer_auth(&token).header("Accept", "application/vnd.github+json").header("Content-Type", "application/json").body(json!({"query": query, "variables": vars}).to_string()).send().await;
+            let res = match sent {
+                Ok(r) => r,
+                Err(e) => {
+                    let mut st = self.st.lock().unwrap();
+                    if st.offline.is_none() {
+                        st.offline = Some((e.to_string(), now()));
+                    }
+                    return st.cache.get(&ck).map(|(_, v)| v.clone()).ok_or_else(|| anyhow!("Can't reach GitHub"));
+                }
+            };
+            let status = res.status().as_u16();
+            let remaining = res.headers().get("x-ratelimit-remaining").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
+            {
+                let mut st = self.st.lock().unwrap();
+                st.offline = None;
+                if remaining.is_some() {
+                    st.rate_remaining = remaining;
+                }
+            }
+            if status == 401 && !tried_refresh {
+                tried_refresh = true;
+                let saved = self.st.lock().unwrap().saved.clone();
+                if let Some(s) = saved {
+                    self.refresh(&s).await?;
+                    continue;
+                }
+            }
+            let text = res.text().await.unwrap_or_default();
+            let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+            if !(200..300).contains(&status) {
+                bail!("GitHub: {}", v.get("message").and_then(Value::as_str).unwrap_or(&format!("HTTP {status}")));
+            }
+            let data = v.get("data").cloned().unwrap_or(Value::Null);
+            // partial answers (a field the app can't read) still show; only no data at all is an error
+            if data.is_null() || data.get("repository").map(Value::is_null).unwrap_or(false) {
+                let msg = v["errors"][0]["message"].as_str().unwrap_or("no answer");
+                bail!("GitHub: {msg}");
+            }
+            self.st.lock().unwrap().cache.insert(ck, (String::new(), data.clone()));
+            return Ok(data);
+        }
+    }
+
+    pub async fn overview(&self, repo: &str) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        self.remember(repo);
+        let since = (chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339();
+        let vars = json!({"owner": owner, "name": name, "since": since,
+            "reviewQ": format!("repo:{repo} is:pr is:open review-requested:@me"), "assignedQ": format!("repo:{repo} is:issue is:open assignee:@me")});
+        let d = self.graphql("overview", Q_OVERVIEW, vars).await?;
+        Ok(json!({"repo": repo, "data": d}))
+    }
+
+    pub async fn pulls(&self, repo: &str, state: &str) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        let states = match state { "merged" => json!(["MERGED"]), "closed" => json!(["CLOSED"]), _ => json!(["OPEN"]) };
+        let d = self.graphql("pulls", &pulls_query(), json!({"owner": owner, "name": name, "states": states})).await?;
+        Ok(json!({"repo": repo, "state": state, "data": d}))
+    }
+
+    pub async fn pull(&self, repo: &str, n: u64) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        let d = self.graphql("pull", Q_PULL, json!({"owner": owner, "name": name, "n": n})).await?;
+        if d["repository"]["pullRequest"].is_null() {
+            bail!("no pull request #{n} in {repo}");
+        }
+        Ok(json!({"repo": repo, "data": d}))
+    }
+
+    pub async fn branches(&self, repo: &str, base: &str) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        let base = if base.is_empty() || base.contains("..") { "main" } else { base };
+        let d = self.graphql("branches", Q_BRANCHES, json!({"owner": owner, "name": name, "base": base})).await?;
+        Ok(json!({"repo": repo, "base": base, "data": d}))
+    }
+
+    pub async fn commits(&self, repo: &str, branch: &str) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        let branch = if branch.is_empty() || branch.contains("..") { "main" } else { branch };
+        let d = self.graphql("commits", Q_COMMITS, json!({"owner": owner, "name": name, "ref": format!("refs/heads/{branch}")})).await?;
+        Ok(json!({"repo": repo, "branch": branch, "data": d}))
+    }
+
+    pub async fn issues(&self, repo: &str, state: &str) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        let states = if state == "closed" { json!(["CLOSED"]) } else { json!(["OPEN"]) };
+        let d = self.graphql("issues", Q_ISSUES, json!({"owner": owner, "name": name, "states": states})).await?;
+        Ok(json!({"repo": repo, "state": state, "data": d}))
+    }
+
+    pub async fn releases(&self, repo: &str) -> anyhow::Result<Value> {
+        let (owner, name) = owner_name(repo)?;
+        let d = self.graphql("releases", Q_RELEASES, json!({"owner": owner, "name": name})).await?;
+        Ok(json!({"repo": repo, "data": d}))
     }
 
     // ---------------------------------------------------------------- watching and notifying
