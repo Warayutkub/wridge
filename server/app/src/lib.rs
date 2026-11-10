@@ -17,6 +17,7 @@ pub mod graph;
 pub mod guards;
 pub mod http;
 pub mod jsjson;
+pub mod loadtest;
 pub mod mcp;
 pub mod paths;
 pub mod reports;

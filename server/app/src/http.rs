@@ -428,6 +428,10 @@ async fn dispatch(app: &Ctx, mut req: Req) -> anyhow::Result<Response> {
     if path == "/api/github" || path.starts_with("/api/github/") {
         return github_route(app, req).await;
     }
+    // is k6 installed (Settings → Load testing)
+    if get && path == "/api/loadtest/k6" {
+        return Ok(json_response(200, &crate::loadtest::check()));
+    }
     // Google Fonts a report asks for by name, kept on this computer after the first use (see fonts.rs)
     if get && path == "/api/fonts/css" {
         let family = req.param("family").unwrap_or_default();

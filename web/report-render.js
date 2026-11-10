@@ -111,6 +111,7 @@
   /* callout */
   .wr .co { border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 4px; background: var(--cbg); border: 1px solid var(--cbd); color: var(--ctx); font-size: calc(16px * var(--s, 1)); line-height: 1.55; }
   .wr .co b { font-size: calc(17px * var(--s, 1)); font-weight: 600; }
+  .wr .co span { white-space: pre-line; } /* a line break in the text stays a line */
   /* checklist */
   .wr .ck { display: flex; flex-direction: column; gap: 10px; }
   .wr .ck-i { display: flex; align-items: center; gap: 10px; font-size: calc(16px * var(--s, 1)); }

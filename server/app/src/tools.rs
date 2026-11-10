@@ -1842,6 +1842,23 @@ pub fn define_tools() -> Vec<Tool> {
     );
 
     d.custom(
+        "load_test",
+        "Load-test the project with k6 (the person installs it once; action check tells how). The script (tests/load/<flow>.js, written per get_skill(\"scale-traffic\")) takes the base URL from __ENV.BASE_URL. run starts it in the background and answers at once with a run id; status shows progress and, once k6 ends, the numbers and a report it wrote to wridge → Reports (add your findings to that report after). stop ends a run. Guarded: only local or staging targets, at most 2000 virtual users and 30 minutes — anything beyond needs confirmed: true after the person agreed. Before every run, tell the person the four limits from the skill.",
+        shape()
+            .f("projectDir", string().describe("Absolute path of the project"))
+            .f("action", enumeration(&["check", "run", "status", "stop"]).default(json!("run")))
+            .f("script", string().optional().describe("run: the k6 script, relative to the project, e.g. tests/load/booking.js"))
+            .f("target", string().optional().describe("run: base URL the script hits, e.g. http://localhost:3000 (passed as BASE_URL)"))
+            .f("run", string().optional().describe("status / stop: the run id (status without one: the latest run)"))
+            .f("confirmed", boolean().optional().describe("run: the person agreed to a non-local target or a run above the limits"))
+            .build(),
+        handler(|_ctx: Ctx, args: Value| async move {
+            let obj = args.as_object().cloned().unwrap_or_default();
+            Ok(text_result(crate::loadtest::tool(&obj).await?))
+        }),
+    );
+
+    d.custom(
         "project_memory",
         "What was agreed and where work stands, kept outside the chat so compaction or a new session loses nothing — for any project (app, game, book, study…), code or not. overview: open tasks, decision titles, brain tags — start here. find: matching decisions, working notes and brain notes (one line each). decide: a project-level decision the user agreed to → docs/decisions.md. note: a short agreement made while working on a task (.wara). handoff: create/update a task's state; close: true when finished. Brain = the project's knowledge as Markdown files in brain/ that the user reads too (Obsidian-style [[links]]: [[Note]], [[code:path#Name]], [[figma:12:34]], [[roblox:Path]], [[project:Note]]; a front-matter key with links is a named relation, e.g. boss_of: [[CH1]]). read: one whole note + its links and backlinks. write: name + content (mode create | append | replace; replace keeps the old text in the trash). trash: move a note to brain/.trash (restore with path). Only the project of this session; another project only when the user asks. Search before reading; write only what was decided or is hard to find again, not chat trivia. Never open docs/decisions.md or brain/ files whole — use find/read.",
         shape()

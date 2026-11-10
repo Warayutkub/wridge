@@ -428,7 +428,7 @@ const PROFILES = {
     // Listed here too: sessions on this profile fix code as well, and an unlisted tool loses to Grep.
     "code_graph",
   ],
-  code: [...DISCOVER, "code_graph", "code_graph_update", "code_graph_note", "create_lottie", "motion_read", "motion_animate", "motion_to_lottie", "motion_check", "motion_tokens", "motion_to_code", "code_design_sync", "project_knowledge", "project_memory", "tasks", "report", "component_usage", "get_design_context", "get_tokens", "export_assets", "get_component_map", "map_component", "get_prototype", "get_components", "get_variables", "get_styles", "scan_design_values"],
+  code: [...DISCOVER, "code_graph", "code_graph_update", "code_graph_note", "create_lottie", "motion_read", "motion_animate", "motion_to_lottie", "motion_check", "motion_tokens", "motion_to_code", "code_design_sync", "project_knowledge", "project_memory", "tasks", "report", "load_test", "component_usage", "get_design_context", "get_tokens", "export_assets", "get_component_map", "map_component", "get_prototype", "get_components", "get_variables", "get_styles", "scan_design_values"],
   // FigJam boards: system design with the code and data graphs at hand.
   figjam: ["get_document_info", "use_file", "figjam_diagram", "board_map", "create_sticky", "create_shape", "create_connector", "create_text", "create_section", "move_resize", "set_text", "delete_node", "code_graph", "project_memory"],
   prototype: [...DISCOVER, "check_flows", "get_prototype", "add_interaction", "remove_interactions", "set_flow_start", "set_scroll", "select_nodes", "project_memory", "code_graph"],
@@ -482,7 +482,7 @@ async function runTool(t, args, source) {
 
 function createMcpServer(profile) {
   const tools = profileTools(profile);
-  const server = new McpServer({ name: "wridge", version: "1.9.1" }, { instructions: instructions(tools, profile) });
+  const server = new McpServer({ name: "wridge", version: "1.10.0" }, { instructions: instructions(tools, profile) });
   for (const t of tools) {
     server.registerTool(t.name, { description: t.description, inputSchema: t.inputSchema }, (args) =>
       runTool(t, args, "MCP"),
@@ -1033,7 +1033,7 @@ const http = createServer(async (req, res) => {
         refreshFileName();
         if (state.today.day !== new Date().toDateString()) state.today = newDay();
         return json(res, 200, {
-          version: "1.9.1",
+          version: "1.10.0",
           fileName: state.fileName,
           openFiles: openFiles(),
           today: state.today,

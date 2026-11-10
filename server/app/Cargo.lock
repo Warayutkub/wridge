@@ -2566,12 +2566,13 @@ dependencies = [
 
 [[package]]
 name = "wridge-server"
-version = "1.9.1"
+version = "1.10.0"
 dependencies = [
  "anyhow",
  "axum",
  "base64 0.22.1",
  "chrono",
+ "flate2",
  "futures",
  "indexmap",
  "keyring",

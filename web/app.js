@@ -592,6 +592,7 @@
       ${sec('AI', logoTile('logo-claude', 22), 'Connect an AI', 'Claude Code and other MCP clients talk to wridge over Streamable HTTP.',
         `${claudeCard()}<p>Or by hand — Claude Code</p>${copyf(`claude mcp add --transport http --scope user wridge ${S?.mcpUrl ?? `${API}/mcp`}`)}<p>Any MCP client</p>${copyf(S?.mcpUrl ?? `${API}/mcp`)}`)}
       ${sec('GitHub', `<span class="tile lg">${ic('github')}</span>`, 'GitHub', 'Read-only. wridge sees only the repos you picked on GitHub.', '<div id="gh-set" class="gh-set"><p>Loading…</p></div>')}
+      ${sec('Load testing', `<span class="tile lg">${ic('activity')}</span>`, 'Load testing', 'The load_test tool runs k6 on your computer. k6 isn’t shipped with wridge — install it once.', '<div id="k6-set"><p>Loading…</p></div>')}
       ${sec('Startup', `<span class="tile lg">${ic('startup')}</span>`, 'Startup', 'wridge lives in the tray. Closing the window keeps the server running.',
         `<div class="tgl-row"><div class="grow"><b>Start with Windows</b><small>Opens quietly in the tray when you sign in.</small></div><button class="tgl" role="switch" id="autostart" aria-checked="false" aria-label="Start with Windows"${T ? '' : ' disabled'}></button></div>
          <div class="tgl-row"><div class="grow"><b>Start the server when wridge opens</b><small>Turn off to start it by hand.</small></div><button class="tgl" role="switch" aria-checked="${prefs.autoStartServer}" aria-label="Start the server when wridge opens" data-act="auto-server"${T ? '' : ' disabled'}></button></div>`)}
@@ -606,6 +607,7 @@
     renderLogs();
     refreshClaude();
     paintGitHubSettings();
+    paintK6Settings(copyf);
     const auto = $('#autostart', v);
     if (T) {
       invoke('plugin:autostart|is_enabled').then((on) => auto.setAttribute('aria-checked', String(on))).catch(() => { auto.disabled = true; });
@@ -615,6 +617,24 @@
         catch (err) { toast(`Couldn’t change it — ${err}`, { kind: 'error' }); }
       };
     }
+  }
+
+  // Settings → Load testing: is k6 installed, and how to get it
+  async function paintK6Settings(copyf) {
+    const box = $('#k6-set');
+    if (!box) return;
+    if (!serverUp()) { box.innerHTML = '<p>Start the server to check for k6.</p>'; return; }
+    let k;
+    try { k = await api('/api/loadtest/k6'); } catch { box.innerHTML = '<p>Load tests need the Rust engine (Settings → Server).</p>'; return; }
+    if (!$('#k6-set')) return;
+    box.innerHTML = k.found
+      ? `<div class="row"><span class="pill" data-s="connected">installed</span><span class="mono" style="font-size:12px;color:var(--text-muted)">${esc(k.version || 'k6')}</span></div>${copyf(k.path)}
+         <p class="mono" style="font-size:11px;color:var(--text-faint);margin:0">Ask your AI for a load test — it writes the script, runs it against your local or staging server, and puts the result in Reports.</p>`
+      : `<div class="row"><span class="pill" data-s="off">not installed</span></div><p>Install it with one command in a terminal, then check again:</p>${copyf(k.install)}
+         <p>Other ways to install</p>${copyf(k.docs)}
+         <div class="row"><button class="btn btn-secondary" data-k6="again">${ic('restart')}Check again</button></div>`;
+    bindActions(box);
+    box.querySelector('[data-k6="again"]')?.addEventListener('click', () => paintK6Settings(copyf));
   }
 
   // Settings → GitHub: who is signed in, and which Windows notifications to show (docs/flows/github.md)

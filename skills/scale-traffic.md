@@ -40,7 +40,7 @@ area: code
 - Real-time updates at scale (queue position, live seat map): `realtime`.
 
 ## 6. Load testing with k6 — traffic as scenarios
-Scripts in `tests/load/<flow>.js`; run with `k6 run --summary-export=tests/load/out/<flow>.json tests/load/<flow>.js`. Not installed → tell the user `winget install k6` (Windows) and wait.
+Scripts in `tests/load/<flow>.js`, taking the server address from `__ENV.BASE_URL` (never hard-code it). Run them with the **`load_test`** tool: `action: "check"` (is k6 installed? if not, tell the user `winget install k6` and wait), then `action: "run"` with `script` and `target` — it refuses non-local/non-staging targets and runs above 2,000 virtual users or 30 minutes unless the user agreed (`confirmed: true`), starts k6 in the background and answers with a run id; `action: "status"` shows progress, and when k6 ends it returns the numbers and writes the report (§7) itself. Results and raw files go to `tests/load/out/` (kept out of git). Without wridge: `k6 run -e BASE_URL=… tests/load/<flow>.js`.
 
 | Scenario | k6 executor | Use for |
 |---|---|---|
@@ -60,7 +60,7 @@ Make it look like people: a mix of flows (e.g. 70% browse, 20% log in, 10% book)
 Then ask for the go-ahead to run, and stay within the agreed number of users and duration.
 
 ## 7. Report the result
-Write it as a report (`report` tool; load `reports-tasks` for the blocks): stats (max req/s before thresholds broke, p95, error rate, users simulated), a line chart of latency (p95) against users or time with a mark where it started to fail, a table per endpoint (p95, errors), a callout with the bottleneck and the fix, and a closing callout with the four limits above — so nobody reads "passed at 2,000 users" as a promise about real people.
+`load_test` writes the report (wridge → Reports): stats (peak req/s, p95, errors, users), charts of p95 and load over time with a mark where it started to slow or fail, a table per request, and a closing callout with the four limits above — so nobody reads "passed at 2,000 users" as a promise about real people. Then **add what you found**: read it (`report` `get`), add a callout with the bottleneck and the fix (and before → after if you changed something and ran again), write it back with `mode: "replace"`. Tell the user the result in plain words, with the limits.
 
 ## 8. Before handing over
 State the capacity numbers and assumptions, what was changed for scale (and why that step of §2), what protects the rush (waiting room, atomic stock, rate limits), the test scenarios with results and their limits, and what to watch on the day.
