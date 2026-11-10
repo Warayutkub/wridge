@@ -514,6 +514,8 @@
         } else {
           // line / area
           let base = Array(n).fill(0);
+          // value labels already placed at each x: a second series' label moves below its point instead of on top
+          const placed = {};
           ss.forEach((s, si) => {
             const pts = s.values.map((val, i) => (val == null ? null : [xAt(i), y(stacked ? base[i] + val : val)]));
             const d = pts.map((p, i) => (p ? `${i && pts[i - 1] ? "L" : "M"}${p[0].toFixed(1)} ${p[1].toFixed(1)}` : "")).join(" ");
@@ -529,7 +531,14 @@
               if (!p) return;
               if (kind === "line" && b.points !== false) g += `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === last ? 5 : 3.5}" fill="${i === last ? s.color : T("card")}" stroke="${s.color}" stroke-width="2"/>`;
               const want = (!stacked || si === ss.length - 1 || show === "all") && (show === "all" || (show === "last" && i === last) || (show === "max" && s.values[i] === mx));
-              if (want) g += label(p[0] + (i === last && show !== "all" ? -2 : 0), p[1] - 10, stacked ? base[i] + s.values[i] : s.values[i], s.color);
+              if (want) {
+                let ly = p[1] - 10;
+                const near = (placed[i] ??= []);
+                if (near.some((o) => Math.abs(o - ly) < fs * 1.3)) ly = p[1] + fs + 8;
+                if (near.some((o) => Math.abs(o - ly) < fs * 1.3)) ly = Math.max(...near) + fs * 1.3;
+                near.push(ly);
+                g += label(p[0] + (i === last && show !== "all" ? -2 : 0), ly, stacked ? base[i] + s.values[i] : s.values[i], s.color);
+              }
             });
             if (stacked) base = base.map((v0, i) => v0 + (s.values[i] ?? 0));
           });

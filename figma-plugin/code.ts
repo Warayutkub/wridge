@@ -1,7 +1,7 @@
 // Light-only window matching the "Plugin/Window" frame in the wara-bridge Figma file.
 figma.showUI(__html__, { width: 300, height: 236, themeColors: false });
 // The version goes up with wridge; fileKey (private plugin API) lets the wridge window remember a file across renames.
-const PLUGIN_VERSION = '1.8.0';
+const PLUGIN_VERSION = '1.8.1';
 figma.ui.postMessage({ type: 'hello', fileName: figma.root.name, editorType: figma.editorType, fileKey: figma.fileKey ?? null, version: PLUGIN_VERSION });
 
 type Command = { id: string; command: string; params: Record<string, unknown> };
@@ -634,7 +634,16 @@ function applyOp(net: Net, op: P) {
 async function saveNet(node: VectorNode, net: Net) {
   for (const s of net.segments) { if (!s.tangentStart) delete s.tangentStart; if (!s.tangentEnd) delete s.tangentEnd; }
   for (const r of net.regions) if (!r.fills) delete r.fills;
-  await node.setVectorNetworkAsync(net as unknown as VectorNetwork);
+  // Figma checks the new network with its servers; on a shaky connection that times out now and then — try again
+  for (let i = 0; ; i++) {
+    try {
+      await node.setVectorNetworkAsync(net as unknown as VectorNetwork);
+      return;
+    } catch (e) {
+      if (i >= 2 || !/Unable to establish connection/i.test(String(e))) throw e;
+      await new Promise((ok) => setTimeout(ok, 1500));
+    }
+  }
 }
 
 function bend(net: Net, p: P) {

@@ -35,6 +35,8 @@
   .rp-canvas { flex: 1; min-height: 0; overflow: auto; padding: 28px; }
   .rp-paper { margin: 0 auto; background: #fff; border-radius: 4px; box-shadow: 0 1px 2px rgba(17,17,17,.06), 0 12px 32px rgba(17,17,17,.08); overflow: hidden; transition: opacity .2s var(--ease); }
   .rp-paper.loading { opacity: .4; }
+  /* back to full at once: a fade-in stalls while the page draws no frames (headless export, a window in the tray) */
+  .rp-paper:not(.loading) { transition: none; }
   .rp-scale { transform-origin: 0 0; }
   .rp-zoom { position: absolute; right: 24px; bottom: 24px; display: flex; align-items: center; gap: 1px; padding: 3px; }
   .rp-zoom button { height: 26px; min-width: 28px; padding: 0 8px; border: 0; border-radius: 6px; background: none; color: var(--text-2); font-size: 13px; cursor: pointer; }
@@ -72,7 +74,7 @@
 </head>
 <body>
 <header class="w-toolbar rp-top">
-  <div class="topbar-left"><div class="w-titles"><p class="w-label">Design · Reports</p><h1>Reports</h1></div></div>
+  <div class="topbar-left"><div class="w-titles"><p class="w-label">Project · Reports</p><h1>Reports</h1></div></div>
   <label class="w-search"><span class="w-icon" data-wicon="search"></span><input id="q" type="search" placeholder="Find a report…" aria-label="Find a report" autocomplete="off"><span class="w-kbd">Ctrl K</span></label>
   <span class="spacer"></span>
   <button class="btn btn-secondary" id="copy" hidden><span class="w-icon" data-wicon="copy"></span>Copy image</button>
