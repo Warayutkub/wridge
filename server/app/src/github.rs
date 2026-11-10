@@ -170,7 +170,7 @@ const Q_OVERVIEW: &str = "query Overview($owner: String!, $name: String!, $since
   repository(owner: $owner, name: $name) {
     defaultBranchRef { name }
     pullRequests(states: OPEN) { totalCount }
-    refs(refPrefix: \"refs/heads/\", first: 100) { totalCount nodes { target { ... on Commit { committedDate } } } }
+    refs(refPrefix: \"refs/heads/\", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount nodes { target { ... on Commit { committedDate } } } }
     issues(states: OPEN) { totalCount }
     newIssues: issues(states: OPEN, filterBy: { since: $since }) { totalCount }
     latestRelease { name tagName createdAt url author { login } releaseAssets(first: 1) { nodes { name size } } }
@@ -199,7 +199,7 @@ const Q_PULL: &str = "query Pull($owner: String!, $name: String!, $n: Int!) {
 const Q_BRANCHES: &str = "query Branches($owner: String!, $name: String!, $base: String!) {
   repository(owner: $owner, name: $name) {
     defaultBranchRef { name target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } } }
-    refs(refPrefix: \"refs/heads/\", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount nodes {
+    refs(refPrefix: \"refs/heads/\", first: 50, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount nodes {
       name
       target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } }
       compare(headRef: $base) { aheadBy behindBy }

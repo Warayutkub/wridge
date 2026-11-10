@@ -225,7 +225,9 @@
   .relcard small { font: 11px var(--mono); color: var(--text-muted); }
   .pr-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: -6px; font: 11.5px var(--mono); color: var(--text-muted); }
   .pr-meta code { font: 500 12px var(--mono); color: var(--text); }
-  .body { padding: 10px 14px 14px; font-size: 13px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; }
+  .body { padding: 10px 14px 14px; font-size: 13px; line-height: 1.6; color: var(--text-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .body.clip { max-height: 190px; overflow: hidden; -webkit-mask-image: linear-gradient(#000 65%, transparent); mask-image: linear-gradient(#000 65%, transparent); }
+  .body-more { margin: -4px 14px 12px; }
   .row2 { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--surface-2); font-size: 13px; }
   .row2 .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .row2 small { font: 11px var(--mono); color: var(--text-2); }
@@ -296,6 +298,7 @@
   let ov = null, ovRun = null;   // overview of the repo; the run it shows big (with its jobs)
   const tabData = {}, tabErr = {};
   const seen = new Set();        // lists that slid in once already
+  let prBodyOpen = 0; // the PR whose long description is shown in full
   let prState = 'open', prMine = false, brFilter = 'all', cmBranch = '', isState = 'open', isMine = false, isLabel = '';
 
   async function api(path, opts = {}) {
@@ -779,6 +782,8 @@
     ].filter((r) => r.login);
     const revPill = (s) => ({ REQUESTED: '<span class="w-pill dot sans warn">Requested</span>', APPROVED: '<span class="w-pill dot sans ok">Approved</span>', CHANGES_REQUESTED: '<span class="w-pill dot sans bad">Changes</span>', COMMENTED: '<span class="w-pill dot sans">Commented</span>' })[s] ?? `<span class="w-pill dot sans">${esc(s.toLowerCase())}</span>`;
     const files = p.files?.nodes ?? [];
+    // long descriptions fold (blank-line runs squeezed first), so checks and commits stay in view
+    const body = (p.bodyText ?? '').replace(/\n{3,}/g, '\n\n').trim(), long = body.length > 420 || body.split('\n').length > 9;
     const shown = files.slice(0, 6), rest = files.slice(6);
     const restA = rest.reduce((a, f) => a + f.additions, 0), restD = rest.reduce((a, f) => a + f.deletions, 0);
     const moreFiles = (p.files?.totalCount ?? files.length) - shown.length;
@@ -787,7 +792,7 @@
       <div class="pr-meta">${state}<code>${esc(p.headRefName)} → ${esc(p.baseRefName)}</code><span>@${esc(who(p.author))} ${p.merged ? 'merged' : 'wants to merge'} ${p.commits?.totalCount ?? commits.length} commit${(p.commits?.totalCount ?? 0) === 1 ? '' : 's'} · opened ${esc(ago(p.createdAt))}</span>${conflicts}</div>
       <div class="cols">
         <div>
-          ${p.bodyText?.trim() ? `<div class="panel"><div class="panel-head"><p class="w-label">Description</p></div><div class="body">${esc(p.bodyText.trim())}</div></div>` : ''}
+          ${body ? `<div class="panel"><div class="panel-head"><p class="w-label">Description</p></div><div class="body${long && prBodyOpen !== p.number ? ' clip' : ''}">${esc(body)}</div>${long ? `<button class="prn body-more" data-act="prbody">${prBodyOpen === p.number ? 'Show less' : 'Show all'}</button>` : ''}</div>` : ''}
           <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Checks · ${checks.length ? `${passed} passed${checks.length - passed ? ` · ${checks.length - passed} not` : ''}` : 'none'}</p></div>
             ${checks.map((c) => { const k = checkRun(c); const nm = c.__typename === 'StatusContext' ? c.context : `${c.checkSuite?.workflowRun?.workflow?.name ? c.checkSuite.workflowRun.workflow.name + ' / ' : ''}${c.name}`; return `<div class="row2 ${kind(k) === 'bad' ? 'k-bad' : ''}">${mark(k)}<span class="nm">${esc(nm)}</span><small>${esc(c.startedAt ? dur(secs(c.startedAt, c.completedAt)) : '')}</small></div>`; }).join('') || '<div class="foot2">This pull request has no checks.</div>'}</div>
           <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Commits · ${p.commits?.totalCount ?? commits.length}</p><button class="prn" data-act="prcommits">See all</button></div>
@@ -797,7 +802,7 @@
           <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Reviewers</p></div>
             ${reviewers.map((r) => `<div class="row2">${avatar(r.login)}<span class="nm">@${esc(r.login)}${r.login === me() ? ' (you)' : ''}</span>${revPill(r.state)}</div>`).join('') || '<div class="foot2">No reviewers asked yet.</div>'}</div>
           <div class="panel"><div class="panel-head" style="padding-bottom:10px"><p class="w-label">Changes · ${p.changedFiles ?? files.length} files</p></div>
-            ${shown.map((f) => `<div class="row2"><span class="nm file">${esc(f.path)}</span><span class="diff"><span class="a">+${f.additions}</span> <span class="d">−${f.deletions}</span></span></div>`).join('')}
+            ${shown.map((f) => `<div class="row2"><span class="nm file" title="${esc(f.path)}">${esc(f.path)}</span><span class="diff"><span class="a">+${f.additions}</span> <span class="d">−${f.deletions}</span></span></div>`).join('')}
             ${moreFiles > 0 ? `<div class="foot2">+ ${moreFiles} more file${moreFiles === 1 ? '' : 's'} · <span style="color:var(--success-text)">+${p.additions}</span> <span style="color:var(--danger-text)">−${p.deletions}</span> in total</div>` : ''}</div>
         </div>
       </div></div>`;
@@ -819,11 +824,13 @@
     const active = pick.filter((b) => !stale(b)), old = pick.filter(stale);
     const pill = (k, label, n) => `<button class="fpill" data-brf="${k}" aria-pressed="${brFilter === k}">${label} <small>${n}</small></button>`;
     const defRef = { name: def, target: R.defaultBranchRef?.target };
-    return `<div class="pane"><div class="bar2">${pill('all', 'All', all.length + 1)}${pill('mine', 'Mine', all.filter(mine).length)}${pill('stale', 'Stale', all.filter(stale).length)}<div class="right legend">behind ${esc(def)} | ahead of ${esc(def)}</div></div>
+    const total = R.refs?.totalCount ?? all.length + 1, cut = total > (R.refs?.nodes?.length ?? 0);
+    return `<div class="pane"><div class="bar2">${pill('all', 'All', total)}${pill('mine', 'Mine', all.filter(mine).length)}${pill('stale', 'Stale', all.filter(stale).length)}<div class="right legend">behind ${esc(def)} | ahead of ${esc(def)}</div></div>
       ${brFilter === 'all' ? `<div class="list${calm(key + ':d')}" data-seen="${esc(key)}:d"><p class="w-label">Default branch</p>${row(defRef, 0)}</div>` : ''}
       ${active.length ? `<div class="list${calm(key + ':a' + brFilter)}" data-seen="${esc(key)}:a${brFilter}"><p class="w-label">Active · ${active.length}</p>${active.map(row).join('')}</div>` : ''}
       ${old.length ? `<div class="list${calm(key + ':s' + brFilter)}" data-seen="${esc(key)}:s${brFilter}"><p class="w-label">Stale · no commits for 30 days · ${old.length}</p>${old.map(row).join('')}</div>` : ''}
       ${!active.length && !old.length && brFilter !== 'all' ? `<div class="list"><div class="foot2">${brFilter === 'mine' ? 'No branches of yours here.' : 'No stale branches.'}</div></div>` : ''}
+      ${cut ? `<p class="more">Showing the ${R.refs.nodes.length} branches with the newest commits of ${total} · the rest are on GitHub</p>` : ''}
     </div>`;
   }
 
@@ -921,6 +928,7 @@
     else if (a === 'back') { setUrl({ repo, tab: 'actions' }, true); detail = null; paint(); refresh(); }
     else if (a === 'retab') { const k = tabKey(); if (k) delete tabErr[k[0]]; paint(); loadTab().then(paint); }
     else if (a === 'prback') goTab('pulls');
+    else if (a === 'prbody') { prBodyOpen = prBodyOpen === prNo() ? 0 : prNo(); paint(); }
     else if (a === 'prmine') { prMine = !prMine; paint(); }
     else if (a === 'ismine') { isMine = !isMine; paint(); }
     else if (a === 'openpr') open(tabData[`pull:${repo}:${prNo()}`]?.data?.repository?.pullRequest?.url);

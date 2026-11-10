@@ -42,7 +42,7 @@ const pr = (n) => {
   const failing = base.commits.nodes[0].commit.statusCheckRollup?.state === "FAILURE";
   return {
     ...url(base), merged: base.state === "MERGED", mergeable: base.state === "OPEN" ? (n === 13 ? "CONFLICTING" : "MERGEABLE") : "UNKNOWN",
-    bodyText: n === 14 ? "Shows open pull requests with their checks and reviews, and a detail page per PR.\nReads everything with one GraphQL query; no new permissions." : "Short description of the change.",
+    bodyText: n === 14 ? "Shows open pull requests with their checks and reviews, and a detail page per PR.\nReads everything with one GraphQL query; no new permissions." : n === 13 ? ["A long description, like real ones:", "", "", "", ...Array.from({ length: 16 }, (_, i) => `- point ${i + 1}: the sunset scene, the clouds, the mist and so on`)].join("\n") : "Short description of the change.",
     changedFiles: 12,
     commits: { totalCount: 5, nodes: [commit("Read PRs with GraphQL", 180, base.author.login, "SUCCESS", "6a0c2d1"), commit("Rows for pull requests", 110, base.author.login, failing ? "FAILURE" : "SUCCESS", "91bd4f0")].map((c) => ({ commit: c })) },
     checks: { nodes: [{ commit: { statusCheckRollup: { state: failing ? "FAILURE" : "SUCCESS", contexts: { nodes: [run("lint", "CI", "SUCCESS", 31), run("test", "CI", failing ? "FAILURE" : "SUCCESS", 100), { __typename: "StatusContext", context: "Deploy preview", state: "SUCCESS", targetUrl: "https://example.com" }] } } } }] },
