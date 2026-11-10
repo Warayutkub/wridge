@@ -30,25 +30,27 @@
   }, { threshold: 0.4 });
   $$(".pop").forEach((el) => io.observe(el));
 
-  // ---- Memory: the list switches the screenshot
-  const stageImg = $("#map-stage img");
-  $$(".map").forEach((btn) => btn.addEventListener("click", () => {
-    if (btn.getAttribute("aria-selected") === "true") return;
-    $$(".map").forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
-    const src = `assets/img/${btn.dataset.shot}.webp`;
-    const next = new Image(); next.src = src;
-    stageImg.classList.add("swap");
-    const show = () => { stageImg.src = src; stageImg.alt = btn.dataset.alt; requestAnimationFrame(() => stageImg.classList.remove("swap")); };
-    (next.decode ? next.decode().catch(() => {}) : Promise.resolve()).then(() => setTimeout(show, still.matches ? 0 : 160));
-  }));
-  // arrow keys move between the three
-  $(".map-list").addEventListener("keydown", (e) => {
-    if (!["ArrowDown", "ArrowUp"].includes(e.key)) return;
-    const list = $$(".map"), i = list.indexOf(document.activeElement);
-    if (i < 0) return;
-    e.preventDefault();
-    const n = list[(i + (e.key === "ArrowDown" ? 1 : list.length - 1)) % list.length];
-    n.focus(); n.click();
+  // ---- Memory and Plan: each list switches its own screenshot
+  $$(".maps").forEach((box) => {
+    const stageImg = box.querySelector(".map-stage img"), maps = [...box.querySelectorAll(".map")];
+    maps.forEach((btn) => btn.addEventListener("click", () => {
+      if (btn.getAttribute("aria-selected") === "true") return;
+      maps.forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
+      const src = `assets/img/${btn.dataset.shot}.webp`;
+      const next = new Image(); next.src = src;
+      stageImg.classList.add("swap");
+      const show = () => { stageImg.src = src; stageImg.alt = btn.dataset.alt; requestAnimationFrame(() => stageImg.classList.remove("swap")); };
+      (next.decode ? next.decode().catch(() => {}) : Promise.resolve()).then(() => setTimeout(show, still.matches ? 0 : 160));
+    }));
+    // arrow keys move along the list
+    box.querySelector(".map-list").addEventListener("keydown", (e) => {
+      if (!["ArrowDown", "ArrowUp"].includes(e.key)) return;
+      const i = maps.indexOf(document.activeElement);
+      if (i < 0) return;
+      e.preventDefault();
+      const n = maps[(i + (e.key === "ArrowDown" ? 1 : maps.length - 1)) % maps.length];
+      n.focus(); n.click();
+    });
   });
 
   // ---- the bridge: scroll position drives the whole scene

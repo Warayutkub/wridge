@@ -147,6 +147,7 @@ h2.big { font-size: clamp(36px, 4.6vw, 58px); line-height: 1.06; letter-spacing:
 .map[aria-selected="true"] p { max-height: 140px; opacity: 1; margin-top: 8px; }
 .map[aria-selected="true"] small { max-height: 30px; opacity: 1; margin-top: 8px; }
 .map-stage { margin: 0; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--white); aspect-ratio: 1600 / 1025; }
+.map-stage.tall { aspect-ratio: 1600 / 1200; }
 .map-stage img { width: 100%; transition: opacity .25s var(--ease), transform .45s var(--ease); }
 .map-stage img.swap { opacity: 0; transform: scale(.985); }
 

@@ -168,5 +168,39 @@ w("app/api/orders/route.ts", `import { placeOrder } from "@/lib/orders";\nexport
 w("app/api/orders/[id]/status/route.ts", `import { setStatus } from "@/lib/orders";\nexport async function POST(req: Request, { params }: { params: { id: string } }) {\n  await setStatus(params.id, (await req.json()).status);\n  return Response.json({ ok: true });\n}\n`);
 w("app/api/refunds/route.ts", `import { refund } from "@/lib/payments";\nexport async function POST(req: Request) {\n  await refund((await req.json()).orderId);\n  return Response.json({ ok: true });\n}\n`);
 w("app/api/menu/sync/route.ts", `import { setAvailable } from "@/lib/menu";\nexport async function POST(req: Request) {\n  for (const r of await req.json()) await setAvailable(r.id, r.available);\n  return Response.json({ ok: true });\n}\n`);
-w("README.md", `# Brewly\n\nA made-up coffee-ordering app. It exists only so wridge's website can show real screenshots of the Brain, Code graph and Data graph without anyone's real project.\n`);
+w("README.md", `# Brewly\n\nA made-up coffee-ordering app. It exists only so wridge's website can show real screenshots of the Brain, Code graph, Data graph, Tasks and Reports without anyone's real project.\n`);
+// ---------------- tasks board and a weekly report (the Tasks and Reports screenshots)
+{
+  const at = (d, h = 10) => `2026-11-${String(d).padStart(2, "0")}T${String(h).padStart(2, "0")}:00:00+07:00`;
+  let n = 0;
+  const T = (o) => ({ id: `T-${++n}`, title: "", status: "todo", description: "", labels: [], subtasks: [], links: [], due: "", who: "", from: "", by: "you", created: at(8), updated: at(9), activity: [{ at: at(8), who: o.by ?? "you", text: o.from ? "suggested this" : "added this" }], ...o });
+  const tasks = [
+    T({ title: "Pickup time picker", description: "Let people choose when to collect their order.", labels: ["Feature"], who: "you", subtasks: [{ text: "Slots every 10 minutes", done: true }, { text: "Hide slots when the café is full", done: false }, { text: "Show the time on the receipt", done: false }], due: "2026-11-14" }),
+    T({ title: "Dark mode for the menu", labels: ["UI"], who: "AI", by: "AI", subtasks: [{ text: "Colors from the design tokens", done: false }] }),
+    T({ title: "Back up orders every night", description: "cron 03:00, keep 14 days", labels: ["Ops"], who: "you", due: "2026-11-09" }),
+    T({ title: "Cart: remember items after a refresh", status: "doing", labels: ["Feature"], who: "AI", by: "AI", subtasks: [{ text: "Save to local storage", done: true }, { text: "Merge with the server cart on sign-in", done: true }, { text: "Test with two tabs open", done: false }], links: ["app/cart/page.tsx"] }),
+    T({ title: "Speed up the menu query", status: "doing", labels: ["Perf"], who: "you", subtasks: [{ text: "Add an index on category", done: true }, { text: "Cache for 60 s", done: false }] }),
+    T({ title: "Typo on the receipt", status: "review", labels: ["Copy"], who: "AI", by: "AI", from: "AI check · 10 Nov", change: { where: "receipt.html:42", old: "Thank you for you order", new: "Thank you for your order" } }),
+    T({ title: "Payment call has no timeout", status: "review", labels: ["Bug"], who: "AI", by: "AI", from: "AI check · 10 Nov", change: { where: "lib/payments.ts:18", old: "await fetch(url)", new: "await fetch(url, { signal: AbortSignal.timeout(10_000) })" } }),
+    T({ title: "Save button has no loading state", status: "review", labels: ["UI"], who: "AI", by: "AI", from: "AI check · 10 Nov", description: "Figma · Checkout · Form" }),
+    T({ title: "Sign in with LINE", status: "done", labels: ["Feature"], who: "you", subtasks: [{ text: "Login", done: true }, { text: "Link to an existing account", done: true }] }),
+    T({ title: "Menu photos load slowly", status: "done", labels: ["Perf"], who: "AI", by: "AI" }),
+  ];
+  w("docs/tasks/board.json", JSON.stringify({ version: 1, next: n + 1, tasks }, null, 2));
+  w("docs/reports/week-45.json", JSON.stringify({
+    title: "Brewly · Week 45",
+    rows: [
+      { type: "header", eyebrow: "BREWLY · WEEKLY REPORT · 10 NOV 2026", title: "Week 45: checkout is faster", subtitle: "What shipped, how orders moved, and what the AI found on its last check.", status: { text: "On track", kind: "ok" }, meta: { release: "2.4.0", team: "3 people + AI" } },
+      { type: "stats", items: [{ label: "Orders", value: "1,284", delta: "+18%", kind: "ok" }, { label: "Checkout time", value: "41 s", delta: "−12 s", kind: "ok" }, { label: "Tasks done", value: "9", note: "of 12 planned" }, { label: "Open bugs", value: "2", delta: "−3", kind: "ok" }] },
+      [
+        { type: "chart", title: "Orders per day", kind: "line", span: 2, x: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], series: [{ name: "This week", values: [142, 156, 171, 165, 210, 248, 192] }, { name: "Last week", values: [120, 131, 140, 138, 175, 202, 181] }], marks: [{ x: "Wed", text: "2.4.0" }] },
+        { type: "chart", title: "Where orders come from", kind: "donut", items: [{ label: "App", value: 61 }, { label: "LINE", value: 27 }, { label: "Walk-in", value: 12 }], center: { value: "1,284", label: "orders" } },
+      ],
+      [
+        { type: "checklist", title: "Shipped this week", items: [{ text: "Sign in with LINE", done: true, note: "2.4.0" }, { text: "Menu photos load 3× faster", done: true }, { text: "Cart remembers items", done: false, note: "in review" }] },
+        { type: "tasks", title: "Waiting for your yes", eyebrow: "AI check · 10 Nov", filter: { from: "AI check" }, view: "list" },
+      ],
+    ],
+  }, null, 2));
+}
 console.log("brewly written to", ROOT);
