@@ -745,12 +745,49 @@ pub fn define_tools() -> Vec<Tool> {
 
     d.fwd(
         "set_stroke",
-        "Set border color (\"none\" removes), weight and alignment.",
+        "Set a layer's stroke — everything in Figma's Stroke settings: color (\"none\" removes), weight, align; Basic: dash [dash, gap] or \"solid\", cap (both ends) or startCap / endCap (open vectors), join, miterAngle, widthProfile (taper, wedge…) or widthPoints; Dynamic: dynamic {frequency, wiggle, smoothen}; Brush: brush {name, direction, …}. kind: \"basic\" turns dynamic/brush off.",
         shape()
             .f("nodeId", node_id())
             .f("color", hex_or_none().optional())
             .f("weight", px().optional())
             .f("align", enumeration(&["INSIDE", "OUTSIDE", "CENTER"]).optional())
+            .f("dash", union(vec![array(number().min(0.0)), literal(json!("solid"))]).optional().describe("[dash, gap] in px, e.g. [8, 4]; \"solid\" removes dashes"))
+            .f("cap", enumeration(&["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional().describe("Both ends"))
+            .f("startCap", enumeration(&["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional().describe("Start of an open vector path"))
+            .f("endCap", enumeration(&["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional().describe("End of an open vector path"))
+            .f("join", enumeration(&["MITER", "BEVEL", "ROUND"]).optional())
+            .f("miterAngle", number().min(1.0).max(180.0).optional().describe("Degrees; sharper corners than this are beveled"))
+            .f("widthProfile", enumeration(&["UNIFORM", "WEDGE", "TAPER", "QUARTER_TAPER", "EYE", "MIRRORED_TAPER"]).optional().describe("Variable width preset (not with dynamic)"))
+            .f("widthPoints", array(object(shape().f("position", number().min(0.0).max(1.0)).f("width", number().min(0.0)).build())).optional().describe("Custom variable width: position 0–1 along the stroke, width as a fraction of weight (1 = weight)"))
+            .f("kind", enumeration(&["basic", "dynamic", "brush"]).optional().describe("Stroke settings tab; basic clears dynamic / brush"))
+            .f(
+                "dynamic",
+                object(
+                    shape()
+                        .f("frequency", number().min(0.01).max(20.0).optional())
+                        .f("wiggle", number().min(0.0).optional())
+                        .f("smoothen", number().min(0.0).max(1.0).optional())
+                        .build(),
+                )
+                .optional()
+                .describe("Hand-drawn wobble (Stroke settings → Dynamic)"),
+            )
+            .f(
+                "brush",
+                object(
+                    shape()
+                        .f("name", string().describe("Stretch: HEIST, BLOCKBUSTER, GRINDHOUSE, BIOPIC, SPAGHETTI_WESTERN, SLASHER, HARDBOILED, VERITE, EPIC, SCREWBALL, ROM_COM, NOIR, PROPAGANDA, MELODRAMA, NEW_WAVE · Scatter: BUBBLEGUM, WITCH_HOUSE, SHOEGAZE, HONKY_TONK, SCREAMO, DRONE, DOO_WOP, SPOKEN_WORD, VAPORWAVE, OI (any case, spaces ok)"))
+                        .f("direction", enumeration(&["FORWARD", "BACKWARD"]).optional().describe("Stretch brushes"))
+                        .f("gap", number().min(0.25).optional().describe("Scatter brushes: space between marks"))
+                        .f("wiggle", number().min(0.0).optional().describe("Scatter"))
+                        .f("sizeJitter", number().min(0.0).max(3.0).optional().describe("Scatter"))
+                        .f("angularJitter", number().min(-180.0).max(180.0).optional().describe("Scatter, degrees"))
+                        .f("rotation", number().min(-180.0).max(180.0).optional().describe("Scatter, degrees"))
+                        .build(),
+                )
+                .optional()
+                .describe("Figma's built-in brushes (Stroke settings → Brush); custom brushes can't be set"),
+            )
             .build(),
     );
 
@@ -2066,6 +2103,60 @@ pub fn define_tools() -> Vec<Tool> {
             .f("nodeId", node_id())
             .f("removeOriginal", boolean().default(json!(false)))
             .f("name", string().optional())
+            .build(),
+    );
+
+    d.fwd(
+        "vector_read",
+        "Read a shape's points like Figma's vector edit mode (Enter): points [{i, x, y}], segments [{i, from, to, curve?}] and closed regions, plus which segments / points lie on each side (top, bottom, left, right) and the corners. Works on vectors, rectangles, ellipses, polygons, stars and lines (read only — nothing changes).",
+        shape().f("nodeId", node_id()).build(),
+    );
+
+    d.fwd(
+        "vector_edit",
+        "Edit a shape's points — Figma's vector edit mode without the mouse. A rectangle / ellipse / polygon / star / line becomes a vector first (its id changes: use the returned id). ops run in order: move {points, dx, dy | x, y}; curve {segments, amount} (bend a segment: + bulges outward, - inward, px at the middle); handles {segment, start: [x, y], end: [x, y]}; straighten {segments}; split {segment, at 0–1} (add a point); cut {segment, at} (open the path there); remove {points | segments} (a removed point between two segments joins its neighbours); connect {from, to}; corner {points, radius}; cap {points, cap}; mirror {points, mode}; paint {region, color} (fill one closed area). points / segments: an index from vector_read, a list, a side (\"top\", \"bottom\", \"left\", \"right\"), a corner (\"top-left\"…) or \"all\".",
+        shape()
+            .f("nodeId", node_id())
+            .f(
+                "ops",
+                array(object(
+                    shape()
+                        .f("op", enumeration(&["move", "curve", "handles", "straighten", "split", "cut", "remove", "connect", "corner", "cap", "mirror", "paint"]))
+                        .f("points", union(vec![int(), string(), array(union(vec![int(), string()]))]).optional())
+                        .f("segments", union(vec![int(), string(), array(union(vec![int(), string()]))]).optional())
+                        .f("segment", int().min(0.0).optional())
+                        .f("region", int().min(0.0).optional())
+                        .f("from", int().min(0.0).optional())
+                        .f("to", int().min(0.0).optional())
+                        .f("dx", number().optional())
+                        .f("dy", number().optional())
+                        .f("x", number().optional())
+                        .f("y", number().optional())
+                        .f("amount", number().optional())
+                        .f("at", number().min(0.0).max(1.0).optional())
+                        .f("start", array(number()).optional())
+                        .f("end", array(number()).optional())
+                        .f("radius", number().min(0.0).optional())
+                        .f("cap", enumeration(&["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional())
+                        .f("mode", enumeration(&["NONE", "ANGLE", "ANGLE_AND_LENGTH"]).optional())
+                        .f("color", hex_or_none().optional())
+                        .build(),
+                ))
+                .min(1.0),
+            )
+            .build(),
+    );
+
+    d.fwd(
+        "bend_shape",
+        "Bend a shape in one step (ready-made vector edits): bulge (a side curves out, or in with a negative amount), wave (a side becomes count waves), pinch (a side's ends move toward each other — trapezoid; negative spreads), skew (a side slides along itself), chamfer (cut corners off), round (round chosen corners). side: top | bottom | left | right | all; corner: top-left | top-right | bottom-right | bottom-left | all. Turns rectangles, ellipses, polygons and stars into a vector (new id returned).",
+        shape()
+            .f("nodeId", node_id())
+            .f("effect", enumeration(&["bulge", "wave", "pinch", "skew", "chamfer", "round"]))
+            .f("side", enumeration(&["top", "bottom", "left", "right", "all"]).optional().describe("bulge, wave, pinch, skew"))
+            .f("corner", enumeration(&["top-left", "top-right", "bottom-right", "bottom-left", "all"]).optional().describe("chamfer, round"))
+            .f("amount", number().describe("px: how far it bends / moves / cuts (round: the radius)"))
+            .f("count", int().min(1.0).max(20.0).default(json!(3)).describe("wave: number of waves"))
             .build(),
     );
 

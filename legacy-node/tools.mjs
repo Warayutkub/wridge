@@ -390,12 +390,41 @@ export function defineTools(send) {
 
   tool("set_fill", 'Set a single solid fill, or "none" to remove fills.', { nodeId, color: hexOrNone });
 
-  tool("set_stroke", 'Set border color ("none" removes), weight and alignment.', {
-    nodeId,
-    color: hexOrNone.optional(),
-    weight: px.optional(),
-    align: z.enum(["INSIDE", "OUTSIDE", "CENTER"]).optional(),
-  });
+  tool(
+    "set_stroke",
+    "Set a layer's stroke — everything in Figma's Stroke settings: color (\"none\" removes), weight, align; Basic: dash [dash, gap] or \"solid\", cap (both ends) or startCap / endCap (open vectors), join, miterAngle, widthProfile (taper, wedge…) or widthPoints; Dynamic: dynamic {frequency, wiggle, smoothen}; Brush: brush {name, direction, …}. kind: \"basic\" turns dynamic/brush off.",
+    {
+      nodeId,
+      color: hexOrNone.optional(),
+      weight: px.optional(),
+      align: z.enum(["INSIDE", "OUTSIDE", "CENTER"]).optional(),
+      dash: z.union([z.array(z.number().min(0)), z.literal("solid")]).optional().describe('[dash, gap] in px, e.g. [8, 4]; "solid" removes dashes'),
+      cap: z.enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional().describe("Both ends"),
+      startCap: z.enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional().describe("Start of an open vector path"),
+      endCap: z.enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional().describe("End of an open vector path"),
+      join: z.enum(["MITER", "BEVEL", "ROUND"]).optional(),
+      miterAngle: z.number().min(1).max(180).optional().describe("Degrees; sharper corners than this are beveled"),
+      widthProfile: z.enum(["UNIFORM", "WEDGE", "TAPER", "QUARTER_TAPER", "EYE", "MIRRORED_TAPER"]).optional().describe("Variable width preset (not with dynamic)"),
+      widthPoints: z.array(z.object({ position: z.number().min(0).max(1), width: z.number().min(0) })).optional().describe("Custom variable width: position 0–1 along the stroke, width as a fraction of weight (1 = weight)"),
+      kind: z.enum(["basic", "dynamic", "brush"]).optional().describe("Stroke settings tab; basic clears dynamic / brush"),
+      dynamic: z
+        .object({ frequency: z.number().min(0.01).max(20).optional(), wiggle: z.number().min(0).optional(), smoothen: z.number().min(0).max(1).optional() })
+        .optional()
+        .describe("Hand-drawn wobble (Stroke settings → Dynamic)"),
+      brush: z
+        .object({
+          name: z.string().describe("Stretch: HEIST, BLOCKBUSTER, GRINDHOUSE, BIOPIC, SPAGHETTI_WESTERN, SLASHER, HARDBOILED, VERITE, EPIC, SCREWBALL, ROM_COM, NOIR, PROPAGANDA, MELODRAMA, NEW_WAVE · Scatter: BUBBLEGUM, WITCH_HOUSE, SHOEGAZE, HONKY_TONK, SCREAMO, DRONE, DOO_WOP, SPOKEN_WORD, VAPORWAVE, OI (any case, spaces ok)"),
+          direction: z.enum(["FORWARD", "BACKWARD"]).optional().describe("Stretch brushes"),
+          gap: z.number().min(0.25).optional().describe("Scatter brushes: space between marks"),
+          wiggle: z.number().min(0).optional().describe("Scatter"),
+          sizeJitter: z.number().min(0).max(3).optional().describe("Scatter"),
+          angularJitter: z.number().min(-180).max(180).optional().describe("Scatter, degrees"),
+          rotation: z.number().min(-180).max(180).optional().describe("Scatter, degrees"),
+        })
+        .optional()
+        .describe("Figma's built-in brushes (Stroke settings → Brush); custom brushes can't be set"),
+    },
+  );
 
   tool("set_corner_radius", "Set corner radius (all corners or individual).", { nodeId, ...cornerProps });
 
@@ -1206,6 +1235,54 @@ Read edits back later with board_map.` }] };
     removeOriginal: z.boolean().default(false),
     name: z.string().optional(),
   });
+
+  tool("vector_read", "Read a shape's points like Figma's vector edit mode (Enter): points [{i, x, y}], segments [{i, from, to, curve?}] and closed regions, plus which segments / points lie on each side (top, bottom, left, right) and the corners. Works on vectors, rectangles, ellipses, polygons, stars and lines (read only — nothing changes).", { nodeId });
+
+  tool(
+    "vector_edit",
+    "Edit a shape's points — Figma's vector edit mode without the mouse. A rectangle / ellipse / polygon / star / line becomes a vector first (its id changes: use the returned id). ops run in order: move {points, dx, dy | x, y}; curve {segments, amount} (bend a segment: + bulges outward, - inward, px at the middle); handles {segment, start: [x, y], end: [x, y]}; straighten {segments}; split {segment, at 0–1} (add a point); cut {segment, at} (open the path there); remove {points | segments} (a removed point between two segments joins its neighbours); connect {from, to}; corner {points, radius}; cap {points, cap}; mirror {points, mode}; paint {region, color} (fill one closed area). points / segments: an index from vector_read, a list, a side (\"top\", \"bottom\", \"left\", \"right\"), a corner (\"top-left\"…) or \"all\".",
+    {
+      nodeId,
+      ops: z
+        .array(
+          z.object({
+            op: z.enum(["move", "curve", "handles", "straighten", "split", "cut", "remove", "connect", "corner", "cap", "mirror", "paint"]),
+            points: z.union([z.number().int(), z.string(), z.array(z.union([z.number().int(), z.string()]))]).optional(),
+            segments: z.union([z.number().int(), z.string(), z.array(z.union([z.number().int(), z.string()]))]).optional(),
+            segment: z.number().int().min(0).optional(),
+            region: z.number().int().min(0).optional(),
+            from: z.number().int().min(0).optional(),
+            to: z.number().int().min(0).optional(),
+            dx: z.number().optional(),
+            dy: z.number().optional(),
+            x: z.number().optional(),
+            y: z.number().optional(),
+            amount: z.number().optional(),
+            at: z.number().min(0).max(1).optional(),
+            start: z.array(z.number()).optional(),
+            end: z.array(z.number()).optional(),
+            radius: z.number().min(0).optional(),
+            cap: z.enum(["NONE", "ROUND", "SQUARE", "ARROW_LINES", "ARROW_EQUILATERAL", "DIAMOND_FILLED", "TRIANGLE_FILLED", "CIRCLE_FILLED"]).optional(),
+            mode: z.enum(["NONE", "ANGLE", "ANGLE_AND_LENGTH"]).optional(),
+            color: hexOrNone.optional(),
+          }),
+        )
+        .min(1),
+    },
+  );
+
+  tool(
+    "bend_shape",
+    "Bend a shape in one step (ready-made vector edits): bulge (a side curves out, or in with a negative amount), wave (a side becomes count waves), pinch (a side's ends move toward each other — trapezoid; negative spreads), skew (a side slides along itself), chamfer (cut corners off), round (round chosen corners). side: top | bottom | left | right | all; corner: top-left | top-right | bottom-right | bottom-left | all. Turns rectangles, ellipses, polygons and stars into a vector (new id returned).",
+    {
+      nodeId,
+      effect: z.enum(["bulge", "wave", "pinch", "skew", "chamfer", "round"]),
+      side: z.enum(["top", "bottom", "left", "right", "all"]).optional().describe("bulge, wave, pinch, skew"),
+      corner: z.enum(["top-left", "top-right", "bottom-right", "bottom-left", "all"]).optional().describe("chamfer, round"),
+      amount: z.number().describe("px: how far it bends / moves / cuts (round: the radius)"),
+      count: z.number().int().min(1).max(20).default(3).describe("wave: number of waves"),
+    },
+  );
 
   tool(
     "use_as_mask",

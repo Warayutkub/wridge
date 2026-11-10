@@ -61,6 +61,8 @@ pub const FIGMA_WRITES: &[&str] = &[
     "boolean_shapes",
     "flatten",
     "outline_stroke",
+    "vector_edit",
+    "bend_shape",
     "use_as_mask",
     "remove_mask",
     "add_interaction",

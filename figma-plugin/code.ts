@@ -1,7 +1,7 @@
 // Light-only window matching the "Plugin/Window" frame in the wara-bridge Figma file.
 figma.showUI(__html__, { width: 300, height: 236, themeColors: false });
 // The version goes up with wridge; fileKey (private plugin API) lets the wridge window remember a file across renames.
-const PLUGIN_VERSION = '1.7.6';
+const PLUGIN_VERSION = '1.8.0';
 figma.ui.postMessage({ type: 'hello', fileName: figma.root.name, editorType: figma.editorType, fileKey: figma.fileKey ?? null, version: PLUGIN_VERSION });
 
 type Command = { id: string; command: string; params: Record<string, unknown> };
@@ -349,6 +349,421 @@ function applyCorners(node: SceneNode, p: P) {
     if (has(p, 'bottomRight')) node.bottomRightRadius = num(p.bottomRight);
     if (has(p, 'bottomLeft')) node.bottomLeftRadius = num(p.bottomLeft);
   }
+}
+
+// ---------- vectors: Figma's vector edit mode (Enter), without the mouse ----------
+
+type Pt = { x: number; y: number };
+type NV = { x: number; y: number; strokeCap?: StrokeCap; strokeJoin?: StrokeJoin; cornerRadius?: number; handleMirroring?: HandleMirroring };
+type NS = { start: number; end: number; tangentStart?: Pt; tangentEnd?: Pt };
+type NR = { windingRule: WindingRule; loops: number[][]; fills?: Paint[]; fillStyleId?: string };
+type Net = { vertices: NV[]; segments: NS[]; regions: NR[] };
+
+const TO_VECTOR = new Set(['RECTANGLE', 'ELLIPSE', 'POLYGON', 'STAR', 'LINE']);
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const add = (a: Pt, b: Pt): Pt => ({ x: a.x + b.x, y: a.y + b.y });
+const sub = (a: Pt, b: Pt): Pt => ({ x: a.x - b.x, y: a.y - b.y });
+const mul = (a: Pt, k: number): Pt => ({ x: a.x * k, y: a.y * k });
+const lerp = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+const len = (a: Pt) => Math.hypot(a.x, a.y);
+const isCurved = (s: NS) => !!((s.tangentStart && len(s.tangentStart) > 1e-6) || (s.tangentEnd && len(s.tangentEnd) > 1e-6));
+
+function netOf(node: VectorNode): Net {
+  const n = JSON.parse(JSON.stringify(node.vectorNetwork)) as Net;
+  n.regions = n.regions ?? [];
+  return n;
+}
+
+// A rectangle / ellipse / polygon / star / line turns into a vector (what Enter does in Figma). Same place, name and owner.
+async function editableVector(id: unknown): Promise<VectorNode> {
+  const node = await getSceneNode(id);
+  if (node.type === 'VECTOR') return node;
+  if (!TO_VECTOR.has(node.type)) throw new Error(`${node.name} (${node.type}) has no points to edit — vectors, rectangles, ellipses, polygons, stars and lines do (a boolean group: flatten it first)`);
+  const parent = node.parent;
+  if (!parent) throw new Error(`Node ${node.id} has no parent`);
+  const mine = createdByWara(node);
+  const name = node.name;
+  const vector = figma.flatten([node], parent, parent.children.indexOf(node));
+  vector.name = name;
+  if (mine) markCreated(vector);
+  return vector;
+}
+
+function boundsOf(net: Net) {
+  const xs = net.vertices.map((v) => v.x), ys = net.vertices.map((v) => v.y);
+  const b = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+  return { ...b, eps: Math.max(0.5, Math.max(b.maxX - b.minX, b.maxY - b.minY) * 0.01) };
+}
+const SIDES = ['top', 'bottom', 'left', 'right'] as const;
+const CORNERS = ['top-left', 'top-right', 'bottom-right', 'bottom-left'] as const;
+function onSide(net: Net, i: number, side: string) {
+  const b = boundsOf(net), v = net.vertices[i];
+  if (side === 'top') return Math.abs(v.y - b.minY) <= b.eps;
+  if (side === 'bottom') return Math.abs(v.y - b.maxY) <= b.eps;
+  if (side === 'left') return Math.abs(v.x - b.minX) <= b.eps;
+  return Math.abs(v.x - b.maxX) <= b.eps;
+}
+function cornerPoint(net: Net, corner: string) {
+  const b = boundsOf(net);
+  const cx = corner.endsWith('left') ? b.minX : b.maxX, cy = corner.startsWith('top') ? b.minY : b.maxY;
+  let best = 0, d = Infinity;
+  net.vertices.forEach((v, i) => { const e = Math.hypot(v.x - cx, v.y - cy); if (e < d) { d = e; best = i; } });
+  return best;
+}
+const sidePoints = (net: Net, side: string) => net.vertices.map((_, i) => i).filter((i) => onSide(net, i, side));
+const sideSegments = (net: Net, side: string) => net.segments.map((_, i) => i).filter((i) => onSide(net, net.segments[i].start, side) && onSide(net, net.segments[i].end, side));
+
+function pick(net: Net, sel: unknown, kind: 'points' | 'segments'): number[] {
+  const count = kind === 'points' ? net.vertices.length : net.segments.length;
+  const one = (s: unknown): number[] => {
+    if (typeof s === 'number') {
+      if (!Number.isInteger(s) || s < 0 || s >= count) throw new Error(`No ${kind === 'points' ? 'point' : 'segment'} ${s} — this shape has ${count} (0–${count - 1}); vector_read lists them`);
+      return [s];
+    }
+    const k = String(s).toLowerCase().trim();
+    if (k === 'all') return Array.from({ length: count }, (_, i) => i);
+    if ((SIDES as readonly string[]).includes(k)) {
+      const got = kind === 'points' ? sidePoints(net, k) : sideSegments(net, k);
+      if (!got.length) throw new Error(`No ${kind === 'points' ? 'point' : 'straight edge'} lies on the ${k} side — vector_read shows the sides`);
+      return got;
+    }
+    if ((CORNERS as readonly string[]).includes(k)) {
+      if (kind === 'points') return [cornerPoint(net, k)];
+      throw new Error(`"${k}" is a corner (a point), not a segment`);
+    }
+    throw new Error(`Unknown ${kind} "${String(s)}": use an index, a list, top / bottom / left / right, a corner like top-left, or all`);
+  };
+  const list = Array.isArray(sel) ? sel.flatMap(one) : one(sel);
+  return [...new Set(list)];
+}
+
+const center = (net: Net) => mul(net.vertices.reduce((a, v) => add(a, v), { x: 0, y: 0 }), 1 / Math.max(1, net.vertices.length));
+
+// Bend a segment so its middle sits `amount` px off the straight line (+ away from the shape's center).
+function curveSegment(net: Net, si: number, amount: number) {
+  const s = net.segments[si];
+  const A = net.vertices[s.start], B = net.vertices[s.end];
+  const d = sub(B, A), L = len(d);
+  if (L < 1e-6) return;
+  let n = { x: -d.y / L, y: d.x / L };
+  const mid = lerp(A, B, 0.5), c = center(net);
+  if ((mid.x - c.x) * n.x + (mid.y - c.y) * n.y < 0) n = mul(n, -1);
+  const h = amount / 0.75;
+  s.tangentStart = add(mul(d, 1 / 3), mul(n, h));
+  s.tangentEnd = add(mul(d, -1 / 3), mul(n, h));
+}
+
+// Keep closed areas valid when segment `si` gains a neighbour `ni` that continues from its end.
+function insertInLoops(net: Net, si: number, ni: number, oldEnd: number) {
+  for (const r of net.regions) {
+    for (const loop of r.loops) {
+      const k = loop.indexOf(si);
+      if (k < 0) continue;
+      const next = net.segments[loop[(k + 1) % loop.length]];
+      const forward = loop.length > 1 && next && (next.start === oldEnd || next.end === oldEnd);
+      loop.splice(forward ? k + 1 : k, 0, ni);
+    }
+  }
+}
+
+// Add a point on a segment at `t` (de Casteljau, so curves keep their shape). Returns the new segment (second half).
+function splitSegment(net: Net, si: number, t: number): { point: number; segment: number } {
+  const s = net.segments[si];
+  const P0 = net.vertices[s.start], P3 = net.vertices[s.end];
+  const oldEnd = s.end;
+  const vi = net.vertices.length;
+  let second: NS;
+  if (!isCurved(s)) {
+    const M = lerp(P0, P3, t);
+    net.vertices.push({ x: M.x, y: M.y });
+    second = { start: vi, end: oldEnd };
+    s.end = vi;
+  } else {
+    const P1 = add(P0, s.tangentStart ?? { x: 0, y: 0 }), P2 = add(P3, s.tangentEnd ?? { x: 0, y: 0 });
+    const P01 = lerp(P0, P1, t), P12 = lerp(P1, P2, t), P23 = lerp(P2, P3, t);
+    const P012 = lerp(P01, P12, t), P123 = lerp(P12, P23, t), M = lerp(P012, P123, t);
+    net.vertices.push({ x: M.x, y: M.y, handleMirroring: 'ANGLE_AND_LENGTH' });
+    second = { start: vi, end: oldEnd, tangentStart: sub(P123, M), tangentEnd: sub(P23, P3) };
+    s.end = vi;
+    s.tangentStart = sub(P01, P0);
+    s.tangentEnd = sub(P012, M);
+  }
+  net.segments.push(second);
+  const ni = net.segments.length - 1;
+  insertInLoops(net, si, ni, oldEnd);
+  return { point: vi, segment: ni };
+}
+
+function dropRegionsWith(net: Net, segs: Set<number>) {
+  net.regions = net.regions.filter((r) => !r.loops.some((l) => l.some((i) => segs.has(i))));
+}
+function removeSegments(net: Net, gone: Set<number>) {
+  dropRegionsWith(net, gone);
+  const map: number[] = [];
+  const kept: NS[] = [];
+  net.segments.forEach((s, i) => { if (gone.has(i)) return; map[i] = kept.length; kept.push(s); });
+  net.segments = kept;
+  for (const r of net.regions) r.loops = r.loops.map((l) => l.map((i) => map[i]));
+}
+function removePoints(net: Net, gone: Set<number>) {
+  // a point between exactly two segments: its neighbours join up (like Delete in Figma); otherwise its segments go too
+  const dropSegs = new Set<number>();
+  for (const vi of gone) {
+    const touching = net.segments.map((s, i) => i).filter((i) => !dropSegs.has(i) && (net.segments[i].start === vi || net.segments[i].end === vi));
+    if (touching.length === 2) {
+      const [a, b] = touching;
+      const sa = net.segments[a], sb = net.segments[b];
+      // the far end of each segment, with its handle there
+      const far = (s: NS) => (s.start === vi ? { at: s.end, tan: s.tangentEnd } : { at: s.start, tan: s.tangentStart });
+      const x = far(sa), y = far(sb);
+      if (gone.has(x.at) || gone.has(y.at) || x.at === y.at) { touching.forEach((i) => dropSegs.add(i)); continue; }
+      sa.start = x.at; sa.tangentStart = x.tan; sa.end = y.at; sa.tangentEnd = y.tan;
+      dropSegs.add(b);
+      for (const r of net.regions) for (const l of r.loops) { const k = l.indexOf(b); if (k >= 0) l.splice(k, 1); }
+    } else touching.forEach((i) => dropSegs.add(i));
+  }
+  // segments already spliced out of loops above aren't in any loop, so only real breaks drop a region
+  removeSegments(net, dropSegs);
+  const map: number[] = [];
+  const kept: NV[] = [];
+  net.vertices.forEach((v, i) => { if (gone.has(i)) return; map[i] = kept.length; kept.push(v); });
+  net.vertices = kept;
+  for (const s of net.segments) { s.start = map[s.start]; s.end = map[s.end]; }
+}
+
+function chamfer(net: Net, vi: number, amount: number) {
+  const touching = net.segments.map((_, i) => i).filter((i) => net.segments[i].start === vi || net.segments[i].end === vi);
+  if (touching.length !== 2) throw new Error(`Point ${vi} isn't a corner between two segments`);
+  const [a, b] = touching;
+  const V = net.vertices[vi];
+  const far = (si: number) => { const s = net.segments[si]; return net.vertices[s.start === vi ? s.end : s.start]; };
+  const pa = add(V, mul(sub(far(a), V), Math.min(0.49, amount / Math.max(1e-6, len(sub(far(a), V)))))),
+    pb = add(V, mul(sub(far(b), V), Math.min(0.49, amount / Math.max(1e-6, len(sub(far(b), V))))));
+  for (const si of [a, b]) { const s = net.segments[si]; if (s.start === vi) s.tangentStart = undefined; else s.tangentEnd = undefined; }
+  V.x = pa.x; V.y = pa.y; V.cornerRadius = 0;
+  const nv = net.vertices.length;
+  net.vertices.push({ x: pb.x, y: pb.y });
+  const sb = net.segments[b];
+  if (sb.start === vi) sb.start = nv; else sb.end = nv;
+  net.segments.push({ start: vi, end: nv });
+  const ns = net.segments.length - 1;
+  for (const r of net.regions) for (const l of r.loops) {
+    const ia = l.indexOf(a), ib = l.indexOf(b);
+    if (ia < 0 || ib < 0) continue;
+    if ((ia + 1) % l.length === ib) l.splice(ia + 1, 0, ns);
+    else l.splice(ib + 1, 0, ns);
+  }
+}
+
+function describeNet(node: VectorNode, net: Net) {
+  const sides: Record<string, unknown> = {};
+  if (net.vertices.length) for (const s of SIDES) sides[s] = { points: sidePoints(net, s), segments: sideSegments(net, s) };
+  const corners: Record<string, number> = {};
+  if (net.vertices.length) for (const c of CORNERS) corners[c] = cornerPoint(net, c);
+  return {
+    id: node.id, name: node.name, type: node.type, width: r2(node.width), height: r2(node.height),
+    points: net.vertices.map((v, i) => ({ i, x: r2(v.x), y: r2(v.y), ...(v.cornerRadius ? { corner: v.cornerRadius } : {}), ...(v.strokeCap && v.strokeCap !== 'NONE' ? { cap: v.strokeCap } : {}) })),
+    segments: net.segments.map((s, i) => ({ i, from: s.start, to: s.end, ...(isCurved(s) ? { curve: { start: [r2(s.tangentStart?.x ?? 0), r2(s.tangentStart?.y ?? 0)], end: [r2(s.tangentEnd?.x ?? 0), r2(s.tangentEnd?.y ?? 0)] } } : {}) })),
+    regions: net.regions.map((r, i) => ({ i, loops: r.loops, ...(r.fills?.length ? { fill: r.fills[0].type === 'SOLID' ? toHex((r.fills[0] as SolidPaint).color) : r.fills[0].type } : {}) })),
+    sides, corners,
+  };
+}
+
+function applyOp(net: Net, op: P) {
+  const pts = () => pick(net, op.points, 'points');
+  const segs = () => pick(net, op.segments ?? op.segment, 'segments');
+  switch (op.op) {
+    case 'move': {
+      const list = pts();
+      if (has(op, 'x') || has(op, 'y')) {
+        if (list.length !== 1) throw new Error('move with x / y takes one point; use dx / dy for several');
+        const v = net.vertices[list[0]];
+        if (has(op, 'x')) v.x = num(op.x);
+        if (has(op, 'y')) v.y = num(op.y);
+      } else for (const i of list) { net.vertices[i].x += num(op.dx ?? 0); net.vertices[i].y += num(op.dy ?? 0); }
+      return;
+    }
+    case 'curve': for (const i of segs()) curveSegment(net, i, num(op.amount ?? 20)); return;
+    case 'handles': {
+      const s = net.segments[segs()[0]];
+      const v = (a: unknown) => { const t = a as number[] | undefined; return t && t.length === 2 ? { x: t[0], y: t[1] } : undefined; };
+      if (op.start) s.tangentStart = v(op.start);
+      if (op.end) s.tangentEnd = v(op.end);
+      return;
+    }
+    case 'straighten': for (const i of segs()) { net.segments[i].tangentStart = undefined; net.segments[i].tangentEnd = undefined; } return;
+    case 'split': for (const i of segs().sort((a, b) => b - a)) splitSegment(net, i, has(op, 'at') ? num(op.at) : 0.5); return;
+    case 'cut': {
+      for (const i of segs().sort((a, b) => b - a)) {
+        const { point, segment } = splitSegment(net, i, has(op, 'at') ? num(op.at) : 0.5);
+        const copy = { ...net.vertices[point] };
+        net.vertices.push(copy);
+        net.segments[segment].start = net.vertices.length - 1;
+        dropRegionsWith(net, new Set([i, segment]));
+      }
+      return;
+    }
+    case 'remove': {
+      if (has(op, 'points')) removePoints(net, new Set(pts()));
+      if (has(op, 'segments') || has(op, 'segment')) removeSegments(net, new Set(segs()));
+      return;
+    }
+    case 'connect': {
+      const n = net.vertices.length;
+      const f = num(op.from), t = num(op.to);
+      if (f >= n || t >= n || f === t) throw new Error(`connect needs two different points (0–${n - 1})`);
+      net.segments.push({ start: f, end: t });
+      return;
+    }
+    case 'corner': for (const i of pts()) net.vertices[i].cornerRadius = num(op.radius ?? 0); return;
+    case 'cap': for (const i of pts()) net.vertices[i].strokeCap = (op.cap ?? 'NONE') as StrokeCap; return;
+    case 'mirror': for (const i of pts()) net.vertices[i].handleMirroring = (op.mode ?? 'NONE') as HandleMirroring; return;
+    case 'paint': {
+      const ri = num(op.region ?? 0);
+      const r = net.regions[ri];
+      if (!r) throw new Error(net.regions.length ? `No region ${ri} — this shape has ${net.regions.length}` : 'This shape has no closed area to paint (vector_read → regions)');
+      r.fills = op.color === 'none' ? [] : [solid(str(op.color))];
+      delete r.fillStyleId;
+      return;
+    }
+    default:
+      throw new Error(`Unknown op "${String(op.op)}"`);
+  }
+}
+
+async function saveNet(node: VectorNode, net: Net) {
+  for (const s of net.segments) { if (!s.tangentStart) delete s.tangentStart; if (!s.tangentEnd) delete s.tangentEnd; }
+  for (const r of net.regions) if (!r.fills) delete r.fills;
+  await node.setVectorNetworkAsync(net as unknown as VectorNetwork);
+}
+
+function bend(net: Net, p: P) {
+  const amount = num(p.amount);
+  const sides = p.side === 'all' || !p.side ? [...SIDES] : [str(p.side)];
+  const corners = p.corner === 'all' || !p.corner ? [...CORNERS] : [str(p.corner)];
+  switch (p.effect) {
+    case 'bulge':
+      for (const side of sides) for (const i of pick(net, side, 'segments')) curveSegment(net, i, amount);
+      return;
+    case 'wave': {
+      const count = Math.max(1, Math.round(num(p.count ?? 3)));
+      for (const side of sides) {
+        for (const first of pick(net, side, 'segments')) {
+          const pieces = [first];
+          let cur = first;
+          for (let k = count * 2; k > 1; k--) { cur = splitSegment(net, cur, 1 / k).segment; pieces.push(cur); }
+          pieces.forEach((si, i) => curveSegment(net, si, i % 2 ? -amount : amount));
+        }
+      }
+      return;
+    }
+    case 'pinch':
+    case 'skew':
+      for (const side of sides) {
+        const along = side === 'top' || side === 'bottom' ? 'x' : 'y';
+        const list = pick(net, side, 'points').sort((a, b) => net.vertices[a][along] - net.vertices[b][along]);
+        if (p.effect === 'skew') { for (const i of list) net.vertices[i][along] += amount; continue; }
+        if (list.length < 2) throw new Error(`The ${side} side has one point — nothing to pinch`);
+        net.vertices[list[0]][along] += amount;
+        net.vertices[list[list.length - 1]][along] -= amount;
+      }
+      return;
+    case 'chamfer': {
+      const list = [...new Set(corners.map((c) => cornerPoint(net, c)))].sort((a, b) => b - a);
+      for (const vi of list) chamfer(net, vi, amount);
+      return;
+    }
+    case 'round':
+      for (const c of corners) net.vertices[cornerPoint(net, c)].cornerRadius = amount;
+      return;
+    default:
+      throw new Error(`Unknown effect "${String(p.effect)}"`);
+  }
+}
+
+// ---------- strokes: Figma's Stroke settings (Basic · Dynamic · Brush) ----------
+
+const STRETCH_BRUSHES = ['HEIST', 'BLOCKBUSTER', 'GRINDHOUSE', 'BIOPIC', 'SPAGHETTI_WESTERN', 'SLASHER', 'HARDBOILED', 'VERITE', 'EPIC', 'SCREWBALL', 'ROM_COM', 'NOIR', 'PROPAGANDA', 'MELODRAMA', 'NEW_WAVE'];
+const SCATTER_BRUSHES = ['BUBBLEGUM', 'WITCH_HOUSE', 'SHOEGAZE', 'HONKY_TONK', 'SCREAMO', 'DRONE', 'DOO_WOP', 'SPOKEN_WORD', 'VAPORWAVE', 'OI'];
+
+function strokeSummary(node: SceneNode) {
+  const g = node as SceneNode & GeometryMixin & Partial<ComplexStrokesMixin> & { strokeJoin?: StrokeJoin | symbol; dashPattern?: readonly number[] };
+  const out: Record<string, unknown> = { id: node.id, name: node.name, type: node.type };
+  const st = g.strokes?.[0];
+  if (st?.type === 'SOLID') out.color = toHex(st.color);
+  if (typeof g.strokeWeight === 'number') out.weight = g.strokeWeight;
+  if ('strokeAlign' in g) out.align = g.strokeAlign;
+  if (g.dashPattern?.length) out.dash = g.dashPattern;
+  if (typeof g.strokeCap === 'string') out.cap = g.strokeCap; else if (g.strokeCap) out.cap = 'mixed';
+  if (typeof g.strokeJoin === 'string') out.join = g.strokeJoin;
+  if (g.variableWidthStrokeProperties) out.width = g.variableWidthStrokeProperties;
+  if (g.complexStrokeProperties && g.complexStrokeProperties.type !== 'BASIC') out.stroke = g.complexStrokeProperties;
+  return out;
+}
+
+async function setStroke(p: P) {
+  const node = await getSceneNode(p.nodeId);
+  if (!('strokes' in node)) throw new Error(`Node ${p.nodeId} (${node.type}) has no strokes`);
+  if (has(p, 'color')) node.strokes = p.color === 'none' ? [] : [solid(str(p.color))];
+  if (has(p, 'weight')) node.strokeWeight = num(p.weight);
+  if (has(p, 'align')) node.strokeAlign = p.align as 'INSIDE' | 'OUTSIDE' | 'CENTER';
+  const shape = node as SceneNode & GeometryMixin & MinimalStrokesMixin;
+  const need = (what: string, ok: boolean) => { if (!ok) throw new Error(`${node.name} (${node.type}) can't take ${what}`); };
+  if (has(p, 'dash')) { need('dashes', 'dashPattern' in node); (node as SceneNode & { dashPattern: number[] }).dashPattern = p.dash === 'solid' ? [] : (p.dash as number[]); }
+  if (has(p, 'join')) { need('a join', 'strokeJoin' in node); (node as SceneNode & { strokeJoin: StrokeJoin }).strokeJoin = p.join as StrokeJoin; }
+  if (has(p, 'miterAngle')) { need('a miter angle', 'strokeMiterLimit' in node); shape.strokeMiterLimit = 1 / Math.sin((num(p.miterAngle) * Math.PI) / 360); }
+  if (has(p, 'cap')) { need('end caps', 'strokeCap' in node); shape.strokeCap = p.cap as StrokeCap; }
+  if (has(p, 'startCap') || has(p, 'endCap')) {
+    if (node.type !== 'VECTOR') throw new Error(`startCap / endCap are for open vector paths; ${node.name} is a ${node.type} — use cap for both ends`);
+    const net = netOf(node);
+    const ends = net.vertices.map((_, i) => i).filter((i) => net.segments.filter((s) => s.start === i || s.end === i).length === 1);
+    if (ends.length < 2) throw new Error(`${node.name} is a closed path — it has no ends`);
+    const first = net.segments.find((s) => ends.includes(s.start))?.start ?? ends[0];
+    const last = ends.find((i) => i !== first) ?? ends[1];
+    if (has(p, 'startCap')) net.vertices[first].strokeCap = p.startCap as StrokeCap;
+    if (has(p, 'endCap')) net.vertices[last].strokeCap = p.endCap as StrokeCap;
+    await saveNet(node, net);
+  }
+  const complex = node as SceneNode & ComplexStrokesMixin;
+  const kind = p.kind ?? (p.brush ? 'brush' : p.dynamic ? 'dynamic' : undefined);
+  if (kind) need('dynamic or brush strokes', 'complexStrokeProperties' in node);
+  if (kind === 'basic') complex.complexStrokeProperties = { type: 'BASIC' };
+  if (kind === 'dynamic') {
+    const was = complex.complexStrokeProperties.type === 'DYNAMIC' ? (complex.complexStrokeProperties as DynamicStrokeProperties) : undefined;
+    const d = (p.dynamic ?? {}) as P;
+    complex.complexStrokeProperties = {
+      type: 'DYNAMIC',
+      frequency: has(d, 'frequency') ? num(d.frequency) : was?.frequency ?? 0.75,
+      wiggle: has(d, 'wiggle') ? num(d.wiggle) : was?.wiggle ?? 0.3,
+      smoothen: has(d, 'smoothen') ? num(d.smoothen) : was?.smoothen ?? 0.5,
+    };
+  }
+  if (kind === 'brush') {
+    const b = (p.brush ?? {}) as P;
+    const was = complex.complexStrokeProperties.type === 'BRUSH' ? (complex.complexStrokeProperties as BrushStrokeProperties) : undefined;
+    const name = has(b, 'name') ? str(b.name).trim().toUpperCase().replace(/[\s-]+/g, '_') : was?.brushName;
+    if (!name) throw new Error('brush needs a name');
+    if (STRETCH_BRUSHES.includes(name)) {
+      await figma.loadBrushesAsync('STRETCH');
+      const w = was?.brushType === 'STRETCH' ? was : undefined;
+      complex.complexStrokeProperties = { type: 'BRUSH', brushType: 'STRETCH', brushName: name as StretchBrushProperties['brushName'], direction: (b.direction as 'FORWARD' | 'BACKWARD') ?? w?.direction ?? 'FORWARD' };
+    } else if (SCATTER_BRUSHES.includes(name)) {
+      await figma.loadBrushesAsync('SCATTER');
+      const w = was?.brushType === 'SCATTER' ? was : undefined;
+      const pickN = (k: string, dflt: number) => (has(b, k) ? num(b[k]) : ((w as unknown as Record<string, number>)?.[k] ?? dflt));
+      complex.complexStrokeProperties = {
+        type: 'BRUSH', brushType: 'SCATTER', brushName: name as ScatterBrushProperties['brushName'],
+        gap: pickN('gap', 1), wiggle: pickN('wiggle', 0), sizeJitter: pickN('sizeJitter', 0), angularJitter: pickN('angularJitter', 0), rotation: pickN('rotation', 0),
+      };
+    } else throw new Error(`No brush "${String(b.name)}". Stretch: ${STRETCH_BRUSHES.join(', ')}. Scatter: ${SCATTER_BRUSHES.join(', ')}`);
+  }
+  if (has(p, 'widthProfile') || has(p, 'widthPoints')) {
+    need('a width profile', 'variableWidthStrokeProperties' in node);
+    complex.variableWidthStrokeProperties = has(p, 'widthPoints')
+      ? { widthProfile: 'CUSTOM', variableWidthPoints: p.widthPoints as VariableWidthPoint[] }
+      : { widthProfile: p.widthProfile as PresetVariableWidthStrokeProperties['widthProfile'] };
+  }
+  return strokeSummary(node);
 }
 
 // ---------- guards: checked here, in the plugin, so every AI client gets them ----------
@@ -2137,12 +2552,7 @@ const handlers: Record<string, (p: P) => Promise<unknown>> = {
   },
 
   async set_stroke(p) {
-    const node = await getSceneNode(p.nodeId);
-    if (!('strokes' in node)) throw new Error(`Node ${p.nodeId} (${node.type}) has no strokes`);
-    if (has(p, 'color')) node.strokes = p.color === 'none' ? [] : [solid(str(p.color))];
-    if (has(p, 'weight')) node.strokeWeight = num(p.weight);
-    if (has(p, 'align')) node.strokeAlign = p.align as 'INSIDE' | 'OUTSIDE' | 'CENTER';
-    return serialize(node, 0);
+    return setStroke(p);
   },
 
   async set_corner_radius(p) {
@@ -2469,6 +2879,42 @@ const handlers: Record<string, (p: P) => Promise<unknown>> = {
     outlined.name = has(p, 'name') ? str(p.name) : `${node.name} (outlined)`;
     if (p.removeOriginal) node.remove();
     return serialize(outlined, 0);
+  },
+
+  async vector_read(p) {
+    const node = await getSceneNode(p.nodeId);
+    if (node.type === 'VECTOR') return describeNet(node, netOf(node));
+    if (!TO_VECTOR.has(node.type)) throw new Error(`${node.name} (${node.type}) has no points — vectors, rectangles, ellipses, polygons, stars and lines do`);
+    // read a shape's points without turning it into a vector: flatten a copy, read, throw the copy away
+    const copy = node.clone();
+    try {
+      const v = figma.flatten([copy], node.parent ?? figma.currentPage);
+      const out = describeNet(v, netOf(v));
+      v.remove();
+      return { ...out, id: node.id, type: node.type, note: 'Editing turns it into a vector (vector_edit / bend_shape return the new id)' };
+    } catch (e) {
+      if (!copy.removed) copy.remove();
+      throw e;
+    }
+  },
+
+  async vector_edit(p) {
+    const node = await editableVector(p.nodeId);
+    const net = netOf(node);
+    (p.ops as P[]).forEach((op, i) => {
+      try { applyOp(net, op); } catch (e) { throw new Error(`ops[${i}] (${String(op.op)}): ${e instanceof Error ? e.message : String(e)}`); }
+    });
+    await saveNet(node, net);
+    return describeNet(node, netOf(node));
+  },
+
+  async bend_shape(p) {
+    const node = await editableVector(p.nodeId);
+    const net = netOf(node);
+    bend(net, p);
+    await saveNet(node, net);
+    const out = describeNet(node, netOf(node));
+    return { id: out.id, name: out.name, width: out.width, height: out.height, points: out.points.length, segments: out.segments.length };
   },
 
   async use_as_mask(p) {

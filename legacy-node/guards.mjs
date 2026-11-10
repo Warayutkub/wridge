@@ -8,7 +8,7 @@ export const FIGMA_WRITES = new Set([
   "duplicate_node", "group_nodes", "ungroup_node", "set_text", "set_text_props", "set_fill", "set_stroke",
   "set_corner_radius", "set_effects", "set_props", "set_auto_layout", "set_sizing", "move_resize", "move_to_parent",
   "rename_node", "delete_node", "set_image_fill", "copy_fills", "create_polygon", "create_star", "create_line",
-  "create_from_svg", "boolean_shapes", "flatten", "outline_stroke", "use_as_mask", "remove_mask", "add_interaction",
+  "create_from_svg", "boolean_shapes", "flatten", "outline_stroke", "vector_edit", "bend_shape", "use_as_mask", "remove_mask", "add_interaction",
   "remove_interactions", "set_flow_start", "set_scroll", "apply_style", "bind_variable", "create_variable_collection",
   "create_variables", "set_variable_value", "set_instance_properties",
   "create_sticky", "create_shape", "create_connector", "figjam_draw", "motion_animate",

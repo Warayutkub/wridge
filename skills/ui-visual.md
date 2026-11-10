@@ -61,6 +61,7 @@ Never fill a gap with your own defaults (blue on white, generic gradients, the s
 - Images: `set_image_fill` on a frame with a fixed ratio (16:9, 4:3, 1:1, 3:4); `FILL` for photos, `FIT` for logos. Text over images needs an overlay/gradient that passes contrast.
 - Icons: `create_from_svg` or an icon component, sizes 16/20/24/32, colored like adjacent text. Never build icons from primitive shapes.
 - Prefer `boolean_shapes` over `flatten` (editable); circular crops via `cornerRadius`/ellipse before masks.
+- Bent sides, waves, cut corners, dashed / arrow / tapered / brush strokes: load `get_skill("vector-shapes")` (`bend_shape`, `vector_edit`, `set_stroke`).
 
 ## Naming
 English, by role: `Header`, `Hero`, `Card/Product`, `Button/Primary`, `Text/Title`. Slash-group component and style names. No `Frame 123` left behind.
