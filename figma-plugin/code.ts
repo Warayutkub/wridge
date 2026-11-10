@@ -1,7 +1,7 @@
 // Light-only window matching the "Plugin/Window" frame in the wara-bridge Figma file.
 figma.showUI(__html__, { width: 300, height: 236, themeColors: false });
 // The version goes up with wridge; fileKey (private plugin API) lets the wridge window remember a file across renames.
-const PLUGIN_VERSION = '1.9.0';
+const PLUGIN_VERSION = '1.9.1';
 figma.ui.postMessage({ type: 'hello', fileName: figma.root.name, editorType: figma.editorType, fileKey: figma.fileKey ?? null, version: PLUGIN_VERSION });
 
 type Command = { id: string; command: string; params: Record<string, unknown> };

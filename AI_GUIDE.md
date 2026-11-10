@@ -13,6 +13,7 @@ You can read and edit the user's Figma file through wridge. This is the core gui
    - **Reuse:** `find <thing>` lists matching components, files, routes, **tables and columns**. Use what exists; never add a component, table or column that already exists under a similar name (try synonyms).
    - **Effect:** `impact <symbol|file>` before changing shared code; `impact <table>.<column>` (and `table <name>`) before any schema change.
    - Then open only the lines it points to. Grep is for what the graph doesn't hold: strings and UI text, error messages, comments, CSS values, env names, unparsed languages (e.g. Go).
+8. **Pick the skills yourself** (table in "Skills — pick them yourself"). The person should never have to name one.
 
 ## How to call
 | Situation | Use |
@@ -58,15 +59,44 @@ Prefer `run_batch` over many single calls: every round trip re-sends the whole c
 - **Beyond the happy path:** a screen is not done until its loading/empty/error frames, the dialogs/toasts its actions trigger, and the product's system pages (404/500/offline) are drawn (see `interaction-patterns`).
 - **English, meaningful layer names** (`Header`, `Card/Product`); no `Frame 123`.
 
-## Code work — load before writing
-- From a Figma design — only screens whose section is `Approved` (`design_map` → `status`); Draft/In review → ask the user first: `design-to-code` → platform skill (`code-react-next` / `code-html-css` / `code-flutter`) → `interaction-code`.
-- UI with no design: platform skill → `interaction-code`. For a new screen of a product that has a Figma file, offer to design it first.
-- New or changed behaviour without a design step (a backend feature, a job, a webhook): `system-design` first — flow ⏸, then code. Flows in `docs/flows/` describe how the project works: `code_graph flows` lists them (⚠ = steps whose code is gone, plus drafts for uncovered entry points); read the one for the area (`flows <name>`) and `trace <route|symbol>` before opening files.
-- Server-side code (API routes, Server Actions, Go handlers, auth, queries, webhooks): `backend-security`; plus `backend-performance` for data-heavy features, lists/reports, slow paths, heavy jobs or launch prep.
-- External calls, money/important writes, jobs, logging: `reliability`. Schema changes, env vars, setup/API docs: `docs-migrations`.
-- New/changed logic or endpoints, bug fixes, CI: `testing-ci`. Branches, commits, PRs: `git-team`. Before handing over code or opening a PR: `code-review`.
-- Topic skills are separate — load only the ones the task touches.
-- In an existing project: also load the `code-graph` skill (hard rule 7). `code_graph` adds `/.wara/` to the repo's `.gitignore` first: never commit `.wara/`; tell the user when `.gitignore` changed.
+## Skills — pick them yourself
+Read what the person asks **and** what the work will touch, then load every matching row with `get_skill` — usually 2–4 — before the first change. Say it in one short line ("Skills: payments-th, backend-security, reliability") so they can see it. When the task turns (a UI job reaches the API, a feature starts taking money), check the table again. A skill loaded earlier in the session is still loaded — don't fetch it twice. Never wait for the person to name a skill; if none fits, say so and carry on.
+
+| When the request or the work involves… | Load |
+|---|---|
+| A new product, or a Figma file with no Foundations page | `design-direction` |
+| A new screen, page or flow (before drawing) | `ux-foundations`, then `ui-visual`, `interaction-patterns`, `responsive` |
+| Any visual design in Figma | `ui-visual` |
+| 2+ screens, dialogs, sheets, toasts; wiring a prototype | `prototyping` |
+| Reviewing a design, or before handing one over | `critique`, `accessibility` |
+| Contrast, focus, screen readers, target sizes | `accessibility` |
+| Animation: UI motion / making it feel crafted / a landing page | `motion` / `motion-craft` / `motion-landing` |
+| Bent shapes, waves, cut corners, dashes, arrows, brushes, illustration | `vector-shapes` |
+| UI code from an Approved Figma design | `design-to-code` → `code-react-next` / `code-html-css` / `code-flutter` → `interaction-code` |
+| UI code with no design | the platform skill → `interaction-code` (offer to design first if the product has a Figma file) |
+| Any existing code project (every session) | `code-graph` |
+| New or changed behaviour: data, APIs, statuses, money, jobs, external services | `system-design` (flow ⏸, then code) |
+| Server code: API routes, Server Actions, handlers, auth, queries, webhooks | `backend-security` |
+| Slow pages/APIs, data-heavy lists and reports, heavy jobs | `backend-performance` |
+| Many users at once, a launch or opening time, "ล่ม", "คนเยอะ", scaling, a load test | `scale-traffic` (+ `backend-performance`) |
+| A public page or landing page; "โหลดช้า"; Lighthouse/PageSpeed | `web-performance` |
+| Found on Google, link previews in LINE/Facebook, before launching a public site | `seo` |
+| Taking money: tickets, booths, orders, PromptPay, slips, refunds | `payments-th` (+ `backend-security`, `reliability`) |
+| LINE Login, LIFF, LINE OA messages or notifications | `line-integration` |
+| Forms or data with names, phones, emails, ID numbers, photos, addresses, health | `privacy-pdpa` |
+| Live updates: queue position, live seat map, chat, notifications without refresh | `realtime` |
+| Hosting, Docker, env vars, secrets, deploys, rollback, backups, going live | `deploy-ops` |
+| External API calls, important writes, background jobs, logging, monitoring | `reliability` |
+| Schema changes, migrations, env vars, setup or API docs | `docs-migrations` |
+| New or changed logic, bug fixes, CI | `testing-ci` |
+| Branches, commits, pull requests | `git-team` |
+| Before handing over code or opening a PR | `code-review` |
+| Planning work into tasks, recording what a check found, a summary or report | `reports-tasks` |
+
+## Code work — rules that come with those skills
+- Code only from screens whose section is `Approved` (`design_map` → `status`); Draft/In review → ask the user first.
+- New or changed behaviour: flows in `docs/flows/` describe how the project works — `code_graph flows` lists them (⚠ = steps whose code is gone, plus drafts for uncovered entry points); read the one for the area (`flows <name>`) and `trace <route|symbol>` before opening files.
+- `code_graph` adds `/.wara/` to the repo's `.gitignore` first: never commit `.wara/`; tell the user when `.gitignore` changed.
 
 ## Project memory — what was agreed survives compaction
 Agreements live in the project, not only in the chat (`project_memory`; in Claude Code a hook injects the overview after startup/clear/compact).

@@ -1,6 +1,6 @@
 ---
 name: backend-performance
-description: Server-side speed and load — queries (indexes, N+1, select only what is used), bottlenecks, caching (when and which layer), queues, rate limits/backpressure, stateless scaling, load testing with k6. Load for data-heavy features, lists/reports, slow pages/APIs, heavy jobs, or before launch. UI-side performance lives in the platform skill.
+description: Server-side speed and load — queries (indexes, N+1, select only what is used), bottlenecks, caching (when and which layer), queues, rate limits/backpressure, stateless scaling, and a quick load test. Load for data-heavy features, lists/reports, slow pages/APIs, heavy jobs, or before launch. Many users at once, rush moments and full load-test scenarios: scale-traffic. Browser-side speed: web-performance.
 area: code
 ---
 # Backend performance & load
@@ -39,9 +39,7 @@ Rules: every cached value has a TTL **and** an invalidation on write (tag/key pe
 - Payloads: compress responses, paginate, stream big exports.
 
 ## 6. Load testing (k6)
-Use when it matters, not for every change: before launch, after changing a hot path (login, listing, checkout, attendance check-in at 08:00), or when a slowdown is reported.
-- Script in `tests/load/<flow>.js` (k6): realistic flow + think time, ramp up to the expected peak and ~2× it, thresholds as pass/fail (`http_req_duration: ['p(95)<300']`, `http_req_failed: ['rate<0.01']`).
-- Run against a local/staging copy with production-like data size — **never against production without the user's go-ahead**. Report: max throughput before the threshold breaks, the bottleneck found, and what was changed.
+Use when it matters, not for every change: before launch, after changing a hot path (login, listing, checkout, attendance check-in at 08:00), or when a slowdown is reported. Load `scale-traffic` for it: scenarios (ramp, spike, stress, soak), realistic traffic mix, the limits you must tell the user before running, and the result as a report. Never against production without the user's go-ahead.
 
 ## 7. Before handing over
 State what you measured (before → after), the indexes/queries added, any cache with its TTL + invalidation, and any facts you asked the user for.
