@@ -170,7 +170,7 @@ const Q_OVERVIEW: &str = "query Overview($owner: String!, $name: String!, $since
   repository(owner: $owner, name: $name) {
     defaultBranchRef { name }
     pullRequests(states: OPEN) { totalCount }
-    refs(refPrefix: \"refs/heads/\", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount nodes { target { ... on Commit { committedDate } } } }
+    refs(refPrefix: \"refs/heads/\") { totalCount }
     issues(states: OPEN) { totalCount }
     newIssues: issues(states: OPEN, filterBy: { since: $since }) { totalCount }
     latestRelease { name tagName createdAt url author { login } releaseAssets(first: 1) { nodes { name size } } }
@@ -196,17 +196,23 @@ const Q_PULL: &str = "query Pull($owner: String!, $name: String!, $n: Int!) {
   }
 }";
 
-const Q_BRANCHES: &str = "query Branches($owner: String!, $name: String!, $base: String!) {
+// GitHub can't sort branches by date (TAG_COMMIT_DATE only orders tags), so: every branch name with its last
+// commit date, 100 a page (cheap), sorted here — then the details for the newest few, asked for by name.
+const Q_REF_DATES: &str = "query RefDates($owner: String!, $name: String!, $after: String) {
   repository(owner: $owner, name: $name) {
-    defaultBranchRef { name target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } } }
-    refs(refPrefix: \"refs/heads/\", first: 50, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount nodes {
-      name
-      target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } }
-      compare(headRef: $base) { aheadBy behindBy }
-      associatedPullRequests(first: 1, states: OPEN) { nodes { number } }
-    } }
+    refs(refPrefix: \"refs/heads/\", first: 100, after: $after) { totalCount pageInfo { hasNextPage endCursor } nodes { name target { ... on Commit { committedDate } } } }
   }
 }";
+const BRANCH_FIELDS: &str = "name target { ... on Commit { messageHeadline committedDate author { name user { login } } statusCheckRollup { state } } } compare(headRef: $base) { aheadBy behindBy } associatedPullRequests(first: 1, states: OPEN) { nodes { number } }";
+/// branches shown with details (ahead/behind per branch is the slow part)
+const BRANCH_DETAILS: usize = 50;
+/// a repo with more branches than this lists only the first ones by name
+const BRANCH_LIST_MAX: usize = 2000;
+
+/// A branch name inside a GraphQL string.
+fn gql_str(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into())
+}
 
 const Q_COMMITS: &str = "query Commits($owner: String!, $name: String!, $ref: String!) {
   repository(owner: $owner, name: $name) {
@@ -709,8 +715,38 @@ impl GitHub {
         let since = (chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339();
         let vars = json!({"owner": owner, "name": name, "since": since,
             "reviewQ": format!("repo:{repo} is:pr is:open review-requested:@me"), "assignedQ": format!("repo:{repo} is:issue is:open assignee:@me")});
-        let d = self.graphql("overview", Q_OVERVIEW, vars).await?;
+        let mut d = self.graphql("overview", Q_OVERVIEW, vars).await?;
+        // which branches had commits lately: from the full, dated list (the page counts "active this week" from it)
+        if let Ok(refs) = self.ref_dates(&owner, &name).await {
+            d["repository"]["refs"]["nodes"] = Value::Array(refs.iter().map(|(_, date)| json!({"target": {"committedDate": date}})).collect());
+        }
         Ok(json!({"repo": repo, "data": d}))
+    }
+
+    /// Every branch with its last commit date, newest first. Kept 5 minutes per repo (a big repo is several pages).
+    async fn ref_dates(&self, owner: &str, name: &str) -> anyhow::Result<Vec<(String, String)>> {
+        let key = format!("refdates:{owner}/{name}");
+        if let Some((at, v)) = self.st.lock().unwrap().cache.get(&key).cloned() {
+            if now() - at.parse::<i64>().unwrap_or(0) < 300 {
+                return Ok(serde_json::from_value(v).unwrap_or_default());
+            }
+        }
+        let mut out: Vec<(String, String)> = vec![];
+        let mut after = Value::Null;
+        loop {
+            let d = self.graphql("refdates", Q_REF_DATES, json!({"owner": owner, "name": name, "after": after})).await?;
+            let refs = &d["repository"]["refs"];
+            for n in refs["nodes"].as_array().cloned().unwrap_or_default() {
+                out.push((n["name"].as_str().unwrap_or("").to_string(), n["target"]["committedDate"].as_str().unwrap_or("").to_string()));
+            }
+            if !refs["pageInfo"]["hasNextPage"].as_bool().unwrap_or(false) || out.len() >= BRANCH_LIST_MAX {
+                break;
+            }
+            after = refs["pageInfo"]["endCursor"].clone();
+        }
+        out.sort_by(|a, b| b.1.cmp(&a.1));
+        self.st.lock().unwrap().cache.insert(key, (now().to_string(), json!(out)));
+        Ok(out)
     }
 
     pub async fn pulls(&self, repo: &str, state: &str) -> anyhow::Result<Value> {
@@ -732,8 +768,21 @@ impl GitHub {
     pub async fn branches(&self, repo: &str, base: &str) -> anyhow::Result<Value> {
         let (owner, name) = owner_name(repo)?;
         let base = if base.is_empty() || base.contains("..") { "main" } else { base };
-        let d = self.graphql("branches", Q_BRANCHES, json!({"owner": owner, "name": name, "base": base})).await?;
-        Ok(json!({"repo": repo, "base": base, "data": d}))
+        let dated = self.ref_dates(&owner, &name).await?;
+        let total = dated.len();
+        let pick: Vec<&String> = dated.iter().map(|(n, _)| n).filter(|n| n.as_str() != base).take(BRANCH_DETAILS).collect();
+        // one query: the default branch, then each picked branch by name (aliases b0, b1 …)
+        let mut q = format!("query BranchDetails($owner: String!, $name: String!, $base: String!) {{ repository(owner: $owner, name: $name) {{ defaultBranchRef {{ name target {{ ... on Commit {{ messageHeadline committedDate author {{ name user {{ login }} }} statusCheckRollup {{ state }} }} }} }}");
+        for (i, n) in pick.iter().enumerate() {
+            q.push_str(&format!(" b{i}: ref(qualifiedName: {}) {{ {BRANCH_FIELDS} }}", gql_str(&format!("refs/heads/{n}"))));
+        }
+        q.push_str(" } }");
+        let d = self.graphql(&format!("branches:{}", pick.len()), &q, json!({"owner": owner, "name": name, "base": base})).await?;
+        let r = &d["repository"];
+        let nodes: Vec<Value> = (0..pick.len()).filter_map(|i| r.get(format!("b{i}")).filter(|v| !v.is_null()).cloned()).collect();
+        // the same shape as before, so the page reads one list
+        let data = json!({"repository": {"defaultBranchRef": r["defaultBranchRef"], "refs": {"totalCount": total, "nodes": nodes}}});
+        Ok(json!({"repo": repo, "base": base, "data": data}))
     }
 
     pub async fn commits(&self, repo: &str, branch: &str) -> anyhow::Result<Value> {

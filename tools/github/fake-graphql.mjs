@@ -89,6 +89,13 @@ export function graphql(body) {
       return repo({ open: { totalCount: PRS.length }, merged: { totalCount: 24 }, closed: { totalCount: 5 }, list: { nodes: (st === "MERGED" ? MERGED : st === "CLOSED" ? CLOSED : PRS).map(url) }, recent: { nodes: MERGED.map(url) } });
     }
     case "Pull": return repo({ pullRequest: full ? pr(v.n) : null });
+    // every branch with its date (one page here), then details for the picked ones by alias b0, b1 …
+    case "RefDates": return repo({ refs: { totalCount: full ? BRANCHES.length : 1, pageInfo: { hasNextPage: false, endCursor: null }, nodes: (full ? BRANCHES : [BRANCH("main", 9000, "Initial commit", me, null, 0, 0)]).map((b) => ({ name: b.name, target: { committedDate: b.target.committedDate } })) } });
+    case "BranchDetails": {
+      const out = { defaultBranchRef: { name: "main", target: (full ? BRANCHES[0] : BRANCH("main", 9000, "Initial commit", me, null, 0, 0)).target } };
+      for (const m of query.matchAll(/(b\d+): ref\(qualifiedName: "refs\/heads\/([^"]+)"\)/g)) out[m[1]] = BRANCHES.find((b) => b.name === m[2]) ?? null;
+      return repo(out);
+    }
     case "Branches": return repo(full ? { defaultBranchRef: { name: "main", target: BRANCHES[0].target }, refs: { totalCount: BRANCHES.length, nodes: BRANCHES } } : { defaultBranchRef: { name: "main", target: null }, refs: { totalCount: 1, nodes: [BRANCH("main", 9000, "Initial commit", me, null, 0, 0)] } });
     case "Commits": return repo({ refs: { nodes: (full ? BRANCHES : [{ name: "main" }]).map((b) => ({ name: b.name })) }, ref: { name: v.ref?.replace("refs/heads/", ""), target: { history: full ? { totalCount: 128, nodes: v.ref === "refs/heads/main" ? MAIN : MAIN.slice(1, 4) } : { totalCount: 1, nodes: [commit("Initial commit", 9000, me, null, "f00dbad")] } } } });
     case "Issues": return repo(full ? { open: { totalCount: ISSUES_OPEN.length }, closed: { totalCount: 40 }, list: { nodes: v.states?.[0] === "CLOSED" ? ISSUES_CLOSED : ISSUES_OPEN } } : { open: { totalCount: 0 }, closed: { totalCount: 0 }, list: empty });

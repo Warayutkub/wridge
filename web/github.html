@@ -824,7 +824,7 @@
     const active = pick.filter((b) => !stale(b)), old = pick.filter(stale);
     const pill = (k, label, n) => `<button class="fpill" data-brf="${k}" aria-pressed="${brFilter === k}">${label} <small>${n}</small></button>`;
     const defRef = { name: def, target: R.defaultBranchRef?.target };
-    const total = R.refs?.totalCount ?? all.length + 1, cut = total > (R.refs?.nodes?.length ?? 0);
+    const total = R.refs?.totalCount ?? all.length + 1, cut = total > (R.refs?.nodes?.length ?? 0) + 1; // nodes leave out the default branch
     return `<div class="pane"><div class="bar2">${pill('all', 'All', total)}${pill('mine', 'Mine', all.filter(mine).length)}${pill('stale', 'Stale', all.filter(stale).length)}<div class="right legend">behind ${esc(def)} | ahead of ${esc(def)}</div></div>
       ${brFilter === 'all' ? `<div class="list${calm(key + ':d')}" data-seen="${esc(key)}:d"><p class="w-label">Default branch</p>${row(defRef, 0)}</div>` : ''}
       ${active.length ? `<div class="list${calm(key + ':a' + brFilter)}" data-seen="${esc(key)}:a${brFilter}"><p class="w-label">Active · ${active.length}</p>${active.map(row).join('')}</div>` : ''}
