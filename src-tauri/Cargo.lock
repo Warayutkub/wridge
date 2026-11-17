@@ -5151,7 +5151,7 @@ dependencies = [
 
 [[package]]
 name = "wridge"
-version = "1.10.2"
+version = "1.10.3"
 dependencies = [
  "serde",
  "serde_json",

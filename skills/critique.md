@@ -20,7 +20,7 @@ Never hand over a design you haven't looked at. Run this loop at least once; sto
 | Color & contrast | Restrained palette, accent only where it matters, all text passes AA |
 | Consistency | Reused components/styles, same things look the same, naming clean |
 | States & edge cases | Loading/empty/error frames exist for each main screen; dialogs/toasts drawn for destructive and key actions; system pages (404/500/offline) exist; long text and missing images handled. Only the happy screen = score 1 |
-| Responsive | Mobile and desktop both exist and work (see `responsive`) |
+| Responsive | All four frames exist — Mobile, Tablet, Tablet Pro, Desktop — and each is designed for its screen, not stretched; nothing hover-only (see `responsive`) |
 | Craft | No overlaps, no overflow, no stray layers, everything auto layout, names meaningful |
 
 ## Structural checks (tools)

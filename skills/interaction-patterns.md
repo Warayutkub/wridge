@@ -51,7 +51,7 @@ A design with only the "happy" screen is **not finished**. Real products spend m
 Name them with slashes so they group in the Assets panel. If the file already has some, reuse them.
 
 ### 2. State frames per screen (next to the main screen, same row)
-For every main screen, add the states that can really happen, named `<Screen>/<Breakpoint> · <State>` (e.g. `Home/Mobile · Loading`). Build each with `duplicate_node` of the finished screen, then change only the content area — header/nav stay identical.
+For every main screen, add the states that can really happen, named `<Screen>/<Breakpoint> · <State>` (e.g. `Home/Mobile · Loading`). Build each with `duplicate_node` of the finished screen, then change only the content area — header/nav stay identical. States go on Mobile and Desktop; add them on Tablet / Tablet Pro too when the state looks different there (a bottom sheet that becomes a dialog, an empty state in a split view).
 | State | Design |
 |---|---|
 | Loading | Skeletons in the shape of the final layout (not a lone spinner) |
@@ -67,7 +67,7 @@ Forms also get: field errors shown, submitting (button loading), submit failed.
 ### 3. Overlay frames (show the moment, not just the component)
 For every destructive action, important confirmation and key feedback, add a frame `<Screen> · Dialog <name>` / `· Toast <name>`: a duplicate of the screen + a full-frame scrim (text color at 40–50%) + the dialog instance centered (desktop) or a sheet at the bottom (mobile). Toasts need no scrim. Link the trigger button to it in the prototype (`OVERLAY`, see `prototyping`).
 
-### 4. System pages (once per product, mobile + desktop)
+### 4. System pages (once per product, all four sizes)
 `System/404` (not found + way home), `System/500` (our fault + retry + contact), `System/Offline`, `System/Session expired` (sign in again, keep their place), `System/Maintenance` if the product has downtime. Same header/brand as the product, one illustration or icon, one clear action.
 
 ### 5. Definition of done

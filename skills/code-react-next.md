@@ -26,7 +26,7 @@ area: code
 | `position` + `pin: {x: "right", y: "bottom"}` | parent `relative`; child `absolute right-* bottom-*` |
 | `radius: "full"` | `rounded-full` |
 | `style.overflow` | `overflow-hidden` |
-| `responsive.md` / `.lg` | `md:` / `lg:` prefixes (mobile-first); `hiddenAt: ["lg"]` → `lg:hidden`; `onlyAt: ["lg"]` → `hidden lg:flex` |
+| `responsive.md` / `.lg` / `.xl` | `md:` (Tablet, 744 via the token file) / `lg:` (Tablet Pro, 1024) / `xl:` (Desktop, 1280) prefixes, mobile-first; `hiddenAt: ["lg"]` → `lg:hidden`; `onlyAt: ["lg"]` → `hidden lg:flex xl:hidden` |
 | `states["State=Hover"]` | `hover:`; Pressed → `active:`; Disabled → `disabled:` + `aria-disabled`; Focus → `focus-visible:` |
 | `link.action: navigate` | `<Link href="/route">` (derive route from the destination frame name) |
 | `link.action: overlay` | dialog/sheet component with open state |

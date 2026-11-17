@@ -1,7 +1,7 @@
 // Light-only window matching the "Plugin/Window" frame in the wara-bridge Figma file.
 figma.showUI(__html__, { width: 300, height: 236, themeColors: false });
 // The version goes up with wridge; fileKey (private plugin API) lets the wridge window remember a file across renames.
-const PLUGIN_VERSION = '1.10.2';
+const PLUGIN_VERSION = '1.10.3';
 figma.ui.postMessage({ type: 'hello', fileName: figma.root.name, editorType: figma.editorType, fileKey: figma.fileKey ?? null, version: PLUGIN_VERSION });
 
 type Command = { id: string; command: string; params: Record<string, unknown> };
@@ -3100,9 +3100,14 @@ const handlers: Record<string, (p: P) => Promise<unknown>> = {
     const totals = componentTotals(graphs);
     const local = figma.root.findAllWithCriteria({ types: ['COMPONENT_SET', 'COMPONENT'] }).filter((c) => c.parent?.type !== 'COMPONENT_SET');
     const breakpoints: Record<string, Record<string, string>> = {};
+    // the four frames per page (responsive skill), keyed as get_design_context's breakpoints
+    const BP_OF: Record<string, string> = { mobile: 'base', tablet: 'md', 'tablet pro': 'lg', desktop: 'xl' };
     for (const s of graphs.flatMap((g) => g.screens)) {
-      const m = /^(.*?)\s*\/\s*(mobile|tablet|desktop)$/i.exec(s.name);
-      if (m) (breakpoints[m[1]] ??= {})[m[2].toLowerCase()] = s.id;
+      const m = /^(.*?)\s*\/\s*(mobile|tablet\s*pro|tablet|desktop)$/i.exec(s.name);
+      if (m) (breakpoints[m[1]] ??= {})[BP_OF[m[2].toLowerCase().replace(/\s+/g, ' ')]] = s.id;
+    }
+    for (const [set, bps] of Object.entries(breakpoints)) {
+      breakpoints[set] = Object.fromEntries(['base', 'md', 'lg', 'xl'].filter((b) => bps[b]).map((b) => [b, bps[b]]));
     }
     return {
       file: figma.root.name,

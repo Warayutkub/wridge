@@ -55,7 +55,7 @@ Prefer `run_batch` over many single calls: every round trip re-sends the whole c
 - **Thai text needs a Thai font** (IBM Plex Sans Thai, Noto Sans Thai, Prompt, Kanit, Sarabun) and line height ≥ 150%. Never Inter for Thai.
 - Use the file's **Foundations (a page, section or frame named "Foundations"), variables, styles and components** before raw values or new drawings (works on the free Figma plan — no variables needed).
 - **Reuse before creating:** check `component_usage` before drawing a button/card/row; when you notice repeated or near-identical structures, run `find_duplicates` and *propose* turning them into one component (ask before converting). One design component = one code component later.
-- **Responsive by default:** each page gets at least `Page/Mobile` (390) and `Page/Desktop` (1440) frames with matching layer names (see `responsive`).
+- **Responsive by default:** every web page gets four frames, each designed for its screen — `Page/Mobile` (390), `Page/Tablet` (820, iPads), `Page/Tablet Pro` (1032, iPad 13"), `Page/Desktop` (1440) — with matching layer names (see `responsive`).
 - **Beyond the happy path:** a screen is not done until its loading/empty/error frames, the dialogs/toasts its actions trigger, and the product's system pages (404/500/offline) are drawn (see `interaction-patterns`).
 - **English, meaningful layer names** (`Header`, `Card/Product`); no `Frame 123`.
 

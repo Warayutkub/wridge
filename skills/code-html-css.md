@@ -23,7 +23,7 @@ area: code
 | `width: "hug"` | default (no width) |
 | fixed width | `max-width` preferred; `width` only when truly fixed |
 | `position` + `pin` | parent `position:relative`; child `position:absolute; right:…; bottom:…` |
-| `responsive.md` / `.lg` | `@media (min-width: 768px)` / `(min-width: 1024px)` — mobile-first; `hiddenAt` → `display:none` in that query |
+| `responsive.md` / `.lg` / `.xl` | `@media (min-width: 744px)` (Tablet) / `(min-width: 1024px)` (Tablet Pro) / `(min-width: 1280px)` (Desktop) — mobile-first; `hiddenAt` → `display:none` in that query |
 | `states` Hover / Pressed / Disabled / Focus | `:hover`, `:active`, `:disabled`/`[aria-disabled="true"]`, `:focus-visible` |
 | `link` navigate / url | `<a href="…">`; overlay → `<dialog>` |
 | `repeat` | one component class (`.card`) used `count` times (or generated from data with a small script if dynamic) |

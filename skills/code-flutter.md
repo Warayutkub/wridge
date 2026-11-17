@@ -33,7 +33,7 @@ area: code
 | `states` Pressed / Disabled | `ButtonStyle` with `WidgetStateProperty.resolveWith`; Hover for web/desktop |
 | `link.action: navigate` | `Navigator.push` / `context.go('/route')` (go_router if the project uses it) |
 | `link.action: overlay` | `showModalBottomSheet` / `showDialog` |
-| `responsive.md` / `.lg`, `hiddenAt`, `onlyAt` | `LayoutBuilder` (or `MediaQuery.sizeOf`) with breakpoints from the design (e.g. 600 / 1024); switch layouts per breakpoint |
+| `responsive.md` / `.lg`, `hiddenAt`, `onlyAt` | `LayoutBuilder` (or `MediaQuery.sizeOf`) with `AppBreakpoints` from the token file (744 Tablet / 1024 Tablet Pro / 1280 Desktop); switch layouts per breakpoint, only for the sizes the design has |
 
 ## Code rules
 - `StatelessWidget` by default; state only where needed. `const` constructors everywhere possible.

@@ -149,8 +149,12 @@ function renderDesignMap(map, maxScreens) {
   }
   const sets = Object.entries(map.breakpoints);
   if (sets.length) {
-    lines.push("", "## Breakpoint sets");
-    for (const [name, bps] of sets) lines.push(`- ${name}: ${Object.entries(bps).map(([bp, id]) => `${bp} ${id}`).join(", ")}`);
+    lines.push("", "## Breakpoint sets (pass as get_design_context breakpoints)");
+    for (const [name, bps] of sets) {
+      // the four frames every web page gets (responsive skill)
+      const missing = [["base", "Mobile"], ["md", "Tablet"], ["lg", "Tablet Pro"], ["xl", "Desktop"]].filter(([k]) => bps[k] == null).map(([, n]) => n);
+      lines.push(`- ${name}: ${Object.entries(bps).map(([bp, id]) => `${bp} ${id}`).join(", ")}${missing.length ? ` (no ${missing.join(", ")})` : ""}`);
+    }
   }
   if (map.components.length) {
     lines.push("", "## Components (instances / screens)", map.components.map(([n, c, s]) => `${n} ${c}/${s}`).join(" · "));
@@ -534,7 +538,7 @@ export function defineTools(send) {
       breakpoints: z
         .partialRecord(z.enum(BREAKPOINTS), z.string())
         .optional()
-        .describe("Frame id per breakpoint, smallest first: base (mobile), sm, md (tablet), lg (desktop), xl"),
+        .describe("Frame id per breakpoint, smallest first — the four frames per page: base (Mobile), md (Tablet), lg (Tablet Pro), xl (Desktop); sm is spare. design_map lists them per page"),
       depth: z.number().int().min(0).max(30).default(12),
       expandInstances: z.boolean().default(false).describe("Also describe the insides of component instances"),
       userApproved: z.boolean().optional().describe("Screens must be in a \"<Flow> · Approved\" section; true only when the user said to code this design without that review"),

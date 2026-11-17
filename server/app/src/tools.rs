@@ -388,13 +388,20 @@ pub fn render_design_map(map: &Value, max_screens: usize) -> String {
     if let Some(Value::Object(sets)) = map.get("breakpoints") {
         if !sets.is_empty() {
             lines.push(String::new());
-            lines.push("## Breakpoint sets".into());
+            lines.push("## Breakpoint sets (pass as get_design_context breakpoints)".into());
             for (name, bps) in sets {
                 let list = bps
                     .as_object()
                     .map(|o| o.iter().map(|(bp, id)| format!("{bp} {}", t(Some(id)))).collect::<Vec<_>>().join(", "))
                     .unwrap_or_default();
-                lines.push(format!("- {name}: {list}"));
+                // the four frames every web page gets (responsive skill)
+                let missing: Vec<&str> = [("base", "Mobile"), ("md", "Tablet"), ("lg", "Tablet Pro"), ("xl", "Desktop")]
+                    .iter()
+                    .filter(|(k, _)| bps.get(*k).is_none())
+                    .map(|(_, n)| *n)
+                    .collect();
+                let tail = if missing.is_empty() { String::new() } else { format!(" (no {})", missing.join(", ")) };
+                lines.push(format!("- {name}: {list}{tail}"));
             }
         }
     }
@@ -946,7 +953,7 @@ pub fn define_tools() -> Vec<Tool> {
             .f("nodeId", node_id().optional().describe("A single frame; or use breakpoints"))
             .f(
                 "breakpoints",
-                partial_record(&BREAKPOINTS, string()).optional().describe("Frame id per breakpoint, smallest first: base (mobile), sm, md (tablet), lg (desktop), xl"),
+                partial_record(&BREAKPOINTS, string()).optional().describe("Frame id per breakpoint, smallest first — the four frames per page: base (Mobile), md (Tablet), lg (Tablet Pro), xl (Desktop); sm is spare. design_map lists them per page"),
             )
             .f("depth", int().min(0.0).max(30.0).default(json!(12)))
             .f("expandInstances", boolean().default(json!(false)).describe("Also describe the insides of component instances"))
@@ -2582,7 +2589,7 @@ mod tests {
         let got = render_design_map(&map, 1);
         assert_eq!(
             got,
-            "File \"utils\" · 1 page(s) · 2 screens · 1 components in use · Foundations: yes\nPrototype work only (sections \"<Flow> · Prototype · Draft / In review / Approved\"; old \"<Flow> · <Status>\" and loose frames count too): 1 approved · 0 in review · 0 draft · 1 without a review section (not approved)\n\n## Page \"App\" (0:1) — 2 screens\nFlows: Main → 1:1\n- Home (1:1) 375×812 · APPROVED · uses Button×2, Card · → Detail\n… 1 more screens (pass pageId or maxScreens)\n\n## Breakpoint sets\n- Home: base 1:1, md 1:2\n\n## Components (instances / screens)\nButton 2/1\n\nUnused local components: Tag, Chip\n\n## Other work (not in the design graph)\n- Pitch [slides]"
+            "File \"utils\" · 1 page(s) · 2 screens · 1 components in use · Foundations: yes\nPrototype work only (sections \"<Flow> · Prototype · Draft / In review / Approved\"; old \"<Flow> · <Status>\" and loose frames count too): 1 approved · 0 in review · 0 draft · 1 without a review section (not approved)\n\n## Page \"App\" (0:1) — 2 screens\nFlows: Main → 1:1\n- Home (1:1) 375×812 · APPROVED · uses Button×2, Card · → Detail\n… 1 more screens (pass pageId or maxScreens)\n\n## Breakpoint sets (pass as get_design_context breakpoints)\n- Home: base 1:1, md 1:2 (no Tablet Pro, Desktop)\n\n## Components (instances / screens)\nButton 2/1\n\nUnused local components: Tag, Chip\n\n## Other work (not in the design graph)\n- Pitch [slides]"
         );
     }
 }

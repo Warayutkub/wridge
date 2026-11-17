@@ -24,12 +24,12 @@ Never fill a gap with your own defaults (blue on white, generic gradients, the s
 ## Spacing (4/8 grid)
 - Only 4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80, 96. Never 13, 17, 22.
 - Proximity: inside an element < between elements < between sections.
-- Typical: screen edge 16–24 (mobile), card padding 16–24, section gap 32–48 (mobile) / 64–96 (desktop).
+- Typical: screen edge 16–24 (mobile) / 32 (tablet) / 40 (tablet pro), card padding 16–24, section gap 32–48 (mobile) / 48–64 (tablet) / 56–80 (tablet pro) / 64–96 (desktop).
 - Same padding for the same kind of container across the page.
 
 ## Layout & sizes
-- Frames: Mobile 390 (375/402 fine), Tablet 768, Desktop 1440.
-- Desktop content max ~1200 (`maxWidth`) and centered; one consistent left edge.
+- Frames, all four for every web page (`responsive`): Mobile 390 × 844 (375/402 fine), Tablet 820 × 1180, Tablet Pro 1032 × 1376, Desktop 1440 × 900.
+- Content max (`maxWidth`) centered: Tablet Pro ~960–1000, Desktop ~1200; one consistent left edge.
 - Body text line length 45–75 characters (`width`/`maxWidth` on text).
 
 ## Typography
